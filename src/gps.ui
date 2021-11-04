@@ -364,14 +364,11 @@
                 <property name="can-focus">True</property>
                 <property name="shadow-type">in</property>
                 <child>
-                  <object class="GtkViewport">
+                  <object class="GtkViewport" id="drawing_area">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <child>
-                      <object class="GtkDrawingArea">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
+                      <placeholder/>
                     </child>
                   </object>
                 </child>
