@@ -1,5 +1,4 @@
-use gtk::ffi::GtkDrawingArea;
-use gtk::gdk::Display;
+use gtk::cairo::Context;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::{
@@ -8,6 +7,20 @@ use gtk::{
 };
 use std::cell::RefCell;
 use std::rc::Rc;
+
+#[derive(Debug, Clone, Default)]
+struct Element {
+    name: String,
+    position: (f64, f64),
+    size: (f64, f64),
+}
+
+fn draw_elements(elements: &Vec<Element>, c: &Context) {
+    for element in elements {
+        c.rectangle(element.position.0, element.position.1, 80.0, 45.0);
+        c.fill().expect("Can not draw into context");
+    }
+}
 
 pub fn build_ui(application: &gtk::Application) {
     let glade_src = include_str!("gps.ui");
@@ -25,20 +38,20 @@ pub fn build_ui(application: &gtk::Application) {
     let event_box = EventBox::new();
     event_box.add(&drawing_area);
     view_port.add(&event_box);
-    let mut position = (0.0, 0.0);
-    let position = Rc::new(RefCell::new((0.0, 0.0)));
-    let p_clone = position.clone();
+    let elements: Rc<RefCell<Vec<Element>>> = Rc::new(RefCell::new(vec![]));
+    let e_clone = elements.clone();
     drawing_area.connect_draw(move |w, c| {
-        println!("w: {} c:{} p: {:?}", w, c, p_clone);
-        c.rectangle(p_clone.borrow().0, p_clone.borrow().1, 10.0, 20.0);
-        c.fill();
+        println!("w: {} c:{} e: {:?}", w, c, e_clone);
+        draw_elements(&e_clone.borrow().to_vec(), c);
         gtk::Inhibit(false)
     });
 
-    event_box.connect_button_release_event(move |w, evt| {
-        let mut p = position.borrow_mut();
-        p.0 = evt.position().0; // = evt.position().clone();
-        p.1 = evt.position().1;
+    event_box.connect_button_release_event(move |_w, evt| {
+        let mut elements = elements.borrow_mut();
+        let mut element: Element = Default::default();
+        element.position.0 = evt.position().0;
+        element.position.1 = evt.position().1;
+        elements.push(element);
         drawing_area.queue_draw();
         gtk::Inhibit(false)
     });

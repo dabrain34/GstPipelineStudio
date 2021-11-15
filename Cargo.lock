@@ -292,6 +292,7 @@ dependencies = [
 name = "gst_pipeline_studio"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "gtk",
 ]
 
