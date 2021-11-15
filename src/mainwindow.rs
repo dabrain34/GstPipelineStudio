@@ -2,8 +2,8 @@ use gtk::cairo::Context;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::{
-    AboutDialog, AccelFlags, AccelGroup, ApplicationWindow, Builder, DrawingArea, EventBox,
-    MenuItem, Viewport, WindowPosition,
+    AboutDialog, AccelFlags, AccelGroup, ApplicationWindow, Builder, Button, Dialog, DrawingArea,
+    EventBox, FileChooserDialog, MenuItem, ResponseType, Viewport, WindowPosition,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -59,6 +59,46 @@ pub fn build_ui(application: &gtk::Application) {
 
     let quit: MenuItem = builder.object("menu-quit").expect("Couldn't get window");
     let about: MenuItem = builder.object("menu-about").expect("Couldn't get window");
+    let about_dialog: AboutDialog = builder.object("dialog-about").expect("Couldn't get window");
+    about.connect_activate(move |_| {
+        about_dialog.show();
+    });
+    // Create a dialog to select GStreamer elements.
+    let add_button: Button = builder
+        .object("button-add-plugin")
+        .expect("Couldn't get app_button");
+    let add_dialog: Dialog = builder
+        .object("dialog-add-plugin")
+        .expect("Couldn't get window");
+    add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+        // entry.set_text("Clicked!");
+        add_dialog.connect_response(|dialog, _| dialog.close());
+        add_dialog.show_all();
+    }));
+    // Create a dialog to open a file
+    let open_button: Button = builder
+        .object("button-open-file")
+        .expect("Couldn't get app_button");
+    let open_dialog: FileChooserDialog = builder
+        .object("dialog-open-file")
+        .expect("Couldn't get window");
+    open_button.connect_clicked(glib::clone!(@weak window => move |_| {
+        // entry.set_text("Clicked!");
+        open_dialog.connect_response(|dialog, _| dialog.close());
+        open_dialog.add_buttons(&[
+            ("Open", ResponseType::Ok),
+            ("Cancel", ResponseType::Cancel)
+        ]);
+        open_dialog.set_select_multiple(true);
+        open_dialog.connect_response(|open_dialog, response| {
+            if response == ResponseType::Ok {
+                let files = open_dialog.filenames();
+                println!("Files: {:?}", files);
+            }
+            open_dialog.close();
+        });
+        open_dialog.show_all();
+    }));
 
     let accel_group = AccelGroup::new();
     window.add_accel_group(&accel_group);
@@ -72,15 +112,4 @@ pub fn build_ui(application: &gtk::Application) {
     // different values on different platforms.
     let (key, modifier) = gtk::accelerator_parse("<Primary>Q");
     quit.add_accelerator("activate", &accel_group, key, modifier, AccelFlags::VISIBLE);
-
-    about.connect_activate(move |_| {
-        let p = AboutDialog::new();
-        p.set_authors(&["gtk-rs developers"]);
-        p.set_website_label(Some("gtk-rs"));
-        p.set_website(Some("http://gtk-rs.org"));
-        p.set_authors(&["gtk-rs developers"]);
-        p.set_title("About!");
-        p.set_transient_for(Some(&window));
-        p.show_all();
-    });
 }
