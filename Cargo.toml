@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 gtk = "0.14.3"
 anyhow = "1"
+gstreamer = "0.16"
