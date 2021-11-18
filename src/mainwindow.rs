@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::pipeline::Pipeline;
+use crate::pluginlistwindow;
 #[derive(Debug, Clone, Default)]
 struct Element {
     name: String,
@@ -68,15 +69,12 @@ pub fn build_ui(application: &gtk::Application) {
     let add_button: Button = builder
         .object("button-add-plugin")
         .expect("Couldn't get app_button");
-    let add_dialog: Dialog = builder
-        .object("dialog-add-plugin")
-        .expect("Couldn't get window");
+
     add_button.connect_clicked(glib::clone!(@weak window => move |_| {
         // entry.set_text("Clicked!");
         let pipeline = Pipeline::new();
-        Pipeline::get_elements_list().expect("cocuou");
-        add_dialog.connect_response(|dialog, _| dialog.close());
-        add_dialog.show_all();
+        let elements = Pipeline::get_elements_list().expect("cocuou");
+        pluginlistwindow::build_plugin_list(&window, &elements);
     }));
     // Create a dialog to open a file
     let open_button: Button = builder
