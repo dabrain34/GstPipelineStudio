@@ -19,6 +19,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 mod mainwindow;
 mod pipeline;
+mod pluginlistwindow;
+
 use gtk::prelude::*;
 
 fn main() {
