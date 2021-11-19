@@ -1,3 +1,4 @@
+use crate::app::GPSApp;
 use crate::pipeline::ElementInfo;
 use gtk::{
     glib::{self, clone},
@@ -6,8 +7,7 @@ use gtk::{
 };
 
 use gtk::{
-    ApplicationWindow, CellRendererText, Dialog, Label, ListStore, Orientation, TreeView,
-    TreeViewColumn, WindowPosition,
+    CellRendererText, Label, ListStore, Orientation, TreeView, TreeViewColumn, WindowPosition,
 };
 
 fn create_and_fill_model(elements: &Vec<ElementInfo>) -> ListStore {
@@ -45,10 +45,10 @@ fn create_and_setup_view() -> TreeView {
     tree
 }
 
-pub fn build_plugin_list(window: &ApplicationWindow, elements: &Vec<ElementInfo>) {
+pub fn build_plugin_list(app: &GPSApp, elements: &Vec<ElementInfo>) {
     let dialog = gtk::Dialog::with_buttons(
         Some("Edit Item"),
-        Some(window),
+        Some(&app.window),
         gtk::DialogFlags::MODAL,
         &[("Close", ResponseType::Close)],
     );

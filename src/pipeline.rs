@@ -37,6 +37,7 @@ impl Default for ElementInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct Pipeline {
     initialized: bool,
 }
