@@ -17,12 +17,15 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
-mod mainwindow;
+#[macro_use]
+mod macros;
+mod app;
 mod pipeline;
 mod pluginlistwindow;
 
 use gtk::prelude::*;
 
+use crate::app::GPSApp;
 fn main() {
     //    gio::resources_register_include!("compiled.gresource").unwrap();
 
@@ -30,8 +33,9 @@ fn main() {
         Some("com.github.gtk-rs.examples.menu_bar"),
         Default::default(),
     );
-
-    application.connect_activate(mainwindow::build_ui);
+    application.connect_startup(|application| {
+        GPSApp::on_startup(application);
+    });
 
     application.run();
 }
