@@ -20,6 +20,7 @@
 #[macro_use]
 mod macros;
 mod app;
+mod graph;
 mod pipeline;
 mod pluginlistwindow;
 
