@@ -27,14 +27,17 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::{error, ops};
 
+use crate::graph::{Element, Graph};
 use crate::pipeline::Pipeline;
 use crate::pluginlistwindow;
 
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
+    pub drawing_area: DrawingArea,
     pub builder: Builder,
-    pipeline: Pipeline,
+    pub pipeline: RefCell<Pipeline>,
+    pub graph: RefCell<Graph>,
 }
 
 // This represents our main application window.
@@ -63,12 +66,6 @@ impl GPSAppWeak {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-struct Element {
-    name: String,
-    position: (f64, f64),
-    size: (f64, f64),
-}
 fn draw_elements(elements: &Vec<Element>, c: &Context) {
     for element in elements {
         c.rectangle(element.position.0, element.position.1, 80.0, 45.0);
@@ -86,11 +83,13 @@ impl GPSApp {
         window.set_position(WindowPosition::Center);
         window.set_size_request(800, 600);
         let pipeline = Pipeline::new().expect("Unable to initialize the pipeline");
-
+        let drawing_area = DrawingArea::new();
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
+            drawing_area,
             builder,
-            pipeline,
+            pipeline: RefCell::new(pipeline),
+            graph: RefCell::new(Graph::default()),
         }));
         Ok(app)
     }
@@ -126,29 +125,31 @@ impl GPSApp {
     }
 
     pub fn build_ui(&self) {
-        let drawing_area = DrawingArea::new();
         let view_port: Viewport = self
             .builder
             .object("drawing_area")
             .expect("Couldn't get window");
         let event_box = EventBox::new();
-        event_box.add(&drawing_area);
+        event_box.add(&self.drawing_area);
         view_port.add(&event_box);
-        let elements: Rc<RefCell<Vec<Element>>> = Rc::new(RefCell::new(vec![]));
-        let e_clone = elements.clone();
-        drawing_area.connect_draw(move |w, c| {
-            println!("w: {} c:{} e: {:?}", w, c, e_clone);
-            draw_elements(&e_clone.borrow().to_vec(), c);
+
+        let app_weak = self.downgrade();
+        self.drawing_area.connect_draw(move |w, c| {
+            let app = upgrade_weak!(app_weak, gtk::Inhibit(false));
+            println!("w: {} c:{}", w, c);
+            let mut graph = app.graph.borrow_mut();
+            let elements = graph.elements();
+            draw_elements(&elements, c);
             gtk::Inhibit(false)
         });
-
+        let app_weak = self.downgrade();
         event_box.connect_button_release_event(move |_w, evt| {
-            let mut elements = elements.borrow_mut();
+            let app = upgrade_weak!(app_weak, gtk::Inhibit(false));
             let mut element: Element = Default::default();
             element.position.0 = evt.position().0;
             element.position.1 = evt.position().1;
-            elements.push(element);
-            drawing_area.queue_draw();
+            app.add_new_element(element);
+            app.drawing_area.queue_draw();
             gtk::Inhibit(false)
         });
         let window = &self.window;
@@ -236,4 +237,9 @@ impl GPSApp {
 
     // Called when the application shuts down. We drop our app struct here
     fn drop(self) {}
+
+    pub fn add_new_element(&self, element: Element) {
+        self.graph.borrow_mut().add_element(element);
+        self.drawing_area.queue_draw();
+    }
 }

@@ -1,4 +1,5 @@
 use crate::app::GPSApp;
+use crate::graph::Element;
 use crate::pipeline::ElementInfo;
 use gtk::{
     glib::{self, clone},
@@ -75,7 +76,9 @@ pub fn build_plugin_list(app: &GPSApp, elements: &Vec<ElementInfo>) {
 
     // The closure responds to selection changes by connection to "::cursor-changed" signal,
     // that gets emitted when the cursor moves (focus changes).
+    let app_weak = app.downgrade();
     tree.connect_cursor_changed(clone!(@weak dialog => move |tree_view| {
+        let app = upgrade_weak!(app_weak);
         let selection = tree_view.selection();
         if let Some((model, iter)) = selection.selected() {
             // Now getting back the values from the row corresponding to the
@@ -93,18 +96,21 @@ pub fn build_plugin_list(app: &GPSApp, elements: &Vec<ElementInfo>) {
                     .get::<u32>()
                     .expect("Treeview selection, column 0"),
             ));
-            println!(
-                "{}",
-                model
-                    .value(&iter, 1)
-                    .get::<String>()
-                    .expect("Treeview selection, column 1")
-            );
+            let element = Element {
+                name: model
+                .value(&iter, 1)
+                .get::<String>()
+                .expect("Treeview selection, column 1"),
+                position: (100.0,100.0),
+                size: (100.0,100.0),
+            };
 
             let element_name = model
             .value(&iter, 1)
             .get::<String>()
             .expect("Treeview selection, column 1");
+            app.add_new_element(element);
+
             //dialog.close();
             println!("{}", element_name);
         }
