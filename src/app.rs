@@ -29,7 +29,7 @@ use std::{error, ops};
 
 use crate::graph::{Element, Graph};
 use crate::pipeline::Pipeline;
-use crate::pluginlistwindow;
+use crate::pluginlist;
 
 #[derive(Debug)]
 pub struct GPSAppInner {
@@ -187,7 +187,7 @@ impl GPSApp {
             // entry.set_text("Clicked!");
             let app = upgrade_weak!(app_weak);
             let elements = Pipeline::elements_list().expect("Unable to obtain element's list");
-            pluginlistwindow::build_plugin_list(&app, &elements);
+            pluginlist::display_plugin_list(&app, &elements);
         }));
         // Create a dialog to open a file
         let open_button: Button = self
