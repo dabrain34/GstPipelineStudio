@@ -73,6 +73,74 @@ impl Pipeline {
                 }
             }
         }
+        elements.sort();
         Ok(elements)
+    }
+    pub fn element_description(
+        element_name: &str,
+    ) -> anyhow::Result<String, Box<dyn error::Error>> {
+        let mut desc = String::from("");
+        let registry = gst::Registry::get();
+        let feature = gst::Registry::find_feature(
+            &registry,
+            element_name,
+            gst::ElementFactory::static_type(),
+        )
+        .expect("Unable to find the element name");
+
+        if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
+            desc.push_str("<b>Factory details:</b>\n");
+            desc.push_str("<b>Name:</b>");
+            desc.push_str(&factory.get_name());
+            desc.push('\n');
+
+            let element_keys = factory.get_metadata_keys();
+            for key in element_keys {
+                let val = factory.get_metadata(&key);
+                if let Some(val) = val {
+                    desc.push_str("<b>");
+                    desc.push_str(&key);
+                    desc.push_str("</b>:");
+                    desc.push_str(&gtk::glib::markup_escape_text(&val).to_string());
+                    desc.push('\n');
+                }
+            }
+            let feature = factory.upcast::<gst::PluginFeature>();
+            let plugin = gst::PluginFeature::get_plugin(&feature);
+            if let Some(plugin) = plugin {
+                desc.push('\n');
+                desc.push_str("<b>Plugin details:</b>");
+                desc.push('\n');
+                desc.push_str("<b>Name:");
+                desc.push_str("</b>");
+                desc.push_str(gst::Plugin::get_plugin_name(&plugin).as_str());
+                desc.push('\n');
+                desc.push_str("<b>Description:");
+                desc.push_str("</b>");
+                desc.push_str(
+                    &gtk::glib::markup_escape_text(&plugin.get_description()).to_string(),
+                );
+                desc.push('\n');
+                desc.push_str("<b>Filename:");
+                desc.push_str("</b>");
+                desc.push_str(
+                    &gtk::glib::markup_escape_text(
+                        &plugin
+                            .get_filename()
+                            .unwrap()
+                            .as_path()
+                            .display()
+                            .to_string(),
+                    )
+                    .to_string(),
+                );
+                desc.push('\n');
+                desc.push_str("<b>Version:");
+                desc.push_str("</b>");
+                desc.push_str(&gtk::glib::markup_escape_text(&plugin.get_version()).to_string());
+                desc.push('\n');
+            }
+        }
+        Ok(desc)
     }
 }

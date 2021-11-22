@@ -22,7 +22,7 @@ mod macros;
 mod app;
 mod graph;
 mod pipeline;
-mod pluginlistwindow;
+mod pluginlist;
 
 use gtk::prelude::*;
 
