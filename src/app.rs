@@ -17,11 +17,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 use gtk::cairo::Context;
-use gtk::glib;
 use gtk::prelude::*;
+use gtk::{gio, glib};
 use gtk::{
-    AboutDialog, AccelFlags, AccelGroup, ApplicationWindow, Builder, Button, DrawingArea, EventBox,
-    FileChooserDialog, MenuItem, ResponseType, Viewport, WindowPosition,
+    AboutDialog, Application, ApplicationWindow, Builder, Button, DrawingArea, FileChooserDialog,
+    ResponseType, Statusbar, Viewport,
 };
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -79,8 +79,7 @@ impl GPSApp {
         let builder = Builder::from_string(glade_src);
         let window: ApplicationWindow = builder.object("mainwindow").expect("Couldn't get window");
         window.set_application(Some(application));
-        window.set_title("GstPipelineStudio");
-        window.set_position(WindowPosition::Center);
+        window.set_title(Some("GstPipelineStudio"));
         window.set_size_request(800, 600);
         let pipeline = Pipeline::new().expect("Unable to initialize the pipeline");
         let drawing_area = DrawingArea::new();
@@ -109,10 +108,11 @@ impl GPSApp {
         // When the application is activated show the UI. This happens when the first process is
         // started, and in the first process whenever a second process is started
         let app_weak = app.downgrade();
-        application.connect_activate(move |_| {
+
+        application.connect_activate(glib::clone!(@weak application => move |_| {
             let app = upgrade_weak!(app_weak);
-            app.build_ui();
-        });
+            app.build_ui(&application);
+        }));
 
         let app_container = RefCell::new(Some(app));
         application.connect_shutdown(move |_| {
@@ -124,58 +124,74 @@ impl GPSApp {
         });
     }
 
-    pub fn build_ui(&self) {
-        let view_port: Viewport = self
-            .builder
-            .object("drawing_area")
-            .expect("Couldn't get window");
-        let event_box = EventBox::new();
-        event_box.add(&self.drawing_area);
-        view_port.add(&event_box);
-
+    pub fn build_ui(&self, application: &Application) {
         let app_weak = self.downgrade();
-        self.drawing_area.connect_draw(move |w, c| {
-            let app = upgrade_weak!(app_weak, gtk::Inhibit(false));
-            println!("w: {} c:{}", w, c);
+        let drawing_area = gtk::DrawingArea::builder()
+            .content_height(24)
+            .content_width(24)
+            .build();
+
+        drawing_area.set_draw_func(move |_, c, width, height| {
+            let app = upgrade_weak!(app_weak);
+            println!("w: {} h: {} c:{}", width, height, c);
             let mut graph = app.graph.borrow_mut();
             let elements = graph.elements();
             draw_elements(&elements, c);
-            gtk::Inhibit(false)
+            c.paint().expect("Invalid cairo surface state");
         });
-        let app_weak = self.downgrade();
-        event_box.connect_button_release_event(move |_w, evt| {
-            let app = upgrade_weak!(app_weak, gtk::Inhibit(false));
-            let mut element: Element = Default::default();
-            element.position.0 = evt.position().0;
-            element.position.1 = evt.position().1;
-            app.add_new_element(element);
-            app.drawing_area.queue_draw();
-            gtk::Inhibit(false)
-        });
+        let drawing_area_window: Viewport = self
+            .builder
+            .object("drawing_area")
+            .expect("Couldn't get window");
+        drawing_area_window.set_child(Some(&drawing_area));
+
+        // let app_weak = self.downgrade();
+        // event_box.connect_button_release_event(move |_w, evt| {
+        //     let app = upgrade_weak!(app_weak, gtk::Inhibit(false));
+        //     let mut element: Element = Default::default();
+        //     element.position.0 = evt.position().0;
+        //     element.position.1 = evt.position().1;
+        //     app.add_new_element(element);
+        //     app.drawing_area.queue_draw();
+        //     gtk::Inhibit(false)
+        // });
         let window = &self.window;
 
-        window.show_all();
+        window.show();
+        let status_bar: Statusbar = self
+            .builder
+            .object("status_bar")
+            .expect("Couldn't get window");
+        status_bar.push(status_bar.context_id("Description"), "GPS is ready");
 
-        let quit: MenuItem = self
-            .builder
-            .object("menu-quit")
-            .expect("Couldn't get window");
-        let about: MenuItem = self
-            .builder
-            .object("menu-about")
-            .expect("Couldn't get window");
+        let action = gio::SimpleAction::new("quit", None);
+        action.connect_activate({
+            let app = application.downgrade();
+            move |_, _| {
+                let app = app.upgrade().unwrap();
+                app.quit();
+            }
+        });
+        application.add_action(&action);
+        application.set_accels_for_action("app.quit", &["<primary>q"]);
+
+        let action = gio::SimpleAction::new("new-window", None);
+
+        application.add_action(&action);
+        application.set_accels_for_action("app.new-window", &["<primary>n"]);
+
         let about_dialog: AboutDialog = self
             .builder
             .object("dialog-about")
             .expect("Couldn't get window");
-        about.connect_activate(move |_| {
-            about_dialog.connect_delete_event(|dialog, _| {
-                dialog.hide();
-                gtk::Inhibit(true)
-            });
-
-            about_dialog.show_all();
+        let action = gio::SimpleAction::new("about", None);
+        action.connect_activate({
+            move |_, _| {
+                about_dialog.show();
+            }
         });
+        application.add_action(&action);
+        application.set_accels_for_action("app.about", &["<primary>a"]);
 
         // Create a dialog to select GStreamer elements.
         let add_button: Button = self
@@ -205,29 +221,16 @@ impl GPSApp {
                 ("Open", ResponseType::Ok),
                 ("Cancel", ResponseType::Cancel)
             ]);
-            open_dialog.set_select_multiple(true);
+
             open_dialog.connect_response(|open_dialog, response| {
                 if response == ResponseType::Ok {
-                    let files = open_dialog.filenames();
-                    println!("Files: {:?}", files);
+                    let file = open_dialog.file().expect("Couldn't get file");
+                    println!("Files: {:?}", file);
                 }
                 open_dialog.close();
             });
-            open_dialog.show_all();
+            open_dialog.show();
         }));
-
-        let accel_group = AccelGroup::new();
-        window.add_accel_group(&accel_group);
-
-        quit.connect_activate(glib::clone!(@weak window => move |_| {
-            window.close();
-        }));
-
-        // `Primary` is `Ctrl` on Windows and Linux, and `command` on macOS
-        // It isn't available directly through `gdk::ModifierType`, since it has
-        // different values on different platforms.
-        let (key, modifier) = gtk::accelerator_parse("<Primary>Q");
-        quit.add_accelerator("activate", &accel_group, key, modifier, AccelFlags::VISIBLE);
     }
 
     // Downgrade to a weak reference
