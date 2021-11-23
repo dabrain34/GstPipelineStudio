@@ -20,15 +20,11 @@ use crate::app::GPSApp;
 use crate::graph::Element;
 use crate::pipeline::ElementInfo;
 use crate::pipeline::Pipeline;
+use gtk::prelude::*;
 use gtk::TextBuffer;
-use gtk::{
-    glib::{self, clone},
-    prelude::*,
-};
+use gtk::{gio, glib};
 
-use gtk::{
-    CellRendererText, Dialog, ListStore, TextView, TreeView, TreeViewColumn, WindowPosition,
-};
+use gtk::{CellRendererText, Dialog, ListStore, TextView, TreeView, TreeViewColumn};
 
 fn create_and_fill_model(elements: &[ElementInfo]) -> ListStore {
     // Creation of a model with two rows.
@@ -41,6 +37,7 @@ fn create_and_fill_model(elements: &[ElementInfo]) -> ListStore {
             &[(0, &(i as u32 + 1)), (1, &entry.name.as_ref().unwrap())],
         );
     }
+
     model
 }
 
@@ -60,37 +57,35 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
         .object("dialog-plugin-list")
         .expect("Couldn't get window");
 
-    dialog.set_title("Plugin list");
-    dialog.set_position(WindowPosition::Center);
+    dialog.set_title(Some("Plugin list"));
     dialog.set_default_size(640, 480);
-
-    let tree: TreeView = app
-        .builder
-        .object("treeview-plugin-list")
-        .expect("Couldn't get window");
 
     let text_view: TextView = app
         .builder
         .object("textview-plugin-list")
         .expect("Couldn't get window");
-    let text_buffer: TextBuffer = text_view
-        .buffer()
-        .expect("Couldn't get buffer from text_view");
+    let text_buffer: TextBuffer = text_view.buffer();
+
+    let tree: TreeView = app
+        .builder
+        .object("treeview-plugin-list")
+        .expect("Couldn't get window");
     if tree.n_columns() < 2 {
         append_column(&tree, 0);
         append_column(&tree, 1);
     }
+    tree.set_search_column(1);
     let model = create_and_fill_model(elements);
     // Setting the model into the view.
     tree.set_model(Some(&model));
 
     // The closure responds to selection changes by connection to "::cursor-changed" signal,
     // that gets emitted when the cursor moves (focus changes).
-    tree.connect_cursor_changed(clone!(@weak dialog, @weak text_buffer => move |tree_view| {
+    tree.connect_cursor_changed(glib::clone!(@weak dialog, @weak text_buffer => move |tree_view| {
         let selection = tree_view.selection();
         if let Some((model, iter)) = selection.selected() {
             let element_name = model
-            .value(&iter, 1)
+            .get(&iter, 1)
             .get::<String>()
             .expect("Treeview selection, column 1");
             let description = Pipeline::element_description(&element_name).expect("Unable to get element list from GStreamer");
@@ -101,7 +96,7 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
     }));
     let app_weak = app.downgrade();
     tree.connect_row_activated(
-        clone!(@weak dialog => move |tree_view, _tree_path, _tree_column| {
+        glib::clone!(@weak dialog => move |tree_view, _tree_path, _tree_column| {
             let app = upgrade_weak!(app_weak);
             let selection = tree_view.selection();
             if let Some((model, iter)) = selection.selected() {
@@ -110,7 +105,7 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
                 //
                 let element = Element {
                     name: model
-                    .value(&iter, 1)
+                    .get(&iter, 1)
                     .get::<String>()
                     .expect("Treeview selection, column 1"),
                     position: (100.0,100.0),
@@ -118,7 +113,7 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
                 };
 
                 let element_name = model
-                .value(&iter, 1)
+                .get(&iter, 1)
                 .get::<String>()
                 .expect("Treeview selection, column 1");
                 app.add_new_element(element);
@@ -128,9 +123,5 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
         }),
     );
 
-    dialog.connect_delete_event(|dialog, _| {
-        dialog.hide();
-        gtk::Inhibit(true)
-    });
-    dialog.show_all();
+    dialog.show();
 }
