@@ -17,12 +17,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::app::GPSApp;
-use crate::graph::Element;
 use crate::pipeline::ElementInfo;
 use crate::pipeline::Pipeline;
+use gtk::glib;
 use gtk::prelude::*;
 use gtk::TextBuffer;
-use gtk::{gio, glib};
 
 use gtk::{CellRendererText, Dialog, ListStore, TextView, TreeView, TreeViewColumn};
 
@@ -103,22 +102,13 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
                 // Now getting back the values from the row corresponding to the
                 // iterator `iter`.
                 //
-                let element = Element {
-                    name: model
-                    .get(&iter, 1)
-                    .get::<String>()
-                    .expect("Treeview selection, column 1"),
-                    position: (100.0,100.0),
-                    size: (100.0,100.0),
-                };
 
                 let element_name = model
                 .get(&iter, 1)
                 .get::<String>()
                 .expect("Treeview selection, column 1");
-                app.add_new_element(element);
-
                 println!("{}", element_name);
+                app.add_new_element(element_name);
             }
         }),
     );

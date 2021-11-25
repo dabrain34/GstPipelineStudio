@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="Node">
+    <child>
+      <object class="GtkBox" id="box_">
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkLabel" id="label">
+            <property name="name">Node</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

@@ -133,7 +133,9 @@
           </object>
         </child>
         <child>
-          <object class="GtkBox">
+          <object class="GtkPaned">
+            <property name="position">600</property>
+            <property name="position-set">True</property>
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
             <child>

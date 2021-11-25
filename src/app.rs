@@ -16,28 +16,27 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
-use gtk::cairo::Context;
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use gtk::{
-    AboutDialog, Application, ApplicationWindow, Builder, Button, DrawingArea, FileChooserDialog,
-    ResponseType, Statusbar, Viewport,
+    AboutDialog, Application, ApplicationWindow, Builder, Button, FileChooserDialog, ResponseType,
+    Statusbar, Viewport,
 };
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::{error, ops};
 
-use crate::graph::{Element, Graph};
 use crate::pipeline::Pipeline;
 use crate::pluginlist;
+
+use crate::graphmanager::{GraphView, Node};
 
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
-    pub drawing_area: DrawingArea,
+    pub graphview: RefCell<GraphView>,
     pub builder: Builder,
     pub pipeline: RefCell<Pipeline>,
-    pub graph: RefCell<Graph>,
 }
 
 // This represents our main application window.
@@ -66,13 +65,6 @@ impl GPSAppWeak {
     }
 }
 
-fn draw_elements(elements: &Vec<Element>, c: &Context) {
-    for element in elements {
-        c.rectangle(element.position.0, element.position.1, 80.0, 45.0);
-        c.fill().expect("Can not draw into context");
-    }
-}
-
 impl GPSApp {
     fn new(application: &gtk::Application) -> anyhow::Result<GPSApp, Box<dyn error::Error>> {
         let glade_src = include_str!("gps.ui");
@@ -82,13 +74,11 @@ impl GPSApp {
         window.set_title(Some("GstPipelineStudio"));
         window.set_size_request(800, 600);
         let pipeline = Pipeline::new().expect("Unable to initialize the pipeline");
-        let drawing_area = DrawingArea::new();
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
-            drawing_area,
+            graphview: RefCell::new(GraphView::new()),
             builder,
             pipeline: RefCell::new(pipeline),
-            graph: RefCell::new(Graph::default()),
         }));
         Ok(app)
     }
@@ -125,36 +115,15 @@ impl GPSApp {
     }
 
     pub fn build_ui(&self, application: &Application) {
-        let app_weak = self.downgrade();
-        let drawing_area = gtk::DrawingArea::builder()
-            .content_height(24)
-            .content_width(24)
-            .build();
+        //let app_weak = self.downgrade();
 
-        drawing_area.set_draw_func(move |_, c, width, height| {
-            let app = upgrade_weak!(app_weak);
-            println!("w: {} h: {} c:{}", width, height, c);
-            let mut graph = app.graph.borrow_mut();
-            let elements = graph.elements();
-            draw_elements(&elements, c);
-            c.paint().expect("Invalid cairo surface state");
-        });
         let drawing_area_window: Viewport = self
             .builder
             .object("drawing_area")
             .expect("Couldn't get window");
-        drawing_area_window.set_child(Some(&drawing_area));
 
-        // let app_weak = self.downgrade();
-        // event_box.connect_button_release_event(move |_w, evt| {
-        //     let app = upgrade_weak!(app_weak, gtk::Inhibit(false));
-        //     let mut element: Element = Default::default();
-        //     element.position.0 = evt.position().0;
-        //     element.position.1 = evt.position().1;
-        //     app.add_new_element(element);
-        //     app.drawing_area.queue_draw();
-        //     gtk::Inhibit(false)
-        // });
+        drawing_area_window.set_child(Some(&*self.graphview.borrow()));
+
         let window = &self.window;
 
         window.show();
@@ -214,7 +183,6 @@ impl GPSApp {
             .object("dialog-open-file")
             .expect("Couldn't get window");
         open_button.connect_clicked(glib::clone!(@weak window => move |_| {
-            // entry.set_text("Clicked!");
             open_dialog.connect_response(|dialog, _| dialog.close());
             open_dialog.add_buttons(&[
                 ("Open", ResponseType::Ok),
@@ -230,6 +198,50 @@ impl GPSApp {
             });
             open_dialog.show();
         }));
+
+        // let add_button: Button = self
+        //     .builder
+        //     .object("button-play")
+        //     .expect("Couldn't get app_button");
+        // let app_weak = self.downgrade();
+        // add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+        //     // entry.set_text("Clicked!");
+        //     let app = upgrade_weak!(app_weak);
+
+        // }));
+        let add_button: Button = self
+            .builder
+            .object("button-stop")
+            .expect("Couldn't get app_button");
+        let app_weak = self.downgrade();
+        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+            let app = upgrade_weak!(app_weak);
+            let graph_view = app.graphview.borrow_mut();
+            graph_view.remove_all_nodes();
+            let node_id = graph_view.get_next_node_id();
+            let element_name = String::from("appsink");
+            let pads = Pipeline::get_pads(&element_name, false);
+            graph_view.add_node(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
+            let node_id = graph_view.get_next_node_id();
+            let element_name = String::from("videotestsrc");
+            let pads = Pipeline::get_pads(&element_name, false);
+            graph_view.add_node(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
+            let node_id = graph_view.get_next_node_id();
+            let element_name = String::from("videoconvert");
+            let pads = Pipeline::get_pads(&element_name, false);
+            graph_view.add_node(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
+
+        }));
+        let add_button: Button = self
+            .builder
+            .object("button-clear")
+            .expect("Couldn't get app_button");
+        let app_weak = self.downgrade();
+        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+            let app = upgrade_weak!(app_weak);
+            let graph_view = app.graphview.borrow_mut();
+            graph_view.remove_all_nodes();
+        }));
     }
 
     // Downgrade to a weak reference
@@ -240,8 +252,19 @@ impl GPSApp {
     // Called when the application shuts down. We drop our app struct here
     fn drop(self) {}
 
-    pub fn add_new_element(&self, element: Element) {
-        self.graph.borrow_mut().add_element(element);
-        self.drawing_area.queue_draw();
+    pub fn add_new_element(&self, element_name: String) {
+        let graph_view = self.graphview.borrow_mut();
+        let node_id = graph_view.next_node_id();
+        let pads = Pipeline::get_pads(&element_name, false);
+        graph_view.add_node(
+            node_id,
+            Node::new(
+                node_id,
+                &element_name,
+                Pipeline::get_element_type(&element_name),
+            ),
+            pads.0,
+            pads.1,
+        );
     }
 }
