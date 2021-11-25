@@ -16,6 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
+use crate::graphmanager::NodeType;
 use gst::prelude::*;
 use gstreamer as gst;
 use std::error;
@@ -76,10 +77,10 @@ impl Pipeline {
         elements.sort();
         Ok(elements)
     }
-    pub fn element_description(
+
+    pub fn element_feature(
         element_name: &str,
-    ) -> anyhow::Result<String, Box<dyn error::Error>> {
-        let mut desc = String::from("");
+    ) -> anyhow::Result<gst::PluginFeature, Box<dyn error::Error>> {
         let registry = gst::Registry::get();
         let feature = gst::Registry::find_feature(
             &registry,
@@ -87,6 +88,14 @@ impl Pipeline {
             gst::ElementFactory::static_type(),
         )
         .expect("Unable to find the element name");
+        Ok(feature)
+    }
+
+    pub fn element_description(
+        element_name: &str,
+    ) -> anyhow::Result<String, Box<dyn error::Error>> {
+        let mut desc = String::from("");
+        let feature = Pipeline::element_feature(element_name)?;
 
         if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
             desc.push_str("<b>Factory details:</b>\n");
@@ -150,5 +159,53 @@ impl Pipeline {
             }
         }
         Ok(desc)
+    }
+
+    pub fn get_pads(element_name: &str, include_on_request: bool) -> (u32, u32) {
+        let feature = Pipeline::element_feature(element_name).expect("Unable to get feature");
+        let mut input = 0;
+        let mut output = 0;
+
+        if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
+            if factory.get_num_pad_templates() > 0 {
+                let pads = factory.get_static_pad_templates();
+                for pad in pads {
+                    if pad.presence() == gst::PadPresence::Always {
+                        if pad.direction() == gst::PadDirection::Src {
+                            output += 1;
+                        } else if pad.direction() == gst::PadDirection::Sink {
+                            input += 1;
+                        }
+                    } else if include_on_request
+                        && (pad.presence() == gst::PadPresence::Request
+                            || pad.presence() == gst::PadPresence::Sometimes)
+                    {
+                        if pad.direction() == gst::PadDirection::Src {
+                            output += 1;
+                        } else if pad.direction() == gst::PadDirection::Sink {
+                            input += 1;
+                        }
+                    }
+                }
+            }
+        }
+        (input, output)
+    }
+
+    pub fn get_element_type(element_name: &str) -> NodeType {
+        let pads = Pipeline::get_pads(element_name, true);
+        let mut element_type = NodeType::Source;
+        if pads.0 > 0 {
+            if pads.1 > 0 {
+                element_type = NodeType::Transform;
+            } else {
+                element_type = NodeType::Sink;
+            }
+        } else {
+            if pads.1 > 0 {
+                element_type = NodeType::Source;
+            }
+        }
+        element_type
     }
 }

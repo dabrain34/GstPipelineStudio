@@ -4,12 +4,24 @@ TODO:
 - [x] Create Element structure with pads and connections
 - [x] Get a list of GStreamer elements in dialog add plugin
 - [x] Add plugin details in the element dialog
-- [] Draw element with its pad
-- [] Be able to move the element on Screen
-- [] Create connection between element
+- [x] Draw element with its pad
+- [x] Be able to move the element on Screen
+- [x] Create connection between element
+- [] Control the connection between element
+  - [x] unable to connect in and in out and out
+  - [] unable to connnec element with incompatible caps.
+  - [x] unable to connect a port which is already connected
+- [] create contextual menu on pad or element
+- [] upclass the element
+- [] create a crate for graphview/node/port
+- [] save/load pipeline
 - [] Run a pipeline with GStreamer
 - [] Run the pipeline with GStreamer
 - [] Control the pipeline with GStreamer
 - [x] Define the license
 - [] Connect the logs to the window
 - [] Create a window for the video output
+
+## Code cleanup
+
+[] remove useless code from graphview

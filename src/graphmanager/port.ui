@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="Port">
+    <child>
+      <object class="GtkBox" id="box_">
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="name">Some Text</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>
