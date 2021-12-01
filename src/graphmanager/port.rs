@@ -22,11 +22,31 @@ use gtk::{
     prelude::*,
     subclass::prelude::*,
 };
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PortDirection {
     Input,
     Output,
+    Unknown,
+}
+
+impl fmt::Display for PortDirection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+        // or, alternatively:
+        // fmt::Debug::fmt(self, f)
+    }
+}
+
+impl PortDirection {
+    pub fn from_str(port_direction_name: &str) -> PortDirection {
+        match port_direction_name {
+            "Input" => PortDirection::Input,
+            "Output" => PortDirection::Output,
+            _ => PortDirection::Unknown,
+        }
+    }
 }
 
 mod imp {
@@ -118,5 +138,14 @@ impl Port {
     pub fn direction(&self) -> &PortDirection {
         let private = imp::Port::from_instance(self);
         private.direction.get().expect("Port direction is not set")
+    }
+
+    pub fn name(&self) -> String {
+        let private = imp::Port::from_instance(self);
+        private
+            .direction
+            .get()
+            .expect("direction is not set")
+            .to_string()
     }
 }

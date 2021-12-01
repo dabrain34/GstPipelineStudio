@@ -9,6 +9,16 @@
         <attribute name="accel">&lt;primary&gt;n</attribute>
       </item>
       <item>
+        <attribute name="label" translatable="yes" comments="Primary menu entry that opens the graph">_Open</attribute>
+        <attribute name="action">app.open</attribute>
+        <attribute name="accel">&lt;primary&gt;n</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save As</attribute>
+        <attribute name="action">app.save_as</attribute>
+        <attribute name="accel">&lt;primary&gt;n</attribute>
+      </item>
+      <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that opens the About dialog.">_About GstPipelineStudio</attribute>
         <attribute name="action">app.about</attribute>
       </item>
@@ -78,13 +88,17 @@
     <property name="default-height">600</property>
     <child type="titlebar">
           <object class="GtkHeaderBar" id="header-bar">
-            <property name="hexpand">0</property>
-            <property name="show-title-buttons">True</property>
             <child type="start">
-                <object class="GtkButton">
-                    <property name="action-name">win.open</property>
-                    <property name="label">Open</property>
-                </object>
+              <object class="GtkMenuButton" id="gear_menu_button">
+                <property name="valign">3</property>
+                <property name="focus-on-click">0</property>
+                <property name="popover">
+                  <object class="GtkPopoverMenu" id="gear_menu">
+                    <property name="menu-model">primary_menu</property>
+                  </object>
+                </property>
+                <property name="icon-name">open-menu-symbolic</property>
+              </object>
             </child>
           </object>
     </child>
@@ -103,14 +117,6 @@
                     <property name="label">gtk-add</property>
                     <property name="receives-default">1</property>
                     <property name="icon-name">list-add</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkButton" id="button-open-file">
-                    <property name="hexpand">1</property>
-                    <property name="label">gtk-open</property>
-                    <property name="receives-default">1</property>
-                    <property name="icon-name">document-open-symbolic</property>
                   </object>
                 </child>
                 <child>
