@@ -141,31 +141,35 @@ mod imp {
                         .expect("click event has no widget")
                         .dynamic_cast::<Self::Type>()
                         .expect("click event is not on the GraphView");
-
-            if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
-                if let Some(target) = target.ancestor(Port::static_type()) {
-                    let to_port = target.dynamic_cast::<Port>().expect("click event is not on the Port");
-                    if let None = widget.port_is_linked(to_port.id()) {
-                        let selected_port = widget.selected_port().to_owned();
-                        if let Some(from_port) = selected_port {
-                            println!("Port {} is clicked at {}:{}", to_port.id(), x, y);
-                            if widget.ports_compatible(&to_port) {
-                                let from_node = from_port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                let to_node = to_port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                println!("add link");
-                                widget.add_link(NodeLink {
-                                    id: widget.next_link_id(),
-                                    node_from: from_node.id(),
-                                    node_to: to_node.id(),
-                                    port_from: from_port.id(),
-                                    port_to: to_port.id(),
-                                    active: true
-                                } );
-                            }
+                if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
+                    if let Some(target) = target.ancestor(Port::static_type()) {
+                        let mut port_to = target.dynamic_cast::<Port>().expect("click event is not on the Port");
+                        if widget.port_is_linked(port_to.id()).is_none() {
+                            let selected_port = widget.selected_port().to_owned();
+                            if let Some(mut port_from) = selected_port {
+                                println!("Port {} is clicked at {}:{}", port_to.id(), x, y);
+                                if widget.ports_compatible(&port_to) {
+                                    let mut node_from = port_from.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
+                                    let mut node_to = port_to.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
+                                    println!("add link");
+                                    if *port_to.direction() == PortDirection::Output {
+                                        println!("swap ports and nodes to create the link");
+                                        std::mem::swap(&mut node_from, &mut node_to);
+                                        std::mem::swap(&mut port_from, &mut port_to);
+                                    }
+                                    widget.add_link(NodeLink {
+                                        id: widget.next_link_id(),
+                                        node_from: node_from.id(),
+                                        node_to: node_to.id(),
+                                        port_from: port_from.id(),
+                                        port_to: port_to.id(),
+                                        active: true
+                                    } );
+                                }
                                 widget.set_selected_port(None);
                             } else {
                                 println!("add selected port id");
-                                widget.set_selected_port(Some(&to_port));
+                                widget.set_selected_port(Some(&port_to));
                             }
                         }
                     }
@@ -362,16 +366,22 @@ impl GraphView {
         }
         self.queue_draw();
     }
-    pub fn all_nodes(&self) -> Vec<Node> {
+    pub fn all_nodes(&self, node_type: NodeType) -> Vec<Node> {
         let private = imp::GraphView::from_instance(self);
         let nodes = private.nodes.borrow();
-        let nodes_list: Vec<_> = nodes.iter().map(|(_, node)| node.clone()).collect();
+        let nodes_list: Vec<_> = nodes
+            .iter()
+            .filter(|(_, node)| {
+                *node.node_type().unwrap() == node_type || node_type == NodeType::All
+            })
+            .map(|(_, node)| node.clone())
+            .collect();
         nodes_list
     }
 
     pub fn remove_all_nodes(&self) {
         let private = imp::GraphView::from_instance(self);
-        let nodes_list = self.all_nodes();
+        let nodes_list = self.all_nodes(NodeType::All);
         for node in nodes_list {
             if let Some(link_id) = self.node_is_linked(node.id()) {
                 let mut links = private.links.borrow_mut();
@@ -581,9 +591,48 @@ impl GraphView {
         private.port_selected.borrow_mut()
     }
 
+    pub fn port_connected_to(&self, port_id: u32) -> Option<(u32, u32)> {
+        for link in self.all_links() {
+            if port_id == link.port_from {
+                return Some((link.port_to, link.node_to));
+            }
+        }
+        None
+    }
+
+    //  * filesrc location=obama_last_speech.mp4 ! decodebin name=bin bin. ! audioconvert ! audioresample ! autoaudiosink bin. ! autovideosink
+
     // Render graph methods
+    //TO BE MOVED
+    pub fn process_node(&self, node: &Node, mut description: String) -> String {
+        let private = imp::GraphView::from_instance(self);
+        let unique_name = node.unique_name();
+        description.push_str(&format!("{} name={}", node.name(), unique_name));
+
+        let ports = node.all_ports(PortDirection::Output);
+        if ports.len() > 1 {
+            description.push_str(&format!(" {}. ! ", unique_name));
+        } else if ports.len() > 0 {
+            description.push_str(" ! ");
+        }
+
+        println!("{}", description);
+        for port in ports {
+            if let Some((_port_to, node_to)) = self.port_connected_to(port.id()) {
+                if let Some(node) = private.nodes.borrow().get(&node_to) {
+                    description = self.process_node(node, description.clone());
+                }
+            }
+        }
+        description
+    }
+    //TO BE MOVED
     pub fn render_gst(&self) -> String {
-        let description = String::from("videotestsrc ! videoconvert ! autovideosink");
+        let nodes = self.all_nodes(NodeType::Source);
+        let mut description = String::from("");
+        for node in nodes {
+            description = self.process_node(&node, description.clone());
+        }
         description
     }
 
@@ -596,7 +645,7 @@ impl GraphView {
         writer.write(XMLWEvent::start_element("Graph"))?;
 
         //Get the nodes
-        let nodes = self.all_nodes();
+        let nodes = self.all_nodes(NodeType::All);
         for node in nodes {
             writer.write(
                 XMLWEvent::start_element("Node")
