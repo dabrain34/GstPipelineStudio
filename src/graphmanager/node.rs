@@ -165,6 +165,17 @@ impl Node {
         let private = imp::Node::from_instance(self);
         private.ports.borrow()
     }
+
+    pub fn all_ports(&self, direction: PortDirection) -> Vec<Port> {
+        let ports_list: Vec<_> = self
+            .ports()
+            .iter()
+            .filter(|(_, port)| *port.direction() == direction || direction == PortDirection::All)
+            .map(|(_, port)| port.clone())
+            .collect();
+        ports_list
+    }
+
     pub fn port(&self, id: &u32) -> Option<super::port::Port> {
         let private = imp::Node::from_instance(self);
         private.ports.borrow().get(id).cloned()

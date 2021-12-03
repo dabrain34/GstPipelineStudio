@@ -28,6 +28,7 @@ use std::fmt;
 pub enum PortDirection {
     Input,
     Output,
+    All,
     Unknown,
 }
 
@@ -44,6 +45,7 @@ impl PortDirection {
         match port_direction_name {
             "Input" => PortDirection::Input,
             "Output" => PortDirection::Output,
+            "All" => PortDirection::Output,
             _ => PortDirection::Unknown,
         }
     }
