@@ -26,7 +26,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::{error, ops};
 
-use crate::pipeline::Pipeline;
+use crate::pipeline::{Pipeline, PipelineState};
 use crate::pluginlist;
 
 use crate::graphmanager::{GraphView, Node};
@@ -122,6 +122,33 @@ impl GPSApp {
             &provider,
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
+    }
+    pub fn show_error_dialog(fatal: bool, message: &str) {
+        let app = gio::Application::default()
+            .expect("No default application")
+            .downcast::<gtk::Application>()
+            .expect("Default application has wrong type");
+
+        let dialog = gtk::MessageDialog::new(
+            app.active_window().as_ref(),
+            gtk::DialogFlags::MODAL,
+            gtk::MessageType::Error,
+            gtk::ButtonsType::Ok,
+            message,
+        );
+
+        dialog.connect_response(move |dialog, _| {
+            let app = gio::Application::default().expect("No default application");
+
+            dialog.destroy();
+
+            if fatal {
+                app.quit();
+            }
+        });
+
+        dialog.set_resizable(false);
+        dialog.show();
     }
 
     pub fn build_ui(&self, application: &Application) {
@@ -247,8 +274,39 @@ impl GPSApp {
         let app_weak = self.downgrade();
         add_button.connect_clicked(glib::clone!(@weak window => move |_| {
             // entry.set_text("Clicked!");
-            let _app = upgrade_weak!(app_weak);
-
+            let app = upgrade_weak!(app_weak);
+            let graph_view = app.graphview.borrow();
+            let pipeline = app.pipeline.borrow();
+            if pipeline.state() == PipelineState::STOPPED {
+                pipeline.create_pipeline(&graph_view.render_gst()).expect("Unable to create the pipeline");
+                pipeline.set_state(PipelineState::PLAYING).expect("Unable to change state");
+            } else {
+                if pipeline.state() == PipelineState::PAUSED {
+                    pipeline.set_state(PipelineState::PLAYING).expect("Unable to change state");
+                } else {
+                    pipeline.set_state(PipelineState::PAUSED).expect("Unable to change state");
+                }
+            }
+        }));
+        let add_button: Button = self
+            .builder
+            .object("button-pause")
+            .expect("Couldn't get app_button");
+        let app_weak = self.downgrade();
+        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+            let app = upgrade_weak!(app_weak);
+            let graph_view = app.graphview.borrow();
+            let pipeline = app.pipeline.borrow();
+            if pipeline.state() == PipelineState::STOPPED {
+                pipeline.create_pipeline(&graph_view.render_gst()).expect("Unable to create the pipeline");
+                pipeline.set_state(PipelineState::PAUSED).expect("Unable to change state");
+            } else {
+                if pipeline.state() == PipelineState::PAUSED {
+                    pipeline.set_state(PipelineState::PLAYING).expect("Unable to change state");
+                } else {
+                    pipeline.set_state(PipelineState::PAUSED).expect("Unable to change state");
+                }
+            }
         }));
         let add_button: Button = self
             .builder
@@ -257,21 +315,8 @@ impl GPSApp {
         let app_weak = self.downgrade();
         add_button.connect_clicked(glib::clone!(@weak window => move |_| {
             let app = upgrade_weak!(app_weak);
-            let graph_view = app.graphview.borrow_mut();
-            graph_view.remove_all_nodes();
-            let node_id = graph_view.get_next_node_id();
-            let element_name = String::from("appsink");
-            let pads = Pipeline::get_pads(&element_name, false);
-            graph_view.add_node_with_port(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
-            let node_id = graph_view.get_next_node_id();
-            let element_name = String::from("videotestsrc");
-            let pads = Pipeline::get_pads(&element_name, false);
-            graph_view.add_node_with_port(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
-            let node_id = graph_view.get_next_node_id();
-            let element_name = String::from("videoconvert");
-            let pads = Pipeline::get_pads(&element_name, false);
-            graph_view.add_node_with_port(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
-
+            let pipeline = app.pipeline.borrow();
+            pipeline.set_state(PipelineState::STOPPED).expect("Unable to change state to STOP");
         }));
         let add_button: Button = self
             .builder
@@ -296,13 +341,13 @@ impl GPSApp {
     pub fn add_new_element(&self, element_name: String) {
         let graph_view = self.graphview.borrow_mut();
         let node_id = graph_view.next_node_id();
-        let pads = Pipeline::get_pads(&element_name, false);
+        let pads = Pipeline::pads(&element_name, false);
         graph_view.add_node_with_port(
             node_id,
             Node::new(
                 node_id,
                 &element_name,
-                Pipeline::get_element_type(&element_name),
+                Pipeline::element_type(&element_name),
             ),
             pads.0,
             pads.1,

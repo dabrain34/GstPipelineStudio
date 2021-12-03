@@ -572,6 +572,11 @@ impl GraphView {
     }
 
     // Render graph methods
+    pub fn render_gst(&self) -> String {
+        let description = String::from("videotestsrc ! videoconvert ! autovideosink");
+        description
+    }
+
     pub fn render_xml(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
         let mut file = File::create(filename).unwrap();
         let mut writer = EmitterConfig::new()
