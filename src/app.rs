@@ -16,11 +16,13 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
+use glib::Value;
+use gtk::gdk::Rectangle;
 use gtk::prelude::*;
-use gtk::{gio, glib};
+use gtk::{gio, glib, graphene};
 use gtk::{
     AboutDialog, Application, ApplicationWindow, Builder, Button, FileChooserAction,
-    FileChooserDialog, ResponseType, Statusbar, Viewport,
+    FileChooserDialog, PopoverMenu, ResponseType, Statusbar, Viewport,
 };
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -242,7 +244,7 @@ impl GPSApp {
             }
         });
         application.add_action(&action);
-        application.set_accels_for_action("app.about", &["<primary>a"]);
+        //application.set_accels_for_action("app.about", &["<primary>a"]);
 
         // Create a dialog to select GStreamer elements.
         let add_button: Button = self
@@ -312,7 +314,112 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let graph_view = app.graphview.borrow_mut();
             graph_view.remove_all_nodes();
+            let node_id = graph_view.next_node_id();
+            graph_view.add_node_with_port(
+                node_id,
+                Node::new(
+                    node_id,
+                    "videotestsrc",
+                    Pipeline::element_type("videotestsrc"),
+                ),
+                0,
+                1,
+            );
         }));
+
+        let app_weak = self.downgrade();
+        // When user clicks on port with right button
+        self.graphview
+            .borrow()
+            .connect_local(
+                "port-right-clicked",
+                false,
+                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                    let app = upgrade_weak!(app_weak, None);
+
+                    let port_id = values[1].get::<u32>().expect("port id args[1]");
+                    let node_id = values[2].get::<u32>().expect("node id args[2]");
+                    let point = values[3].get::<graphene::Point>().expect("point in args[3]");
+
+                    let port_menu: gio::MenuModel = app
+                        .builder
+                        .object("port_menu")
+                        .expect("Couldn't get menu model for port");
+
+                    let pop_menu: PopoverMenu = PopoverMenu::from_model(Some(&port_menu));
+                    pop_menu.set_parent(&*app.graphview.borrow_mut());
+                    pop_menu.set_pointing_to(&Rectangle {
+                        x: point.to_vec2().x() as i32,
+                        y: point.to_vec2().y() as i32,
+                        width: 0,
+                        height: 0,
+                    });
+                    // add an action to delete link
+                    let action = gio::SimpleAction::new("port.delete-link", None);
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        println!("port.delete-link port {} node {}", port_id, node_id);
+                        pop_menu.unparent();
+                    }));
+                    application.add_action(&action);
+
+                    pop_menu.show();
+                    None
+                }),
+            )
+            .expect("Failed to register port-right-clicked signal of graphview");
+
+        // When user clicks on  node with right button
+        let app_weak = self.downgrade();
+        self.graphview
+            .borrow()
+            .connect_local(
+                "node-right-clicked",
+                false,
+                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                    let app = upgrade_weak!(app_weak, None);
+
+                    let node_id = values[1].get::<u32>().expect("node id args[1]");
+                    let point = values[2].get::<graphene::Point>().expect("point in args[2]");
+
+                    let node_menu: gio::MenuModel = app
+                        .builder
+                        .object("node_menu")
+                        .expect("Couldn't get menu model for node");
+
+                    let pop_menu: PopoverMenu = PopoverMenu::from_model(Some(&node_menu));
+                    pop_menu.set_parent(&*app.graphview.borrow_mut());
+                    pop_menu.set_pointing_to(&Rectangle {
+                        x: point.to_vec2().x() as i32,
+                        y: point.to_vec2().y() as i32,
+                        width: 0,
+                        height: 0,
+                    });
+                    let action = gio::SimpleAction::new("node.delete", None);
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        println!("node.delete {}", node_id);
+                        pop_menu.unparent();
+                    }));
+                    application.add_action(&action);
+
+                    let action = gio::SimpleAction::new("node.request-pad", None);
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        println!("node.request-pad {}", node_id);
+                        pop_menu.unparent();
+                    }));
+                    application.add_action(&action);
+                    let action = gio::SimpleAction::new("node.properties", None);
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        println!("node.properties {}", node_id);
+
+                        pop_menu.unparent();
+                    }));
+                    application.add_action(&action);
+
+                    pop_menu.show();
+                    None
+                }),
+            )
+            .expect("Failed to register node-right-clicked signal of graphview");
     }
 
     // Downgrade to a weak reference

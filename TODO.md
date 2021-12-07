@@ -11,17 +11,21 @@ TODO:
   - [x] unable to connect in and in out and out
   - [] unable to connnec element with incompatible caps.
   - [x] unable to connect a port which is already connected
-- [] create contextual menu on pad or element
+- [x] create contextual menu on pad or element
 - [] upclass the element
 - [] create a crate for graphview/node/port
 - [x] save/load pipeline
-- [] Run a pipeline with GStreamer
-- [] Run the pipeline with GStreamer
-- [] Control the pipeline with GStreamer
+- [x] Run a pipeline with GStreamer
+- [x] Run the pipeline with GStreamer
+- [x] Control the pipeline with GStreamer
 - [x] Define the license
 - [] Connect the logs to the window
 - [] Create a window for the video output
 - [] Add multiple graphviews with tabs.
+
+## bugs
+
+- [] crash with x11 on contextual menu
 
 ## Code cleanup
 
