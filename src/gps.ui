@@ -28,6 +28,34 @@
       </item>
     </section>
   </menu>
+  <menu id="port_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes" comments="port menu entry delete the link">_Delete link</attribute>
+        <attribute name="action">app.port.delete-link</attribute>
+      </item>
+      </section>
+  </menu>
+  <menu id="node_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes" comments="Node menu entry delete the element">_Delete node</attribute>
+        <attribute name="action">app.node.delete</attribute>
+        <attribute name="accel">&lt;primary&gt;n</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Request pad</attribute>
+        <attribute name="action">app.node.request-pad</attribute>
+        <attribute name="accel">&lt;primary&gt;n</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Properties</attribute>
+        <attribute name="action">app.node.properties</attribute>
+        <attribute name="accel">&lt;primary&gt;n</attribute>
+      </item>
+    </section>
+  </menu>
+
   <object class="GtkAboutDialog" id="dialog-about">
     <property name="program-name">GstPipelineStudio</property>
     <property name="authors">Stéphane Cerveau</property>

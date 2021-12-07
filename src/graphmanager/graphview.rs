@@ -25,10 +25,13 @@ use xml::writer::EmitterConfig;
 use xml::writer::XmlEvent as XMLWEvent;
 
 use super::{node::Node, node::NodeType, port::Port, port::PortDirection};
+use glib::subclass::Signal;
+use once_cell::sync::Lazy;
 use std::fs::File;
 use std::io::BufReader;
 
 use gtk::{
+    gdk::{BUTTON_PRIMARY, BUTTON_SECONDARY},
     glib::{self, clone},
     graphene, gsk,
     prelude::*,
@@ -133,7 +136,28 @@ mod imp {
             obj.add_controller(&drag_controller);
 
             let gesture = gtk::GestureClick::new();
-            gesture.connect_released(clone!(@weak gesture => move |_gesture, _n_press, x, y| {
+            gesture.set_button(0);
+            gesture.connect_pressed(
+                clone!(@weak obj, @weak drag_controller => move |gesture, _n_press, x, y| {
+                    if gesture.current_button() == BUTTON_SECONDARY {
+                        let widget = drag_controller.widget().expect("click event has no widget")
+                        .dynamic_cast::<Self::Type>()
+                        .expect("click event is not on the GraphView");
+                        let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("port pick() did not return a widget");
+                        if let Some(target) = target.ancestor(Port::static_type()) {
+                            let port = target.dynamic_cast::<Port>().expect("click event is not on the Port");
+                            let node = port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");                      
+                            obj.emit_by_name("port-right-clicked", &[&port.id(), &node.id(), &graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
+                        } else if let Some(target) = target.ancestor(Node::static_type()) {
+                            let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
+                            obj.emit_by_name("node-right-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
+                        }
+                    }
+                }),
+            );
+
+            gesture.connect_released(clone!(@weak gesture, @weak drag_controller => move |_gesture, _n_press, x, y| {
+                if gesture.current_button() == BUTTON_PRIMARY {
                 let widget = drag_controller
                         .widget()
                         .expect("click event has no widget")
@@ -175,6 +199,7 @@ mod imp {
                                 }
                             }
                         }
+                    }
             }));
             obj.add_controller(&gesture);
         }
@@ -184,6 +209,33 @@ mod imp {
                 .borrow()
                 .values()
                 .for_each(|node| node.unparent())
+        }
+
+        fn signals() -> &'static [Signal] {
+            static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
+                vec![
+                    Signal::builder(
+                        "port-right-clicked",
+                        &[
+                            u32::static_type().into(),
+                            u32::static_type().into(),
+                            graphene::Point::static_type().into(),
+                        ],
+                        <()>::static_type().into(),
+                    )
+                    .build(),
+                    Signal::builder(
+                        "node-right-clicked",
+                        &[
+                            u32::static_type().into(),
+                            graphene::Point::static_type().into(),
+                        ],
+                        <()>::static_type().into(),
+                    )
+                    .build(),
+                ]
+            });
+            SIGNALS.as_ref()
         }
     }
 
