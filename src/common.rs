@@ -1,6 +1,5 @@
-// main.rs
+// common.rs
 //
-// Copyright 2021 Tom A. Wagner <tom.a.wagner@protonmail.com>
 // Copyright 2021 Stéphane Cerveau <scerveau@collabora.com>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -17,25 +16,17 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
-#[macro_use]
-mod macros;
-mod app;
-mod common;
-mod graphmanager;
-mod pipeline;
-mod pluginlist;
-use gtk::prelude::*;
 
-use crate::app::GPSApp;
-use crate::common::init;
+use anyhow::Result;
+use gstreamer as gst;
 
-fn main() {
-    //    gio::resources_register_include!("compiled.gresource").unwrap();
-    init().expect("Unable to init app");
-    let application = gtk::Application::new(Some(common::APPLICATION_NAME), Default::default());
-    application.connect_startup(|application| {
-        GPSApp::on_startup(application);
-    });
+pub const APPLICATION_NAME: &str = "org.freedesktop.gst-pipeline-studio";
 
-    application.run();
+pub fn init() -> Result<()> {
+    unsafe {
+        x11::xlib::XInitThreads();
+    }
+    gst::init()?;
+    gtk::init()?;
+    Ok(())
 }
