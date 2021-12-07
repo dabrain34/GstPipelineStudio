@@ -20,20 +20,19 @@
 #[macro_use]
 mod macros;
 mod app;
+mod common;
 mod graphmanager;
 mod pipeline;
 mod pluginlist;
-
 use gtk::prelude::*;
 
 use crate::app::GPSApp;
+use crate::common::init;
 fn main() {
     //    gio::resources_register_include!("compiled.gresource").unwrap();
-
-    let application = gtk::Application::new(
-        Some("com.github.gtk-rs.examples.menu_bar"),
-        Default::default(),
-    );
+    init().expect("Unable to init app");
+    let application =
+        gtk::Application::new(Some("com.github.gst-pipeline-studio"), Default::default());
     application.connect_startup(|application| {
         GPSApp::on_startup(application);
     });

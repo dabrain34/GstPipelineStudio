@@ -80,16 +80,13 @@ impl PipelineWeak {
 
 #[derive(Debug)]
 pub struct PipelineInner {
-    initialized: bool,
     pipeline: RefCell<Option<gst::Pipeline>>,
     current_state: Cell<PipelineState>,
 }
 
 impl Pipeline {
     pub fn new() -> Result<Self, Box<dyn error::Error>> {
-        gst::init()?;
         let pipeline = Pipeline(Rc::new(PipelineInner {
-            initialized: true,
             pipeline: RefCell::new(None),
             current_state: Cell::new(PipelineState::STOPPED),
         }));
