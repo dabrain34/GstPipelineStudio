@@ -68,8 +68,8 @@
     <property name="default-height">260</property>
     <property name="hide-on-close">True</property>
     <child>
-      <object class="GtkBox" id="v_box">
-        <property name="orientation">horizontal</property>
+      <object class="GtkPaned">
+        <property name="position">200</property>s
         <child>
           <object class="GtkScrolledWindow" id="scrolled_window">
             <property name="hexpand">True</property>
@@ -80,12 +80,42 @@
           </object>
         </child>
         <child>
-          <object class="GtkScrolledWindow" id="scrolled2_window">
+          <object class="GtkScrolledWindow">
             <property name="hexpand">True</property>
             <property name="vexpand">True</property>
             <child>
               <object class="GtkTextView" id="textview-plugin-list"/>
             </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkDialog" id="dialog-plugin-properties">
+  <property name="transient-for">mainwindow</property>
+    <property name="default-width">320</property>
+    <property name="default-height">260</property>
+    <property name="hide-on-close">True</property>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkScrolledWindow">
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <child>
+              <object class="GtkBox" id="box-plugin-properties">
+                <property name="orientation">vertical</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkButton" id="apply-plugin-properties">
+            <property name="halign">end</property>
+            <property name="hexpand">1</property>
+            <property name="receives-default">1</property>
+            <property name="label" translatable="yes">apply</property>
           </object>
         </child>
       </object>
@@ -153,7 +183,7 @@
                   <object class="GtkButton" id="button-clear">
                     <property name="hexpand">1</property>
                     <property name="receives-default">1</property>
-                    <property name="label">clear</property>
+                    <property name="label" translatable="yes">_clear</property>
                   </object>
                 </child>
               </object>

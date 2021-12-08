@@ -67,6 +67,7 @@ mod imp {
         pub(super) ports: RefCell<HashMap<u32, Port>>,
         pub(super) num_ports_in: Cell<i32>,
         pub(super) num_ports_out: Cell<i32>,
+        pub(super) properties: RefCell<HashMap<String, String>>,
     }
 
     #[glib::object_subclass]
@@ -97,6 +98,7 @@ mod imp {
                 ports: RefCell::new(HashMap::new()),
                 num_ports_in: Cell::new(0),
                 num_ports_out: Cell::new(0),
+                properties: RefCell::new(HashMap::new()),
             }
         }
     }
@@ -213,5 +215,22 @@ impl Node {
     pub fn node_type(&self) -> Option<&NodeType> {
         let private = imp::Node::from_instance(self);
         private.node_type.get()
+    }
+
+    pub fn add_property(&self, name: String, value: String) {
+        let private = imp::Node::from_instance(self);
+        println!("{} {} updated", name, value);
+        private.properties.borrow_mut().insert(name, value);
+    }
+
+    pub fn update_node_properties(&self, new_properties: &HashMap<String, String>) {
+        for (key, value) in new_properties {
+            self.add_property(key.clone(), value.clone());
+        }
+    }
+
+    pub fn properties(&self) -> Ref<HashMap<String, String>> {
+        let private = imp::Node::from_instance(self);
+        private.properties.borrow()
     }
 }

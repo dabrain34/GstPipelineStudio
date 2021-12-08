@@ -412,6 +412,10 @@ impl GraphView {
         let private = imp::GraphView::from_instance(self);
         let mut nodes = private.nodes.borrow_mut();
         if let Some(node) = nodes.remove(&id) {
+            if let Some(link_id) = self.node_is_linked(node.id()) {
+                let mut links = private.links.borrow_mut();
+                links.remove(&link_id);
+            }
             node.unparent();
         } else {
             warn!("Tried to remove non-existant node (id={}) from graph", id);
@@ -431,14 +435,15 @@ impl GraphView {
         nodes_list
     }
 
+    pub fn node(&self, id: &u32) -> Option<super::node::Node> {
+        let private = imp::GraphView::from_instance(self);
+        private.nodes.borrow().get(id).cloned()
+    }
+
     pub fn remove_all_nodes(&self) {
         let private = imp::GraphView::from_instance(self);
         let nodes_list = self.all_nodes(NodeType::All);
         for node in nodes_list {
-            if let Some(link_id) = self.node_is_linked(node.id()) {
-                let mut links = private.links.borrow_mut();
-                links.remove(&link_id);
-            }
             self.remove_node(node.id());
         }
         private.current_node_id.set(0);
@@ -493,7 +498,6 @@ impl GraphView {
     }
 
     // Link related methods
-
     pub fn all_links(&self) -> Vec<NodeLink> {
         let private = imp::GraphView::from_instance(self);
         let links = private.links.borrow();
@@ -668,6 +672,10 @@ impl GraphView {
             description.push_str(" ! ");
         }
 
+        for (name, value) in node.properties().iter() {
+            description.push_str(&format!(" {}={}", name, value));
+        }
+
         println!("{}", description);
         for port in ports {
             if let Some((_port_to, node_to)) = self.port_connected_to(port.id()) {
@@ -711,6 +719,15 @@ impl GraphView {
                         .attr("name", &port.name())
                         .attr("id", &port.id().to_string())
                         .attr("direction", &port.direction().to_string()),
+                )?;
+                writer.write(XMLWEvent::end_element())?;
+            }
+
+            for (name, value) in node.properties().iter() {
+                writer.write(
+                    XMLWEvent::start_element("Property")
+                        .attr("name", name)
+                        .attr("value", value),
                 )?;
                 writer.write(XMLWEvent::end_element())?;
             }
@@ -775,6 +792,17 @@ impl GraphView {
                                 NodeType::from_str(node_type.as_str()),
                             ));
                         }
+                        "Property" => {
+                            let name = attrs
+                                .get::<String>(&String::from("name"))
+                                .expect("Unable to find property name");
+                            let value: &String = attrs
+                                .get::<String>(&String::from("value"))
+                                .expect("Unable to find property value");
+                            let node = current_node.clone();
+                            node.expect("current node does not exist")
+                                .add_property(name.clone(), value.clone());
+                        }
                         "Port" => {
                             let id = attrs
                                 .get::<String>(&String::from("id"))
@@ -835,6 +863,7 @@ impl GraphView {
                             }
                             current_node = None;
                         }
+                        "Property" => {}
                         "Port" => {
                             if let Some(port) = current_port {
                                 let node = current_node.clone();
