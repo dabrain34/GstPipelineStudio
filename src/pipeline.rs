@@ -22,6 +22,7 @@ use glib;
 use gst::prelude::*;
 use gstreamer as gst;
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::error;
 use std::fmt;
 use std::ops;
@@ -318,6 +319,66 @@ impl Pipeline {
             }
         }
         element_type
+    }
+
+    fn value_as_str(v: &glib::Value) -> Option<String> {
+        match v.type_() {
+            glib::Type::I8 => Some(str_some_value!(v, i8).to_string()),
+            glib::Type::U8 => Some(str_some_value!(v, u8).to_string()),
+            glib::Type::BOOL => Some(str_some_value!(v, bool).to_string()),
+            glib::Type::I32 => Some(str_some_value!(v, i32).to_string()),
+            glib::Type::U32 => Some(str_some_value!(v, u32).to_string()),
+            glib::Type::I64 => Some(str_some_value!(v, i64).to_string()),
+            glib::Type::U64 => Some(str_some_value!(v, u64).to_string()),
+            glib::Type::F32 => Some(str_some_value!(v, f32).to_string()),
+            glib::Type::F64 => Some(str_some_value!(v, f64).to_string()),
+            glib::Type::STRING => str_opt_value!(v, String),
+            _ => None,
+        }
+    }
+
+    pub fn element_properties(
+        element_name: &str,
+    ) -> anyhow::Result<HashMap<String, String>, Box<dyn error::Error>> {
+        let mut properties_list = HashMap::new();
+        let feature = Pipeline::element_feature(element_name).expect("Unable to get feature");
+
+        let factory = feature
+            .downcast::<gst::ElementFactory>()
+            .expect("Factory not found");
+        let element = factory.create(None)?;
+        let params = element.class().list_properties();
+
+        for param in params {
+            println!("Property_name {}", param.name());
+            if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
+                || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
+            {
+                let value = Pipeline::value_as_str(&element.property(param.name()).unwrap())
+                    .unwrap_or(String::from(""));
+                properties_list.insert(String::from(param.name()), String::from(value));
+            } else {
+                if let Some(value) = Pipeline::value_as_str(&param.default_value()) {
+                    properties_list.insert(String::from(param.name()), String::from(value));
+                } else {
+                    println!("Unable to add property_name {}", param.name());
+                }
+            }
+        }
+        Ok(properties_list)
+    }
+
+    pub fn element_is_uri_src_handler(element_name: &str) -> bool {
+        let feature = Pipeline::element_feature(element_name).expect("Unable to get feature");
+
+        let factory = feature
+            .downcast::<gst::ElementFactory>()
+            .expect("Factory not found");
+        let element = factory.create(None).expect("Unable to get factory");
+        match element.dynamic_cast::<gst::URIHandler>() {
+            Ok(uri_handler) => uri_handler.uri_type() == gst::URIType::Src,
+            Err(_e) => false,
+        }
     }
 }
 

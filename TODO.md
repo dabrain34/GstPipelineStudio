@@ -26,7 +26,9 @@ TODO:
 ## bugs
 
 - [] crash with x11 on contextual menu
+- [] check that element exists before creating it on file load.
 
 ## Code cleanup
 
 [] remove useless code from graphview
+[] Move render to a specific module

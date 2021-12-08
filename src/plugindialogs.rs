@@ -1,4 +1,4 @@
-// pluginlist.rs
+// plugindialogs.rs
 //
 // Copyright 2021 Stéphane Cerveau <scerveau@collabora.com>
 //
@@ -22,8 +22,14 @@ use crate::pipeline::Pipeline;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::TextBuffer;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 
-use gtk::{CellRendererText, Dialog, ListStore, TextView, TreeView, TreeViewColumn};
+use gtk::{
+    Box, Button, CellRendererText, Dialog, Entry, Label, ListStore, TextView, TreeView,
+    TreeViewColumn,
+};
 
 fn create_and_fill_model(elements: &Vec<ElementInfo>) -> ListStore {
     // Creation of a model with two rows.
@@ -112,4 +118,62 @@ pub fn display_plugin_list(app: &GPSApp, elements: &Vec<ElementInfo>) {
     );
 
     dialog.show();
+}
+
+pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32) {
+    let dialog: Dialog = app
+        .builder
+        .object("dialog-plugin-properties")
+        .expect("Couldn't get window");
+
+    dialog.set_title(Some(&format!("{} properties", element_name)));
+    dialog.set_default_size(640, 480);
+    dialog.set_modal(true);
+
+    let properties_box: Box = app
+        .builder
+        .object("box-plugin-properties")
+        .expect("Couldn't get window");
+    let update_properties: Rc<RefCell<HashMap<String, String>>> =
+        Rc::new(RefCell::new(HashMap::new()));
+    let properties = Pipeline::element_properties(element_name).unwrap();
+    for (name, value) in properties {
+        let entry_box = Box::new(gtk::Orientation::Horizontal, 6);
+        let label = Label::new(Some(&name));
+        label.set_hexpand(true);
+        label.set_halign(gtk::Align::Start);
+        label.set_margin_start(4);
+        entry_box.append(&label);
+        let entry: Entry = Entry::new();
+        entry.set_text(&value);
+        entry.set_hexpand(true);
+        entry.set_halign(gtk::Align::Start);
+        entry.set_widget_name(&name);
+        entry.connect_changed(
+            glib::clone!(@weak entry, @strong update_properties => move |_| {
+                println!("{}:{}", entry.widget_name(), entry.text());
+                update_properties.borrow_mut().insert(String::from(entry.widget_name().to_string()), String::from(entry.text().to_string()));
+            }),
+        );
+        entry_box.append(&entry);
+        properties_box.append(&entry_box);
+    }
+    let properties_apply_btn: Button = app
+        .builder
+        .object("apply-plugin-properties")
+        .expect("Couldn't get window");
+
+    let app_weak = app.downgrade();
+    properties_apply_btn.connect_clicked(
+        glib::clone!(@strong update_properties, @weak dialog => move |_| {
+            let app = upgrade_weak!(app_weak);
+            app.update_element_properties(node_id, &update_properties.borrow());
+            dialog.close();
+        }),
+    );
+
+    dialog.show();
+    for p in update_properties.borrow().values() {
+        println!("updated properties {}", p);
+    }
 }

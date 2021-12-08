@@ -25,11 +25,12 @@ use gtk::{
     FileChooserDialog, PopoverMenu, ResponseType, Statusbar, Viewport,
 };
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use std::{error, ops};
 
 use crate::pipeline::{Pipeline, PipelineState};
-use crate::pluginlist;
+use crate::plugindialogs;
 
 use crate::graphmanager::{GraphView, Node};
 
@@ -125,6 +126,47 @@ impl GPSApp {
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
     }
+
+    pub fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, save: bool, f: F) {
+        let mut message = "Open file";
+        let mut ok_button = "Open";
+        let cancel_button = "Cancel";
+        let mut action = FileChooserAction::Open;
+        if save {
+            message = "Save file";
+            ok_button = "Save";
+            action = FileChooserAction::Save;
+        }
+
+        let file_chooser: FileChooserDialog = FileChooserDialog::new(
+            Some(message),
+            Some(&app.window),
+            action,
+            &[
+                (ok_button, ResponseType::Ok),
+                (cancel_button, ResponseType::Cancel),
+            ],
+        );
+        let app_weak = app.downgrade();
+        file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
+            let app = upgrade_weak!(app_weak);
+            if response == ResponseType::Ok {
+                let file = d.file().expect("Couldn't get file");
+                let filename = String::from(
+                    file.path()
+                        .expect("Couldn't get file path")
+                        .to_str()
+                        .expect("unable to convert to string"),
+                );
+                f(app, filename);
+            }
+
+            d.close();
+        });
+
+        file_chooser.show();
+    }
+
     pub fn show_error_dialog(fatal: bool, message: &str) {
         let app = gio::Application::default()
             .expect("No default application")
@@ -175,25 +217,11 @@ impl GPSApp {
         // Add a dialog to open the graph
         action.connect_activate(glib::clone!(@weak window => move |_, _| {
                 let app = upgrade_weak!(app_weak);
-                let file_chooser = FileChooserDialog::new(
-                    Some("Open File"),
-                    Some(&window),
-                    FileChooserAction::Open,
-                    &[("Open", ResponseType::Ok), ("Cancel", ResponseType::Cancel)],
-                );
-                file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
-                    if response == ResponseType::Ok {
-                        let file = d.file().expect("Couldn't get file");
-                        let filename = String::from(file.path().expect("Couldn't get file path").to_str().expect("unable to convert to string"));
+                GPSApp::get_file_from_dialog(&app, false, move |app, filename|
+                    {
                         println!("Open file {}", filename);
                         app.load_graph(&filename).expect("Unable to open file");
-                    }
-
-                    d.close();
-                });
-
-                file_chooser.show();
-
+                    });
         }));
         application.add_action(&action);
         application.set_accels_for_action("app.open", &["<primary>o"]);
@@ -202,27 +230,14 @@ impl GPSApp {
         let action = gio::SimpleAction::new("save_as", None);
         let app_weak = self.downgrade();
         action.connect_activate(glib::clone!(@weak window => move |_, _| {
-            let app = upgrade_weak!(app_weak);
-            let file_chooser = FileChooserDialog::new(
-                Some("Save File"),
-                Some(&window),
-                FileChooserAction::Open,
-                &[("Save", ResponseType::Ok), ("Cancel", ResponseType::Cancel)],
-            );
-            file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
-                if response == ResponseType::Ok {
-                    let file = d.file().expect("Couldn't get file");
-                    let filename = String::from(file.path().expect("Couldn't get file path").to_str().expect("unable to convert to string"));
-                    println!("Save file {}", filename);
-                    app.save_graph(&filename).expect("Unable to save file");
-                }
 
-                d.close();
-            });
-
-            file_chooser.show();
-
-         }));
+           let app = upgrade_weak!(app_weak);
+           GPSApp::get_file_from_dialog(&app, true, move |app, filename|
+               {
+                   println!("Save file {}", filename);
+                   app.save_graph(&filename).expect("Unable to save file");
+               });
+        }));
 
         application.add_action(&action);
         application.set_accels_for_action("app.save", &["<primary>s"]);
@@ -266,7 +281,7 @@ impl GPSApp {
             // entry.set_text("Clicked!");
             let app = upgrade_weak!(app_weak);
             let elements = Pipeline::elements_list().expect("Unable to obtain element's list");
-            pluginlist::display_plugin_list(&app, &elements);
+            plugindialogs::display_plugin_list(&app, &elements);
         }));
 
         let add_button: Button = self
@@ -334,7 +349,7 @@ impl GPSApp {
                 node_id,
                 Node::new(
                     node_id,
-                    "videotestsrc",
+                    "filesrc",
                     Pipeline::element_type("videotestsrc"),
                 ),
                 0,
@@ -410,8 +425,11 @@ impl GPSApp {
                         height: 0,
                     });
                     let action = gio::SimpleAction::new("node.delete", None);
+                    let app_weak = app.downgrade();
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        let app = upgrade_weak!(app_weak);
                         println!("node.delete {}", node_id);
+                        app.graphview.borrow_mut().remove_node(node_id);
                         pop_menu.unparent();
                     }));
                     application.add_action(&action);
@@ -421,14 +439,17 @@ impl GPSApp {
                         println!("node.request-pad {}", node_id);
                         pop_menu.unparent();
                     }));
+
                     application.add_action(&action);
                     let action = gio::SimpleAction::new("node.properties", None);
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
                         println!("node.properties {}", node_id);
-
+                        let node = app.graphview.borrow().node(&node_id).unwrap();
+                        plugindialogs::display_plugin_properties(&app, &node.name(), node_id);
                         pop_menu.unparent();
                     }));
                     application.add_action(&action);
+
 
                     pop_menu.show();
                     None
@@ -449,6 +470,15 @@ impl GPSApp {
         let graph_view = self.graphview.borrow_mut();
         let node_id = graph_view.next_node_id();
         let pads = Pipeline::pads(&element_name, false);
+        if Pipeline::element_is_uri_src_handler(&element_name) {
+            GPSApp::get_file_from_dialog(&self, false, move |app, filename| {
+                println!("Open file {}", filename);
+                let node = app.graphview.borrow().node(&node_id).unwrap();
+                let mut properties: HashMap<String, String> = HashMap::new();
+                properties.insert(String::from("location"), filename);
+                node.update_node_properties(&properties);
+            });
+        }
         graph_view.add_node_with_port(
             node_id,
             Node::new(
@@ -459,6 +489,11 @@ impl GPSApp {
             pads.0,
             pads.1,
         );
+    }
+
+    pub fn update_element_properties(&self, node_id: u32, properties: &HashMap<String, String>) {
+        let node = self.graphview.borrow().node(&node_id).unwrap();
+        node.update_node_properties(properties);
     }
 
     pub fn save_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
