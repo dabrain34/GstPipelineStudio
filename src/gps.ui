@@ -43,11 +43,19 @@
         <attribute name="action">app.node.delete</attribute>
         <attribute name="accel">&lt;primary&gt;n</attribute>
       </item>
-      <item>
+      <submenu>
         <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Request pad</attribute>
-        <attribute name="action">app.node.request-pad</attribute>
-        <attribute name="accel">&lt;primary&gt;n</attribute>
-      </item>
+        <item>
+          <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Request input pad</attribute>
+          <attribute name="action">app.node.request-pad-input</attribute>
+          <attribute name="accel">&lt;primary&gt;n</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Request output pad</attribute>
+          <attribute name="action">app.node.request-pad-output</attribute>
+          <attribute name="accel">&lt;primary&gt;n</attribute>
+        </item>
+      </submenu>
       <item>
         <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Properties</attribute>
         <attribute name="action">app.node.properties</attribute>

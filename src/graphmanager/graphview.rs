@@ -176,7 +176,7 @@ mod imp {
                                         let mut node_from = port_from.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
                                         let mut node_to = port_to.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
                                         println!("add link");
-                                        if *port_to.direction() == PortDirection::Output {
+                                        if port_to.direction() == PortDirection::Output {
                                             println!("swap ports and nodes to create the link");
                                             std::mem::swap(&mut node_from, &mut node_to);
                                             std::mem::swap(&mut port_from, &mut port_to);
@@ -392,15 +392,13 @@ impl GraphView {
         let _i = 0;
         for _i in 0..input {
             let port_id = self.next_port_id();
-            let port = Port::new(port_id, "in", PortDirection::Input);
-            self.add_port(id, port_id, port);
+            self.add_port(id, port_id, "in", PortDirection::Input);
         }
 
         let _i = 0;
         for _i in 0..output {
             let port_id = self.next_port_id();
-            let port = Port::new(port_id, "out", PortDirection::Output);
-            self.add_port(id, port_id, port);
+            self.add_port(id, port_id, "out", PortDirection::Output);
         }
     }
 
@@ -463,14 +461,20 @@ impl GraphView {
     }
 
     // Port related methods
-    pub fn add_port(&self, node_id: u32, port_id: u32, port: Port) {
+    pub fn add_port(
+        &self,
+        node_id: u32,
+        port_id: u32,
+        port_name: &str,
+        port_direction: PortDirection,
+    ) {
         let private = imp::GraphView::from_instance(self);
         println!(
             "adding a port with port id {} to node id {}",
             port_id, node_id
         );
         if let Some(node) = private.nodes.borrow_mut().get_mut(&node_id) {
-            node.add_port(port_id, port);
+            node.add_port(port_id, port_name, port_direction);
         } else {
             error!(
                 "Node with id {} not found when trying to add port with id {} to graph",
@@ -664,21 +668,20 @@ impl GraphView {
         let private = imp::GraphView::from_instance(self);
         let unique_name = node.unique_name();
         description.push_str(&format!("{} name={}", node.name(), unique_name));
-
-        let ports = node.all_ports(PortDirection::Output);
-        if ports.len() > 1 {
-            description.push_str(&format!(" {}. ! ", unique_name));
-        } else if ports.len() > 0 {
-            description.push_str(" ! ");
-        }
-
         for (name, value) in node.properties().iter() {
             description.push_str(&format!(" {}={}", name, value));
         }
-
         println!("{}", description);
+
+        let ports = node.all_ports(PortDirection::Output);
+        let n_ports = ports.len();
         for port in ports {
             if let Some((_port_to, node_to)) = self.port_connected_to(port.id()) {
+                if n_ports > 1 {
+                    description.push_str(&format!(" {}. ! ", unique_name));
+                } else {
+                    description.push_str(" ! ");
+                }
                 if let Some(node) = private.nodes.borrow().get(&node_to) {
                     description = self.process_node(node, description.clone());
                 }
@@ -867,8 +870,11 @@ impl GraphView {
                         "Port" => {
                             if let Some(port) = current_port {
                                 let node = current_node.clone();
-                                node.expect("No current node, error...")
-                                    .add_port(port.id(), port);
+                                node.expect("No current node, error...").add_port(
+                                    port.id(),
+                                    &port.name(),
+                                    port.direction(),
+                                );
                             }
                             current_port = None;
                         }

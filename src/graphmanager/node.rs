@@ -141,9 +141,9 @@ impl Node {
         println!("{}", name);
     }
 
-    pub fn add_port(&mut self, id: u32, port: super::port::Port) {
+    pub fn add_port(&mut self, id: u32, name: &str, direction: PortDirection) {
         let private = imp::Node::from_instance(self);
-
+        let port = Port::new(id, name, direction);
         match port.direction() {
             PortDirection::Input => {
                 private
@@ -172,7 +172,7 @@ impl Node {
         let ports_list: Vec<_> = self
             .ports()
             .iter()
-            .filter(|(_, port)| *port.direction() == direction || direction == PortDirection::All)
+            .filter(|(_, port)| port.direction() == direction || direction == PortDirection::All)
             .map(|(_, port)| port.clone())
             .collect();
         ports_list

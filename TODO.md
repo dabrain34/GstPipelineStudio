@@ -19,6 +19,9 @@ TODO:
 - [x] Run the pipeline with GStreamer
 - [x] Control the pipeline with GStreamer
 - [x] Define the license
+- [] check that that a node accept to create a port on request (input/output)
+- [] select nodes/links with a Trait Selectable
+- [] be able to remove a link by selecting it
 - [] Connect the logs to the window
 - [] Create a window for the video output
 - [] Add multiple graphviews with tabs.
@@ -27,6 +30,7 @@ TODO:
 
 - [] crash with x11 on contextual menu
 - [] check that element exists before creating it on file load.
+- [] open multiple times dialog (About) prevent to close it.
 
 ## Code cleanup
 

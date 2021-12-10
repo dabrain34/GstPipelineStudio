@@ -32,7 +32,7 @@ use std::{error, ops};
 use crate::pipeline::{Pipeline, PipelineState};
 use crate::plugindialogs;
 
-use crate::graphmanager::{GraphView, Node};
+use crate::graphmanager::{GraphView, Node, PortDirection};
 
 #[derive(Debug)]
 pub struct GPSAppInner {
@@ -419,13 +419,30 @@ impl GPSApp {
                     }));
                     application.add_action(&action);
 
-                    let action = gio::SimpleAction::new("node.request-pad", None);
+                    let action = gio::SimpleAction::new("node.request-pad-input", None);
+                    let app_weak = app.downgrade();
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        println!("node.request-pad {}", node_id);
+                        let app = upgrade_weak!(app_weak);
+                        println!("node.request-pad-input {}", node_id);
+                        let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
+                        let port_id = app.graphview.borrow().next_port_id();
+                        node.add_port(port_id, "in", PortDirection::Input);
                         pop_menu.unparent();
                     }));
-
                     application.add_action(&action);
+
+                    let action = gio::SimpleAction::new("node.request-pad-output", None);
+                    let app_weak = app.downgrade();
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        let app = upgrade_weak!(app_weak);
+                        println!("node.request-pad-output {}", node_id);
+                        let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
+                        let port_id = app.graphview.borrow().next_port_id();
+                        node.add_port(port_id, "out", PortDirection::Output);
+                        pop_menu.unparent();
+                    }));
+                    application.add_action(&action);
+
                     let action = gio::SimpleAction::new("node.properties", None);
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
                         println!("node.properties {}", node_id);
