@@ -22,9 +22,9 @@ use gtk::{
     prelude::*,
     subclass::prelude::*,
 };
-use std::fmt;
+use std::{borrow::Borrow, fmt};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum PortDirection {
     Input,
     Output,
@@ -137,17 +137,14 @@ impl Port {
         private.id.get().copied().expect("Port id is not set")
     }
 
-    pub fn direction(&self) -> &PortDirection {
+    pub fn direction(&self) -> PortDirection {
         let private = imp::Port::from_instance(self);
-        private.direction.get().expect("Port direction is not set")
+        *private.direction.get().expect("Port direction is not set")
     }
 
     pub fn name(&self) -> String {
         let private = imp::Port::from_instance(self);
-        private
-            .direction
-            .get()
-            .expect("direction is not set")
-            .to_string()
+        let label = private.label.borrow().get().unwrap();
+        label.text().to_string()
     }
 }
