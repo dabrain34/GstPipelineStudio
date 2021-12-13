@@ -40,8 +40,7 @@
     <section>
       <item>
         <attribute name="label" translatable="yes" comments="Node menu entry delete the element">_Delete node</attribute>
-        <attribute name="action">app.node.delete</attribute>
-        <attribute name="accel">&lt;primary&gt;n</attribute>
+        <attribute name="action">app.delete</attribute>
       </item>
       <submenu>
         <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Request pad</attribute>

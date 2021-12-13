@@ -58,16 +58,21 @@ impl NodeType {
 
 mod imp {
     use super::*;
+    use gtk::Orientation;
     use once_cell::unsync::OnceCell;
     pub struct Node {
-        pub(super) grid: gtk::Grid,
-        pub(super) label: gtk::Label,
+        pub(super) layoutbox: gtk::Box,
+        pub(super) inputs: gtk::Box,
+        pub(super) outputs: gtk::Box,
+        pub(super) name: gtk::Label,
+        pub(super) description: gtk::Label,
         pub(super) id: OnceCell<u32>,
         pub(super) node_type: OnceCell<NodeType>,
         pub(super) ports: RefCell<HashMap<u32, Port>>,
         pub(super) num_ports_in: Cell<i32>,
         pub(super) num_ports_out: Cell<i32>,
         pub(super) properties: RefCell<HashMap<String, String>>,
+        pub(super) selected: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -82,23 +87,62 @@ mod imp {
         }
 
         fn new() -> Self {
-            let grid = gtk::Grid::new();
-            let label = gtk::Label::new(None);
+            let layoutbox = gtk::Box::new(Orientation::Vertical, 6);
+            let name_desc = gtk::Box::new(Orientation::Vertical, 6);
+            layoutbox.append(&name_desc);
+            let ports = gtk::Box::builder()
+                .orientation(Orientation::Horizontal)
+                .halign(gtk::Align::Start)
+                .spacing(10)
+                .margin_bottom(10)
+                .margin_top(10)
+                .build();
 
-            grid.attach(&label, 0, 0, 2, 1);
+            layoutbox.append(&ports);
+            let inputs = gtk::Box::builder()
+                .orientation(Orientation::Vertical)
+                .halign(gtk::Align::Start)
+                .spacing(10)
+                .build();
 
-            // Display a grab cursor when the mouse is over the label so the user knows the node can be dragged.
-            label.set_cursor(gtk::gdk::Cursor::from_name("grab", None).as_ref());
+            ports.append(&inputs);
+            let center = gtk::Box::builder()
+                .orientation(Orientation::Vertical)
+                .halign(gtk::Align::Center)
+                .hexpand(true)
+                .margin_start(20)
+                .margin_end(20)
+                .build();
+            ports.append(&center);
+            let outputs = gtk::Box::builder()
+                .orientation(Orientation::Vertical)
+                .halign(gtk::Align::End)
+                .spacing(10)
+                .build();
+            ports.append(&outputs);
+
+            let name = gtk::Label::new(None);
+            name_desc.append(&name);
+
+            let description = gtk::Label::new(None);
+            name_desc.append(&description);
+
+            // Display a grab cursor when the mouse is over the name so the user knows the node can be dragged.
+            name.set_cursor(gtk::gdk::Cursor::from_name("grab", None).as_ref());
 
             Self {
-                grid,
-                label,
+                layoutbox,
+                inputs,
+                outputs,
+                name,
+                description,
                 id: OnceCell::new(),
                 node_type: OnceCell::new(),
                 ports: RefCell::new(HashMap::new()),
                 num_ports_in: Cell::new(0),
                 num_ports_out: Cell::new(0),
                 properties: RefCell::new(HashMap::new()),
+                selected: Cell::new(false),
             }
         }
     }
@@ -106,11 +150,11 @@ mod imp {
     impl ObjectImpl for Node {
         fn constructed(&self, obj: &Self::Type) {
             self.parent_constructed(obj);
-            self.grid.set_parent(obj);
+            self.layoutbox.set_parent(obj);
         }
 
         fn dispose(&self, _obj: &Self::Type) {
-            self.grid.unparent();
+            self.layoutbox.unparent();
         }
     }
 
@@ -128,6 +172,7 @@ impl Node {
         let private = imp::Node::from_instance(&res);
         private.id.set(id).expect("Node id already set");
         res.set_name(name);
+        res.add_css_class("node");
         private
             .node_type
             .set(node_type)
@@ -137,8 +182,24 @@ impl Node {
 
     fn set_name(&self, name: &str) {
         let self_ = imp::Node::from_instance(self);
-        self_.label.set_text(name);
+        self_.name.set_text(name);
         println!("{}", name);
+    }
+
+    fn set_description(&self, description: &str) {
+        let self_ = imp::Node::from_instance(self);
+        self_.description.set_text(description);
+        println!("{}", description);
+    }
+
+    fn update_description(&self) {
+        let self_ = imp::Node::from_instance(self);
+        let mut description = String::from("");
+        for (name, value) in self_.properties.borrow().iter() {
+            description.push_str(&format!("{}:{}", name, value));
+            description.push('\n');
+        }
+        self.set_description(&description);
     }
 
     pub fn add_port(&mut self, id: u32, name: &str, direction: PortDirection) {
@@ -146,15 +207,11 @@ impl Node {
         let port = Port::new(id, name, direction);
         match port.direction() {
             PortDirection::Input => {
-                private
-                    .grid
-                    .attach(&port, 0, private.num_ports_in.get() + 1, 1, 1);
+                private.inputs.append(&port);
                 private.num_ports_in.set(private.num_ports_in.get() + 1);
             }
             PortDirection::Output => {
-                private
-                    .grid
-                    .attach(&port, 1, private.num_ports_out.get() + 1, 1, 1);
+                private.outputs.append(&port);
                 private.num_ports_out.set(private.num_ports_out.get() + 1);
             }
             _ => panic!("Port without direction"),
@@ -202,12 +259,12 @@ impl Node {
 
     pub fn name(&self) -> String {
         let private = imp::Node::from_instance(self);
-        private.label.text().to_string()
+        private.name.text().to_string()
     }
 
     pub fn unique_name(&self) -> String {
         let private = imp::Node::from_instance(self);
-        let mut unique_name = private.label.text().to_string();
+        let mut unique_name = private.name.text().to_string();
         unique_name.push_str(&self.id().to_string());
         unique_name
     }
@@ -221,6 +278,7 @@ impl Node {
         let private = imp::Node::from_instance(self);
         println!("{} {} updated", name, value);
         private.properties.borrow_mut().insert(name, value);
+        self.update_description();
     }
 
     pub fn update_node_properties(&self, new_properties: &HashMap<String, String>) {
@@ -232,5 +290,31 @@ impl Node {
     pub fn properties(&self) -> Ref<HashMap<String, String>> {
         let private = imp::Node::from_instance(self);
         private.properties.borrow()
+    }
+
+    pub fn toggle_selected(&self) {
+        self.set_selected(!self.selected());
+    }
+
+    pub fn set_selected(&self, selected: bool) {
+        let private = imp::Node::from_instance(self);
+        private.selected.set(selected);
+        if selected {
+            self.add_css_class("node-selected");
+        } else {
+            self.remove_css_class("node-selected");
+        }
+    }
+
+    pub fn selected(&self) -> bool {
+        let private = imp::Node::from_instance(self);
+        private.selected.get()
+    }
+
+    pub fn unselect_all_ports(&self) {
+        let private = imp::Node::from_instance(self);
+        for port in private.ports.borrow_mut().values() {
+            port.set_selected(false);
+        }
     }
 }

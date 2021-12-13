@@ -19,9 +19,9 @@ TODO:
 - [x] Run the pipeline with GStreamer
 - [x] Control the pipeline with GStreamer
 - [x] Define the license
-- [] check that that a node accept to create a port on request (input/output)
-- [] select nodes/links with a Trait Selectable
-- [] be able to remove a link by selecting it
+- [] check that a node accept to create a port on request (input/output)
+- [x] select nodes/links with a Trait Selectable
+- [x] be able to remove a link by selecting it
 - [] Connect the logs to the window
 - [] Create a window for the video output
 - [] Add multiple graphviews with tabs.
