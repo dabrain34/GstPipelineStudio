@@ -242,6 +242,18 @@ impl GPSApp {
         application.add_action(&action);
         application.set_accels_for_action("app.save", &["<primary>s"]);
 
+        let action = gio::SimpleAction::new("delete", None);
+        application.set_accels_for_action("app.delete", &["<primary>d", "Delete"]);
+        let app_weak = self.downgrade();
+        action.connect_activate({
+            move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                let graph_view = app.graphview.borrow();
+                graph_view.delete_selected();
+            }
+        });
+        application.add_action(&action);
+
         let action = gio::SimpleAction::new("quit", None);
         action.connect_activate({
             let app = application.downgrade();

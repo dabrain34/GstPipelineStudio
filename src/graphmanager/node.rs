@@ -68,6 +68,7 @@ mod imp {
         pub(super) num_ports_in: Cell<i32>,
         pub(super) num_ports_out: Cell<i32>,
         pub(super) properties: RefCell<HashMap<String, String>>,
+        pub(super) selected: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -99,6 +100,7 @@ mod imp {
                 num_ports_in: Cell::new(0),
                 num_ports_out: Cell::new(0),
                 properties: RefCell::new(HashMap::new()),
+                selected: Cell::new(false),
             }
         }
     }
@@ -128,6 +130,7 @@ impl Node {
         let private = imp::Node::from_instance(&res);
         private.id.set(id).expect("Node id already set");
         res.set_name(name);
+        res.add_css_class("node");
         private
             .node_type
             .set(node_type)
@@ -232,5 +235,24 @@ impl Node {
     pub fn properties(&self) -> Ref<HashMap<String, String>> {
         let private = imp::Node::from_instance(self);
         private.properties.borrow()
+    }
+
+    pub fn toggle_selected(&self) {
+        self.set_selected(!self.selected());
+    }
+
+    pub fn set_selected(&self, selected: bool) {
+        let private = imp::Node::from_instance(self);
+        private.selected.set(selected);
+        if selected {
+            self.add_css_class("node-selected");
+        } else {
+            self.remove_css_class("node-selected");
+        }
+    }
+
+    pub fn selected(&self) -> bool {
+        let private = imp::Node::from_instance(self);
+        private.selected.get()
     }
 }

@@ -24,7 +24,7 @@ use xml::reader::XmlEvent as XMLREvent;
 use xml::writer::EmitterConfig;
 use xml::writer::XmlEvent as XMLWEvent;
 
-use super::{node::Node, node::NodeType, port::Port, port::PortDirection};
+use super::{node::Node, node::NodeType, port::Port, port::PortDirection, link::Link};
 use glib::subclass::Signal;
 use once_cell::sync::Lazy;
 use std::fs::File;
@@ -41,15 +41,7 @@ use log::{error, warn};
 
 use std::cell::RefMut;
 use std::{cmp::Ordering, collections::HashMap, error};
-#[derive(Debug, Clone)]
-pub struct NodeLink {
-    pub id: u32,
-    pub node_from: u32,
-    pub node_to: u32,
-    pub port_from: u32,
-    pub port_to: u32,
-    pub active: bool,
-}
+
 
 mod imp {
     use super::*;
@@ -64,7 +56,7 @@ mod imp {
     #[derive(Default)]
     pub struct GraphView {
         pub(super) nodes: RefCell<HashMap<u32, Node>>,
-        pub(super) links: RefCell<HashMap<u32, NodeLink>>,
+        pub(super) links: RefCell<HashMap<u32, Link>>,
         pub(super) current_node_id: Cell<u32>,
         pub(super) current_port_id: Cell<u32>,
         pub(super) current_link_id: Cell<u32>,
@@ -152,6 +144,24 @@ mod imp {
                             let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
                             obj.emit_by_name("node-right-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
                         }
+                    } else if gesture.current_button() == BUTTON_PRIMARY {
+                        let widget = drag_controller.widget().expect("click event has no widget")
+                        .dynamic_cast::<Self::Type>()
+                        .expect("click event is not on the GraphView");
+                        let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("port pick() did not return a widget");
+                        if let Some(target) = target.ancestor(Node::static_type()) {
+                            let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
+                            widget.unselect_all();
+                            node.toggle_selected();
+                            println!(" node name: {} is selected {}", node.name(), node.selected());
+                        } else {
+                            println!("{}:{}", x.floor(), y.floor());
+                            if let Some(link) = widget.point_on_link(&graphene::Point::new(x.floor() as f32,y.floor() as f32)) {
+                                println!("link id {} selected {}", link.id, link.selected());
+                            }
+                            
+                        }
+
                     }
                 }),
             );
@@ -183,14 +193,15 @@ mod imp {
                                             port_from = port_to;
                                             port_to= temp_port;
                                         }
-                                        widget.add_link(NodeLink {
-                                            id: widget.next_link_id(),
-                                            node_from: node_from.id(),
-                                            node_to: node_to.id(),
-                                            port_from: port_from.id(),
-                                            port_to: port_to.id(),
-                                            active: true
-                                        } );
+                                        widget.add_link(Link::new(
+                                            widget.next_link_id(),
+                                            node_from.id(),
+                                            node_to.id(),
+                                            port_from.id(),
+                                            port_to.id(),
+                                            true,
+                                            false,
+                                         ));
                                     }
                                     widget.set_selected_port(None);
                                 } else {
@@ -262,19 +273,23 @@ mod imp {
                 ))
                 .expect("Failed to get cairo context");
 
-            link_cr.set_line_width(1.5);
-
             for link in self.links.borrow().values() {
                 if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
                     //println!("from_x: {} from_y: {} to_x: {} to_y: {}", from_x, from_y, to_x, to_y);
-
+                    link_cr.set_line_width(link.thickness as f64);
                     // Use dashed line for inactive links, full line otherwise.
                     if link.active {
                         link_cr.set_dash(&[], 0.0);
                     } else {
                         link_cr.set_dash(&[10.0, 5.0], 0.0);
                     }
-
+                    if link.selected() {
+                        link_cr.set_source_rgb(1.0, 0.18, 0.18);
+                    }
+                    else {
+                        link_cr.set_source_rgb(0.0,0.0,0.0);
+                    }
+                    
                     link_cr.move_to(from_x, from_y);
                     link_cr.line_to(to_x, to_y);
                     link_cr.set_line_width(2.0);
@@ -294,7 +309,7 @@ mod imp {
         ///
         /// # Returns
         /// `Some((from_x, from_y, to_x, to_y))` if all objects the links refers to exist as widgets.
-        fn link_coordinates(&self, link: &NodeLink) -> Option<(f64, f64, f64, f64)> {
+        pub fn link_coordinates(&self, link: &Link) -> Option<(f64, f64, f64, f64)> {
             let nodes = self.nodes.borrow();
 
             // For some reason, gtk4::WidgetExt::translate_coordinates gives me incorrect values,
@@ -453,6 +468,13 @@ impl GraphView {
         None
     }
 
+    pub fn unselect_nodes(&self) {
+        let private = imp::GraphView::from_instance(self);
+        for node in private.nodes.borrow_mut().values() {
+            node.set_selected(false);
+        }
+    }
+
     // Port related methods
     pub fn add_port(
         &self,
@@ -497,14 +519,14 @@ impl GraphView {
     }
 
     // Link related methods
-    pub fn all_links(&self) -> Vec<NodeLink> {
+    pub fn all_links(&self) -> Vec<Link> {
         let private = imp::GraphView::from_instance(self);
         let links = private.links.borrow();
         let links_list: Vec<_> = links.iter().map(|(_, link)| link.clone()).collect();
         links_list
     }
 
-    pub fn add_link(&self, link: NodeLink) {
+    pub fn add_link(&self, link: Link) {
         let private = imp::GraphView::from_instance(self);
         if !self.link_exists(&link) {
             private.links.borrow_mut().insert(link.id, link);
@@ -528,6 +550,35 @@ impl GraphView {
         links.remove(&id);
 
         self.queue_draw();
+    }
+
+    pub fn unselect_links(&self) {
+        let private = imp::GraphView::from_instance(self);
+        for link in private.links.borrow_mut().values() {
+            link.set_selected(false);
+        }
+    }
+
+    pub fn point_on_link(&self, point: &graphene::Point) -> Option<Link> {
+        let private = imp::GraphView::from_instance(self);
+        self.unselect_all();
+        for link in private.links.borrow_mut().values() {
+            if let Some((from_x, from_y, to_x, to_y)) = private.link_coordinates(&link) {
+                let quad = graphene::Quad::new(
+                    &graphene::Point::new(from_x as f32, from_y as f32 - link.thickness as f32),
+                    &graphene::Point::new(to_x as f32, to_y as f32 - link.thickness as f32),
+                    &graphene::Point::new(to_x as f32, to_y as f32 +  link.thickness as f32),
+                    &graphene::Point::new(from_x as f32, from_y as f32 +  link.thickness as f32),
+                );
+                if quad.contains(&point) {
+                    link.toggle_selected();
+                    self.queue_draw();
+                    return Some(link.clone());
+                }
+            }
+        }
+        self.queue_draw();
+        None
     }
 
     /// Get the position of the specified node inside the graphview.
@@ -574,7 +625,7 @@ impl GraphView {
         self.queue_draw();
     }
 
-    pub(super) fn link_exists(&self, new_link: &NodeLink) -> bool {
+    pub(super) fn link_exists(&self, new_link: &Link) -> bool {
         let private = imp::GraphView::from_instance(self);
 
         for link in private.links.borrow().values() {
@@ -637,6 +688,7 @@ impl GraphView {
     }
 
     fn set_selected_port(&self, port: Option<&Port>) {
+        self.unselect_all();
         let private = imp::GraphView::from_instance(self);
         *private.port_selected.borrow_mut() = port.cloned();
     }
@@ -684,6 +736,36 @@ impl GraphView {
         }
         description
     }
+
+    pub fn unselect_all(&self) {
+        self.unselect_nodes();
+        self.unselect_links();
+        self.queue_draw();
+    }
+
+    pub fn delete_selected(&self) {
+        let private = imp::GraphView::from_instance(self);
+        let mut link_id = None;
+        let mut node_id = None;
+        for link in private.links.borrow_mut().values() {
+            if link.selected() {
+                link_id = Some(link.id);
+            }
+        }
+        for node in private.nodes.borrow_mut().values() {
+            if node.selected() {
+                node_id = Some(node.id());
+            }
+        }
+        if let Some(id) = link_id {
+            self.remove_link(id);
+        }
+        if let Some(id) = node_id {
+            self.remove_node(id);
+        }
+        self.queue_draw();
+    }
+
     //TO BE MOVED
     pub fn render_gst(&self) -> String {
         let nodes = self.all_nodes(NodeType::Source);
@@ -756,7 +838,7 @@ impl GraphView {
 
         let mut current_node: Option<Node> = None;
         let mut current_port: Option<Port> = None;
-        let mut current_link: Option<NodeLink> = None;
+        let mut current_link: Option<Link> = None;
         for e in parser {
             match e {
                 Ok(XMLREvent::StartElement {
@@ -836,14 +918,14 @@ impl GraphView {
                             let active: &String = attrs
                                 .get::<String>(&String::from("active"))
                                 .expect("Unable to find link state");
-                            current_link = Some(NodeLink {
-                                id: id.parse::<u32>().unwrap(),
-                                node_from: node_from.parse::<u32>().unwrap(),
-                                node_to: node_to.parse::<u32>().unwrap(),
-                                port_from: port_from.parse::<u32>().unwrap(),
-                                port_to: port_to.parse::<u32>().unwrap(),
-                                active: active.parse::<bool>().unwrap(),
-                            });
+                            current_link = Some(Link::new(
+                                id.parse::<u32>().unwrap(),
+                                node_from.parse::<u32>().unwrap(),
+                                node_to.parse::<u32>().unwrap(),
+                                port_from.parse::<u32>().unwrap(),
+                                port_to.parse::<u32>().unwrap(),
+                                active.parse::<bool>().unwrap(),
+                                false));
                         }
                         _ => println!("name unknown: {}", name),
                     }

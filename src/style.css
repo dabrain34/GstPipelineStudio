@@ -1,11 +1,11 @@
 @define-color graphview-link #808080;
 
-node-button {
-  color: black;
-  padding: 10px;
-  border-radius: 5px;
-  transition: all 250ms ease-in;
-  border: 1px transparent solid;
+button.node {
+  color: rgb(0, 0, 255);
+}
+
+button.node-selected {
+  border-color: rgb(255, 0, 0);
 }
 
 graphview {
