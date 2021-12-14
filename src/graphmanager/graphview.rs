@@ -154,6 +154,11 @@ mod imp {
                             widget.unselect_all();
                             node.toggle_selected();
                             println!(" node name: {} is selected {}", node.name(), node.selected());
+                        } else if let Some(target) = target.ancestor(Port::static_type()) {
+                            let port = target.dynamic_cast::<Port>().expect("click event is not on the Node");
+                            widget.unselect_all();
+                            port.toggle_selected();
+                            println!(" node name: {} is selected {}", port.name(), port.selected());
                         } else {
                             println!("{}:{}", x.floor(), y.floor());
                             if let Some(link) = widget.point_on_link(&graphene::Point::new(x.floor() as f32,y.floor() as f32)) {
@@ -312,10 +317,9 @@ mod imp {
         pub fn link_coordinates(&self, link: &Link) -> Option<(f64, f64, f64, f64)> {
             let nodes = self.nodes.borrow();
 
-            // For some reason, gtk4::WidgetExt::translate_coordinates gives me incorrect values,
-            // so we manually calculate the needed offsets here.
+            let from_node = nodes.get(&link.node_from)?;
+            let from_port = from_node.port(&link.port_from)?;
 
-            let from_port = &nodes.get(&link.node_from)?.port(&link.port_from)?;
             let gtk::Allocation {
                 x: mut fx,
                 y: mut fy,
@@ -323,28 +327,29 @@ mod imp {
                 height: fh,
             } = from_port.allocation();
 
-            let from_node = from_port
-                .ancestor(Node::static_type())
-                .expect("Port is not a child of a node");
             let gtk::Allocation { x: fnx, y: fny, .. } = from_node.allocation();
-            fx += fnx + (fw / 2);
-            fy += fny + (fh / 2);
 
-            let to_port = &nodes.get(&link.node_to)?.port(&link.port_to)?;
+            if let Some((port_x, port_y)) = from_port.translate_coordinates(from_node, 0.0, 0.0) {
+                fx += fnx + fw + port_x as i32;
+                fy = fny + (fh / 2) + port_y as i32;
+            }
+
+            let to_node = nodes.get(&link.node_to)?;
+            let to_port = to_node.port(&link.port_to)?;
             let gtk::Allocation {
                 x: mut tx,
                 y: mut ty,
-                width: tw,
+                width: _tw,
                 height: th,
                 ..
             } = to_port.allocation();
-            let to_node = to_port
-                .ancestor(Node::static_type())
-                .expect("Port is not a child of a node");
-            let gtk::Allocation { x: tnx, y: tny, .. } = to_node.allocation();
-            tx += tnx + (tw / 2);
-            ty += tny + (th / 2);
 
+            let gtk::Allocation { x: tnx, y: tny, .. } = to_node.allocation();
+            if let Some((port_x, port_y)) = to_port.translate_coordinates(to_node, 0.0, 0.0) {
+                tx += tnx + port_x as i32 ;
+                ty += tny + (th / 2) + port_y as i32;
+            }
+            println!("{} {} -> {} {}", fx,fy,tx,ty);
             Some((fx.into(), fy.into(), tx.into(), ty.into()))
         }
     }
@@ -671,6 +676,13 @@ impl GraphView {
         private.current_node_id.get()
     }
 
+    pub fn update_current_node_id(&self, node_id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        if node_id > private.current_node_id.get() {
+            private.current_node_id.set(node_id);
+        }
+    }
+
     pub fn next_port_id(&self) -> u32 {
         let private = imp::GraphView::from_instance(self);
         private
@@ -679,12 +691,26 @@ impl GraphView {
         private.current_port_id.get()
     }
 
+    pub fn update_current_port_id(&self, port_id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        if port_id > private.current_port_id.get() {
+            private.current_port_id.set(port_id);
+        }
+    }
+
     fn next_link_id(&self) -> u32 {
         let private = imp::GraphView::from_instance(self);
         private
             .current_link_id
             .set(private.current_link_id.get() + 1);
         private.current_link_id.get()
+    }
+
+    pub fn update_current_link_id(&self, link_id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        if link_id > private.current_link_id.get() {
+            private.current_link_id.set(link_id);
+        }
     }
 
     fn set_selected_port(&self, port: Option<&Port>) {
@@ -934,12 +960,13 @@ impl GraphView {
                     println!("closing {}", name);
                     match name.to_string().as_str() {
                         "Graph" => {
-                            println!("Graph ended");
+                            println!("Graph ended with success");
                         }
                         "Node" => {
                             if let Some(node) = current_node {
                                 let id = node.id();
                                 self.add_node(id, node);
+                                self.update_current_node_id(id);
                             }
                             current_node = None;
                         }
@@ -947,17 +974,21 @@ impl GraphView {
                         "Port" => {
                             if let Some(port) = current_port {
                                 let node = current_node.clone();
+                                let id = port.id();
                                 node.expect("No current node, error...").add_port(
-                                    port.id(),
+                                    id,
                                     &port.name(),
                                     port.direction(),
                                 );
+                                self.update_current_port_id(id);
                             }
                             current_port = None;
                         }
                         "Link" => {
                             if let Some(link) = current_link {
+                                let id = link.id;
                                 self.add_link(link);
+                                self.update_current_link_id(id);
                             }
                             current_link = None;
                         }

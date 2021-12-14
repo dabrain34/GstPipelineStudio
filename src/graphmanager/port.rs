@@ -22,6 +22,7 @@ use gtk::{
     prelude::*,
     subclass::prelude::*,
 };
+use std::cell::Cell;
 use std::{borrow::Borrow, fmt};
 
 #[derive(Debug, Clone, PartialEq, Copy)]
@@ -61,6 +62,7 @@ mod imp {
         pub(super) label: OnceCell<gtk::Label>,
         pub(super) id: OnceCell<u32>,
         pub(super) direction: OnceCell<PortDirection>,
+        pub(super) selected: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -110,26 +112,29 @@ glib::wrapper! {
 impl Port {
     pub fn new(id: u32, name: &str, direction: PortDirection) -> Self {
         // Create the widget and initialize needed fields
-        let res: Self = glib::Object::new(&[]).expect("Failed to create Port");
-
-        let private = imp::Port::from_instance(&res);
+        let port: Self = glib::Object::new(&[]).expect("Failed to create Port");
+        port.add_css_class("port");
+        let private = imp::Port::from_instance(&port);
         private.id.set(id).expect("Port id already set");
+        private.selected.set(false);
         private
             .direction
             .set(direction)
             .expect("Port direction already set");
+        if direction == PortDirection::Input {
+            port.add_css_class("port-in");
+        } else {
+            port.add_css_class("port-out");
+        }
 
         let label = gtk::Label::new(Some(name));
-        label.set_parent(&res);
+        label.set_parent(&port);
         private
             .label
             .set(label)
             .expect("Port label was already set");
 
-        // Display a grab cursor when the mouse is over the port so the user knows it can be dragged to another port.
-        res.set_cursor(gtk::gdk::Cursor::from_name("grab", None).as_ref());
-
-        res
+        port
     }
 
     pub fn id(&self) -> u32 {
@@ -146,5 +151,24 @@ impl Port {
         let private = imp::Port::from_instance(self);
         let label = private.label.borrow().get().unwrap();
         label.text().to_string()
+    }
+
+    pub fn toggle_selected(&self) {
+        self.set_selected(!self.selected());
+    }
+
+    pub fn set_selected(&self, selected: bool) {
+        let private = imp::Port::from_instance(self);
+        private.selected.set(selected);
+        if selected {
+            self.add_css_class("port-selected");
+        } else {
+            self.remove_css_class("port-selected");
+        }
+    }
+
+    pub fn selected(&self) -> bool {
+        let private = imp::Port::from_instance(self);
+        private.selected.get()
     }
 }

@@ -458,7 +458,7 @@ impl GPSApp {
                         let app = upgrade_weak!(app_weak);
                         println!("node.request-pad-output {}", node_id);
                         let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
-                        let port_id = app.graphview.borrow().next_port_id();
+                        let port_id = app.graphview.borrow_mut().next_port_id();
                         node.add_port(port_id, "out", PortDirection::Output);
                         pop_menu.unparent();
                     }));

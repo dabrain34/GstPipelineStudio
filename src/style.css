@@ -2,10 +2,28 @@
 
 button.node {
   color: rgb(0, 0, 255);
+  background: rgb(170, 255, 170);
 }
 
 button.node-selected {
   border-color: rgb(255, 0, 0);
+  background: rgb(170, 255, 170);
+}
+
+button.port {
+  color: rgb(0, 0, 255);
+}
+
+button.port-selected {
+  border-color: rgb(255, 0, 0);
+}
+
+button.port-out {
+  background: rgb(255, 170, 170);
+}
+
+button.port-in {
+  background: rgb(170, 170, 255);
 }
 
 graphview {
