@@ -256,7 +256,13 @@ impl GPSApp {
         application.set_accels_for_action("app.quit", &["<primary>q"]);
 
         let action = gio::SimpleAction::new("new-window", None);
-
+        let app_weak = self.downgrade();
+        action.connect_activate({
+            move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                app.clear_graph();
+            }
+        });
         application.add_action(&action);
         application.set_accels_for_action("app.new-window", &["<primary>n"]);
 
@@ -339,19 +345,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         add_button.connect_clicked(glib::clone!(@weak window => move |_| {
             let app = upgrade_weak!(app_weak);
-            let graph_view = app.graphview.borrow_mut();
-            graph_view.remove_all_nodes();
-            let node_id = graph_view.next_node_id();
-            graph_view.add_node_with_port(
-                node_id,
-                Node::new(
-                    node_id,
-                    "filesrc",
-                    Pipeline::element_type("videotestsrc"),
-                ),
-                0,
-                1,
-            );
+            app.load_graph("graphs/video.xml").expect("Unable to open file");
         }));
 
         let app_weak = self.downgrade();
@@ -510,6 +504,11 @@ impl GPSApp {
         node.update_node_properties(properties);
     }
 
+    pub fn clear_graph(&self) {
+        let graph_view = self.graphview.borrow_mut();
+        graph_view.remove_all_nodes();
+    }
+
     pub fn save_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
         let graph_view = self.graphview.borrow_mut();
         graph_view.render_xml(filename)?;
@@ -517,8 +516,8 @@ impl GPSApp {
     }
 
     pub fn load_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+        self.clear_graph();
         let graph_view = self.graphview.borrow_mut();
-        graph_view.remove_all_nodes();
         graph_view.load_xml(filename)?;
         Ok(())
     }
