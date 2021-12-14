@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Graph>
+  <Node name="videotestsrc" id="1" type="Source">
+    <Port name="out" id="1" direction="Output" />
+  </Node>
+  <Node name="autovideosink" id="2" type="Sink">
+    <Port name="in" id="2" direction="Input" />
+  </Node>
+  <Link id="1" node_from="1" node_to="2" port_from="1" port_to="2" active="true" />
+</Graph>
