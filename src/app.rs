@@ -302,7 +302,13 @@ impl GPSApp {
             let graph_view = app.graphview.borrow();
             let pipeline = app.pipeline.borrow();
             if pipeline.state() == PipelineState::Stopped {
-                pipeline.create_pipeline(&graph_view.render_gst()).expect("Unable to create the pipeline");
+                if let Err(err)  = pipeline.create_pipeline(&pipeline.render_gst_launch(&graph_view)) {
+                    GPSApp::show_error_dialog(
+                        false,
+                        format!("Unable to start a pipeline: {}", err)
+                        .as_str(),
+                    );
+                }
                 pipeline.set_state(PipelineState::Playing).expect("Unable to change state");
             } else if pipeline.state() == PipelineState::Paused {
                 pipeline.set_state(PipelineState::Playing).expect("Unable to change state");
@@ -320,7 +326,13 @@ impl GPSApp {
             let graph_view = app.graphview.borrow();
             let pipeline = app.pipeline.borrow();
             if pipeline.state() == PipelineState::Stopped {
-                pipeline.create_pipeline(&graph_view.render_gst()).expect("Unable to create the pipeline");
+                if let Err(err)  = pipeline.create_pipeline(&pipeline.render_gst_launch(&graph_view)) {
+                    GPSApp::show_error_dialog(
+                        false,
+                        format!("Unable to start a pipeline: {}", err)
+                        .as_str(),
+                    );
+                }
                 pipeline.set_state(PipelineState::Paused).expect("Unable to change state");
             } else if pipeline.state() == PipelineState::Paused {
                 pipeline.set_state(PipelineState::Playing).expect("Unable to change state");

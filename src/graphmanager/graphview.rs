@@ -733,36 +733,6 @@ impl GraphView {
         None
     }
 
-    //  * filesrc location=obama_last_speech.mp4 ! decodebin name=bin bin. ! audioconvert ! audioresample ! autoaudiosink bin. ! autovideosink
-
-    // Render graph methods
-    //TO BE MOVED
-    pub fn process_node(&self, node: &Node, mut description: String) -> String {
-        let private = imp::GraphView::from_instance(self);
-        let unique_name = node.unique_name();
-        description.push_str(&format!("{} name={}", node.name(), unique_name));
-        for (name, value) in node.properties().iter() {
-            description.push_str(&format!(" {}={}", name, value));
-        }
-        println!("{}", description);
-
-        let ports = node.all_ports(PortDirection::Output);
-        let n_ports = ports.len();
-        for port in ports {
-            if let Some((_port_to, node_to)) = self.port_connected_to(port.id()) {
-                if n_ports > 1 {
-                    description.push_str(&format!(" {}. ! ", unique_name));
-                } else {
-                    description.push_str(" ! ");
-                }
-                if let Some(node) = private.nodes.borrow().get(&node_to) {
-                    description = self.process_node(node, description.clone());
-                }
-            }
-        }
-        description
-    }
-
     pub fn unselect_all(&self) {
         self.unselect_nodes();
         self.unselect_links();
@@ -790,16 +760,6 @@ impl GraphView {
             self.remove_node(id);
         }
         self.queue_draw();
-    }
-
-    //TO BE MOVED
-    pub fn render_gst(&self) -> String {
-        let nodes = self.all_nodes(NodeType::Source);
-        let mut description = String::from("");
-        for node in nodes {
-            description = self.process_node(&node, description.clone());
-        }
-        description
     }
 
     pub fn render_xml(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {

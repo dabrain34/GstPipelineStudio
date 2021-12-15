@@ -17,7 +17,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::app::GPSApp;
-use crate::graphmanager::NodeType;
+use crate::graphmanager::{GraphView, Node, NodeType, PortDirection};
 use gst::prelude::*;
 use gstreamer as gst;
 use std::cell::{Cell, RefCell};
@@ -362,6 +362,45 @@ impl Pipeline {
             Ok(uri_handler) => uri_handler.uri_type() == gst::URIType::Src,
             Err(_e) => false,
         }
+    }
+
+    // Render graph methods
+    pub fn process_node(
+        &self,
+        graphview: &GraphView,
+        node: &Node,
+        mut description: String,
+    ) -> String {
+        let unique_name = node.unique_name();
+        description.push_str(&format!("{} name={}", node.name(), unique_name));
+        for (name, value) in node.properties().iter() {
+            description.push_str(&format!(" {}={}", name, value));
+        }
+
+        let ports = node.all_ports(PortDirection::Output);
+        let n_ports = ports.len();
+        for port in ports {
+            if let Some((_port_to, node_to)) = graphview.port_connected_to(port.id()) {
+                if n_ports > 1 {
+                    description.push_str(&format!(" {}. ! ", unique_name));
+                } else {
+                    description.push_str(" ! ");
+                }
+                if let Some(node) = graphview.node(&node_to) {
+                    description = self.process_node(graphview, &node, description.clone());
+                }
+            }
+        }
+        description
+    }
+
+    pub fn render_gst_launch(&self, graphview: &GraphView) -> String {
+        let nodes = graphview.all_nodes(NodeType::Source);
+        let mut description = String::from("");
+        for node in nodes {
+            description = self.process_node(graphview, &node, description.clone());
+        }
+        description
     }
 }
 

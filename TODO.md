@@ -28,7 +28,7 @@ TODO:
 
 ## bugs
 
-- [] crash with x11 on contextual menu
+- [x] crash with x11 on contextual menu
 - [] check that element exists before creating it on file load.
 - [] open multiple times dialog (About) prevent to close it.
 
@@ -36,3 +36,4 @@ TODO:
 
 [] remove useless code from graphview
 [] Move render to a specific module
+[x] Move GST render to a specific module
