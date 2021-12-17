@@ -24,6 +24,7 @@ use gtk::{
     AboutDialog, Application, ApplicationWindow, Builder, Button, FileChooserAction,
     FileChooserDialog, PopoverMenu, ResponseType, Statusbar, Viewport,
 };
+use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -40,6 +41,7 @@ pub struct GPSAppInner {
     pub graphview: RefCell<GraphView>,
     pub builder: Builder,
     pub pipeline: RefCell<Pipeline>,
+    pub plugin_list_initialized: OnceCell<bool>,
 }
 
 // This represents our main application window.
@@ -82,6 +84,7 @@ impl GPSApp {
             graphview: RefCell::new(GraphView::new()),
             builder,
             pipeline: RefCell::new(pipeline),
+            plugin_list_initialized: OnceCell::new(),
         }));
         Ok(app)
     }

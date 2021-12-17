@@ -62,62 +62,67 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
         .object("dialog-plugin-list")
         .expect("Couldn't get window");
 
-    dialog.set_title(Some("Plugin list"));
-    dialog.set_default_size(640, 480);
+    if app.plugin_list_initialized.get().is_none() {
+        dialog.set_title(Some("Plugin list"));
+        dialog.set_default_size(640, 480);
 
-    let text_view: TextView = app
-        .builder
-        .object("textview-plugin-list")
-        .expect("Couldn't get window");
-    let text_buffer: TextBuffer = text_view.buffer();
+        let text_view: TextView = app
+            .builder
+            .object("textview-plugin-list")
+            .expect("Couldn't get window");
+        let text_buffer: TextBuffer = text_view.buffer();
 
-    let tree: TreeView = app
-        .builder
-        .object("treeview-plugin-list")
-        .expect("Couldn't get window");
-    if tree.n_columns() < 2 {
-        append_column(&tree, 0);
-        append_column(&tree, 1);
-    }
-    tree.set_search_column(1);
-    let model = create_and_fill_model(elements);
-    // Setting the model into the view.
-    tree.set_model(Some(&model));
-
-    // The closure responds to selection changes by connection to "::cursor-changed" signal,
-    // that gets emitted when the cursor moves (focus changes).
-    tree.connect_cursor_changed(glib::clone!(@weak dialog, @weak text_buffer => move |tree_view| {
-        let selection = tree_view.selection();
-        if let Some((model, iter)) = selection.selected() {
-            let element_name = model
-            .get(&iter, 1)
-            .get::<String>()
-            .expect("Treeview selection, column 1");
-            let description = Pipeline::element_description(&element_name).expect("Unable to get element list from GStreamer");
-            text_buffer.set_text("");
-            text_buffer.insert_markup(&mut text_buffer.end_iter(), &description);
+        let tree: TreeView = app
+            .builder
+            .object("treeview-plugin-list")
+            .expect("Couldn't get window");
+        if tree.n_columns() < 2 {
+            append_column(&tree, 0);
+            append_column(&tree, 1);
         }
+        tree.set_search_column(1);
+        let model = create_and_fill_model(elements);
+        // Setting the model into the view.
+        tree.set_model(Some(&model));
 
-    }));
-    let app_weak = app.downgrade();
-    tree.connect_row_activated(
-        glib::clone!(@weak dialog => move |tree_view, _tree_path, _tree_column| {
-            let app = upgrade_weak!(app_weak);
+        // The closure responds to selection changes by connection to "::cursor-changed" signal,
+        // that gets emitted when the cursor moves (focus changes).
+        tree.connect_cursor_changed(glib::clone!(@weak dialog, @weak text_buffer => move |tree_view| {
             let selection = tree_view.selection();
             if let Some((model, iter)) = selection.selected() {
-                // Now getting back the values from the row corresponding to the
-                // iterator `iter`.
-                //
-
                 let element_name = model
                 .get(&iter, 1)
                 .get::<String>()
                 .expect("Treeview selection, column 1");
-                println!("{}", element_name);
-                app.add_new_element(element_name);
+                let description = Pipeline::element_description(&element_name).expect("Unable to get element list from GStreamer");
+                text_buffer.set_text("");
+                text_buffer.insert_markup(&mut text_buffer.end_iter(), &description);
             }
-        }),
-    );
+
+        }));
+        let app_weak = app.downgrade();
+        tree.connect_row_activated(
+            glib::clone!(@weak dialog => move |tree_view, _tree_path, _tree_column| {
+                let app = upgrade_weak!(app_weak);
+                let selection = tree_view.selection();
+                if let Some((model, iter)) = selection.selected() {
+                    // Now getting back the values from the row corresponding to the
+                    // iterator `iter`.
+                    //
+
+                    let element_name = model
+                    .get(&iter, 1)
+                    .get::<String>()
+                    .expect("Treeview selection, column 1");
+                    println!("{}", element_name);
+                    app.add_new_element(element_name);
+                }
+            }),
+        );
+        app.plugin_list_initialized
+            .set(true)
+            .expect("Should never happen");
+    }
 
     dialog.show();
 }
