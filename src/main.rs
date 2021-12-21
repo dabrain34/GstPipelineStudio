@@ -24,6 +24,7 @@ mod common;
 mod graphmanager;
 mod pipeline;
 mod plugindialogs;
+mod settings;
 use gtk::prelude::*;
 
 use crate::app::GPSApp;

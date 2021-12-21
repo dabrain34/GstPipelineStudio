@@ -19,11 +19,12 @@
 use glib::Value;
 use gtk::gdk::Rectangle;
 use gtk::prelude::*;
-use gtk::{gio, glib, graphene};
 use gtk::{
-    AboutDialog, Application, ApplicationWindow, Builder, Button, FileChooserAction,
-    FileChooserDialog, PopoverMenu, ResponseType, Statusbar, Viewport,
+    gdk::BUTTON_SECONDARY, AboutDialog, Application, ApplicationWindow, Builder, Button,
+    CellRendererText, FileChooserAction, FileChooserDialog, ListStore, PopoverMenu, ResponseType,
+    Statusbar, TreeView, TreeViewColumn, Viewport,
 };
+use gtk::{gio, glib, graphene};
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -32,6 +33,7 @@ use std::{error, ops};
 
 use crate::pipeline::{Pipeline, PipelineState};
 use crate::plugindialogs;
+use crate::settings::Settings;
 
 use crate::graphmanager::{GraphView, Node, PortDirection};
 
@@ -186,6 +188,109 @@ impl GPSApp {
 
         dialog.set_resizable(false);
         dialog.show();
+    }
+
+    fn reset_favorite_list(&self, favorite_list: &TreeView) {
+        let model = ListStore::new(&[String::static_type()]);
+        favorite_list.set_model(Some(&model));
+        let favorites = Settings::get_favorites_list();
+        for favorite in favorites {
+            model.insert_with_values(None, &[(0, &favorite)]);
+        }
+    }
+
+    fn setup_favorite_list(&self) {
+        let favorite_list: TreeView = self
+            .builder
+            .object("favorites_list")
+            .expect("Couldn't get window");
+        let column = TreeViewColumn::new();
+        let cell = CellRendererText::new();
+
+        column.pack_start(&cell, true);
+        // Association of the view's column with the model's `id` column.
+        column.add_attribute(&cell, "text", 0);
+        column.set_title("favorites");
+        favorite_list.append_column(&column);
+        self.reset_favorite_list(&favorite_list);
+        let app_weak = self.downgrade();
+        favorite_list.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
+            let app = upgrade_weak!(app_weak);
+            let selection = tree_view.selection();
+            if let Some((model, iter)) = selection.selected() {
+                let element_name = model
+                    .get(&iter, 0)
+                    .get::<String>()
+                    .expect("Treeview selection, column 1");
+                println!("{}", element_name);
+                app.add_new_element(&element_name);
+            }
+        });
+        let gesture = gtk::GestureClick::new();
+        gesture.set_button(0);
+        let app_weak = self.downgrade();
+        gesture.connect_pressed(
+            glib::clone!(@weak favorite_list => move |gesture, _n_press, x, y| {
+                let app = upgrade_weak!(app_weak);
+                if gesture.current_button() == BUTTON_SECONDARY {
+                    let selection = favorite_list.selection();
+                    if let Some((model, iter)) = selection.selected() {
+                        let element_name = model
+                        .get(&iter, 0)
+                        .get::<String>()
+                        .expect("Treeview selection, column 1");
+                        println!("{}", element_name);
+                        let point = graphene::Point::new(x as f32,y as f32);
+
+
+                    let pop_menu: PopoverMenu = app
+                        .builder
+                        .object("fav_pop_menu")
+                        .expect("Couldn't get menu model for favorites");
+
+                    pop_menu.set_pointing_to(&Rectangle {
+                        x: point.to_vec2().x() as i32,
+                        y: point.to_vec2().y() as i32,
+                        width: 0,
+                        height: 0,
+                    });
+                    // add an action to delete link
+                    let action = gio::SimpleAction::new("favorite.remove", None);
+                    let app_weak = app.downgrade();
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        let app = upgrade_weak!(app_weak);
+                        Settings::remove_favorite(&element_name);
+                        app.reset_favorite_list(&favorite_list);
+                        pop_menu.unparent();
+                    }));
+                    if let Some(application) = app.window.application() {
+                        application.add_action(&action);
+                    }
+
+                    pop_menu.show();
+                    }
+
+                }
+            }),
+        );
+        favorite_list.add_controller(&gesture);
+    }
+
+    fn add_to_favorite_list(&self, element_name: String) {
+        let favorites = Settings::get_favorites_list();
+        if !favorites.contains(&element_name) {
+            let favorite_list: TreeView = self
+                .builder
+                .object("favorites_list")
+                .expect("Couldn't get window");
+            if let Some(model) = favorite_list.model() {
+                let list_store = model
+                    .dynamic_cast::<ListStore>()
+                    .expect("Could not cast to ListStore");
+                list_store.insert_with_values(None, &[(0, &element_name)]);
+                Settings::add_favorite(&element_name);
+            }
+        }
     }
 
     pub fn build_ui(&self, application: &Application) {
@@ -430,6 +535,17 @@ impl GPSApp {
                         width: 0,
                         height: 0,
                     });
+
+                    let action = gio::SimpleAction::new("node.add-to-favorite", None);
+                    let app_weak = app.downgrade();
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        let app = upgrade_weak!(app_weak);
+                        println!("node.delete {}", node_id);
+                        let node = app.graphview.borrow().node(&node_id).unwrap();
+                        app.add_to_favorite_list(node.name());
+                        pop_menu.unparent();
+                    }));
+                    application.add_action(&action);
                     let action = gio::SimpleAction::new("node.delete", None);
                     let app_weak = app.downgrade();
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
@@ -479,6 +595,9 @@ impl GPSApp {
                 }),
             )
             .expect("Failed to register node-right-clicked signal of graphview");
+
+        // Setup the favorite list
+        self.setup_favorite_list();
     }
 
     // Downgrade to a weak reference
@@ -489,11 +608,11 @@ impl GPSApp {
     // Called when the application shuts down. We drop our app struct here
     fn drop(self) {}
 
-    pub fn add_new_element(&self, element_name: String) {
+    pub fn add_new_element(&self, element_name: &str) {
         let graph_view = self.graphview.borrow_mut();
         let node_id = graph_view.next_node_id();
-        let pads = Pipeline::pads(&element_name, false);
-        if Pipeline::element_is_uri_src_handler(&element_name) {
+        let pads = Pipeline::pads(element_name, false);
+        if Pipeline::element_is_uri_src_handler(element_name) {
             GPSApp::get_file_from_dialog(self, false, move |app, filename| {
                 println!("Open file {}", filename);
                 let node = app.graphview.borrow().node(&node_id).unwrap();
@@ -504,11 +623,7 @@ impl GPSApp {
         }
         graph_view.add_node_with_port(
             node_id,
-            Node::new(
-                node_id,
-                &element_name,
-                Pipeline::element_type(&element_name),
-            ),
+            Node::new(node_id, element_name, Pipeline::element_type(element_name)),
             pads.0,
             pads.1,
         );

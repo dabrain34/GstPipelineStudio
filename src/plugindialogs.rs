@@ -106,16 +106,11 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
                 let app = upgrade_weak!(app_weak);
                 let selection = tree_view.selection();
                 if let Some((model, iter)) = selection.selected() {
-                    // Now getting back the values from the row corresponding to the
-                    // iterator `iter`.
-                    //
-
                     let element_name = model
                     .get(&iter, 1)
                     .get::<String>()
                     .expect("Treeview selection, column 1");
-                    println!("{}", element_name);
-                    app.add_new_element(element_name);
+                    app.add_new_element(&element_name);
                 }
             }),
         );
