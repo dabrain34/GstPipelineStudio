@@ -146,6 +146,9 @@ mod imp {
                             widget.unselect_all();
                             node.set_selected(true);
                             obj.emit_by_name("node-right-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
+                        } else {
+                            widget.unselect_all();
+                            obj.emit_by_name("graph-right-clicked", &[&graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
                         }
                     } else if gesture.current_button() == BUTTON_PRIMARY {
                         let widget = drag_controller.widget().expect("click event has no widget")
@@ -240,6 +243,12 @@ mod imp {
                             u32::static_type().into(),
                             graphene::Point::static_type().into(),
                         ],
+                        <()>::static_type().into(),
+                    )
+                    .build(),
+                    Signal::builder(
+                        "graph-right-clicked",
+                        &[graphene::Point::static_type().into()],
                         <()>::static_type().into(),
                     )
                     .build(),

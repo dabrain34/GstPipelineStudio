@@ -34,6 +34,14 @@
         <attribute name="label" translatable="yes" comments="port menu entry delete the link">_Delete link</attribute>
         <attribute name="action">app.port.delete-link</attribute>
       </item>
+    </section>
+  </menu>
+  <menu id="graph_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes" comments="graph menu entry add plugin">_Add plugin</attribute>
+        <attribute name="action">app.graph.add-plugin</attribute>
+      </item>
       </section>
   </menu>
   <menu id="fav_menu">

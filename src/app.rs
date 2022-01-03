@@ -292,6 +292,10 @@ impl GPSApp {
             }
         }
     }
+    pub fn display_plugin_list(app: &GPSApp) {
+        let elements = Pipeline::elements_list().expect("Unable to obtain element's list");
+        plugindialogs::display_plugin_list(app, &elements);
+    }
 
     pub fn build_ui(&self, application: &Application) {
         let drawing_area_window: Viewport = self
@@ -395,8 +399,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         add_button.connect_clicked(glib::clone!(@weak window => move |_| {
             let app = upgrade_weak!(app_weak);
-            let elements = Pipeline::elements_list().expect("Unable to obtain element's list");
-            plugindialogs::display_plugin_list(&app, &elements);
+            GPSApp::display_plugin_list(&app);
         }));
 
         let add_button: Button = self
@@ -467,7 +470,44 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             app.load_graph("graphs/video.xml").expect("Unable to open file");
         }));
+        let app_weak = self.downgrade();
+        // When user clicks on port with right button
+        self.graphview
+            .borrow()
+            .connect_local(
+                "graph-right-clicked",
+                false,
+                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                    let app = upgrade_weak!(app_weak, None);
 
+                    let point = values[1].get::<graphene::Point>().expect("point in args[2]");
+
+                    let port_menu: gio::MenuModel = app
+                        .builder
+                        .object("graph_menu")
+                        .expect("Couldn't get menu model for graph");
+
+                    let pop_menu: PopoverMenu = PopoverMenu::from_model(Some(&port_menu));
+                    pop_menu.set_parent(&*app.graphview.borrow_mut());
+                    pop_menu.set_pointing_to(&Rectangle {
+                        x: point.to_vec2().x() as i32,
+                        y: point.to_vec2().y() as i32,
+                        width: 0,
+                        height: 0,
+                    });
+                    // add an action to delete link
+                    let action = gio::SimpleAction::new("graph.add-plugin", None);
+                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
+                        GPSApp::display_plugin_list(&app);
+                        pop_menu.unparent();
+                    }));
+                    application.add_action(&action);
+
+                    pop_menu.show();
+                    None
+                }),
+            )
+            .expect("Failed to register graph-right-clicked signal of graphview");
         let app_weak = self.downgrade();
         // When user clicks on port with right button
         self.graphview
