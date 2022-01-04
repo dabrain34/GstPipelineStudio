@@ -9,7 +9,7 @@ TODO:
 - [x] Create connection between element
 - [] Control the connection between element
   - [x] unable to connect in and in out and out
-  - [] unable to connnec element with incompatible caps.
+  - [] unable to connect element with incompatible caps.
   - [x] unable to connect a port which is already connected
 - [x] create contextual menu on pad or element
 - [] upclass the element
@@ -22,7 +22,7 @@ TODO:
 - [] check that a node accept to create a port on request (input/output)
 - [x] select nodes/links with a Trait Selectable
 - [x] be able to remove a link by selecting it
-- [] Connect the logs to the window
+- [x] Connect the logs to the window
 - [] Create a window for the video output
 - [] Add multiple graphviews with tabs.
 
@@ -30,7 +30,7 @@ TODO:
 
 - [x] crash with x11 on contextual menu
 - [] check that element exists before creating it on file load.
-- [] open multiple times dialog (About) prevent to close it.
+- [x] open multiple times dialog (About) prevent to close it.
 
 ## Code cleanup
 

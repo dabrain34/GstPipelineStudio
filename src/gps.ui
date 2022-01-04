@@ -270,7 +270,7 @@
           <object class="GtkScrolledWindow">
             <property name="valign">end</property>
             <property name="child">
-              <object class="GtkTreeView"/>
+              <object class="GtkTreeView" id="logger_list"/>
             </property>
           </object>
         </child>

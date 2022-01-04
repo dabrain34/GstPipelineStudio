@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::common;
+use crate::logger;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Settings {
@@ -18,7 +19,7 @@ impl Settings {
             if let Some(parent_dir) = s.parent() {
                 if !parent_dir.exists() {
                     if let Err(e) = create_dir_all(parent_dir) {
-                        println!(
+                        GPS_ERROR!(
                             "Error while trying to build settings snapshot_directory '{}': {}",
                             parent_dir.display(),
                             e
@@ -64,7 +65,7 @@ impl Settings {
         Settings::settings_file_exist();
         let s = Settings::get_settings_file_path();
         if let Err(e) = serde_any::to_file(&s, settings) {
-            println!("Error while trying to save file: {} {}", s.display(), e);
+            GPS_ERROR!("Error while trying to save file: {} {}", s.display(), e);
         }
     }
 
@@ -75,7 +76,7 @@ impl Settings {
             match serde_any::from_file::<Settings, _>(&s) {
                 Ok(s) => s,
                 Err(e) => {
-                    println!("Error while opening '{}': {}", s.display(), e);
+                    GPS_ERROR!("Error while opening '{}': {}", s.display(), e);
                     Settings::default()
                 }
             }

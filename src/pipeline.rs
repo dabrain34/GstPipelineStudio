@@ -18,6 +18,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::app::GPSApp;
 use crate::graphmanager::{GraphView, Node, NodeType, PortDirection};
+use crate::logger;
+use crate::GPS_INFO;
+
 use gst::prelude::*;
 use gstreamer as gst;
 use std::cell::{Cell, RefCell};
@@ -95,7 +98,7 @@ impl Pipeline {
     }
 
     pub fn create_pipeline(&self, description: &str) -> Result<(), Box<dyn error::Error>> {
-        println!("Creating pipeline {}", description);
+        GPS_INFO!("Creating pipeline {}", description);
 
         /* create playbin */
 
@@ -335,7 +338,7 @@ impl Pipeline {
         let params = element.class().list_properties();
 
         for param in params {
-            println!("Property_name {}", param.name());
+            GPS_INFO!("Property_name {}", param.name());
             if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
@@ -345,7 +348,7 @@ impl Pipeline {
             } else if let Some(value) = Pipeline::value_as_str(param.default_value()) {
                 properties_list.insert(String::from(param.name()), value);
             } else {
-                println!("Unable to add property_name {}", param.name());
+                GPS_INFO!("Unable to add property_name {}", param.name());
             }
         }
         Ok(properties_list)

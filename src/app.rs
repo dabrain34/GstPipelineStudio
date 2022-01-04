@@ -31,9 +31,11 @@ use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use std::{error, ops};
 
+use crate::logger;
 use crate::pipeline::{Pipeline, PipelineState};
 use crate::plugindialogs;
 use crate::settings::Settings;
+use crate::{GPS_DEBUG, GPS_ERROR};
 
 use crate::graphmanager::{GraphView, Node, PortDirection};
 
@@ -189,6 +191,39 @@ impl GPSApp {
         dialog.set_resizable(false);
         dialog.show();
     }
+    fn reset_logger_list(&self, logger_list: &TreeView) {
+        let model = ListStore::new(&[String::static_type()]);
+        logger_list.set_model(Some(&model));
+    }
+
+    fn setup_logger_list(&self) {
+        let logger_list: TreeView = self
+            .builder
+            .object("logger_list")
+            .expect("Couldn't get window");
+        let column = TreeViewColumn::new();
+        let cell = CellRendererText::new();
+
+        column.pack_start(&cell, true);
+        // Association of the view's column with the model's `id` column.
+        column.add_attribute(&cell, "text", 0);
+        column.set_title("");
+        logger_list.append_column(&column);
+        self.reset_logger_list(&logger_list);
+    }
+
+    fn add_to_logger_list(&self, log_entry: String) {
+        let logger_list: TreeView = self
+            .builder
+            .object("logger_list")
+            .expect("Couldn't get window");
+        if let Some(model) = logger_list.model() {
+            let list_store = model
+                .dynamic_cast::<ListStore>()
+                .expect("Could not cast to ListStore");
+            list_store.insert_with_values(None, &[(0, &log_entry)]);
+        }
+    }
 
     fn reset_favorite_list(&self, favorite_list: &TreeView) {
         let model = ListStore::new(&[String::static_type()]);
@@ -222,7 +257,7 @@ impl GPSApp {
                     .get(&iter, 0)
                     .get::<String>()
                     .expect("Treeview selection, column 1");
-                println!("{}", element_name);
+                GPS_DEBUG!("{}", element_name);
                 app.add_new_element(&element_name);
             }
         });
@@ -239,7 +274,7 @@ impl GPSApp {
                         .get(&iter, 0)
                         .get::<String>()
                         .expect("Treeview selection, column 1");
-                        println!("{}", element_name);
+                        GPS_DEBUG!("{}", element_name);
                         let point = graphene::Point::new(x as f32,y as f32);
 
 
@@ -292,6 +327,7 @@ impl GPSApp {
             }
         }
     }
+
     pub fn display_plugin_list(app: &GPSApp) {
         let elements = Pipeline::elements_list().expect("Unable to obtain element's list");
         plugindialogs::display_plugin_list(app, &elements);
@@ -321,7 +357,7 @@ impl GPSApp {
                 let app = upgrade_weak!(app_weak);
                 GPSApp::get_file_from_dialog(&app, false, move |app, filename|
                     {
-                        println!("Open file {}", filename);
+                        //logger::print_log(format!("Open file {}", filename));
                         app.load_graph(&filename).expect("Unable to open file");
                     });
         }));
@@ -336,7 +372,7 @@ impl GPSApp {
            let app = upgrade_weak!(app_weak);
            GPSApp::get_file_from_dialog(&app, true, move |app, filename|
                {
-                   println!("Save file {}", filename);
+                   GPS_DEBUG!("Save file {}", filename);
                    app.save_graph(&filename).expect("Unable to save file");
                });
         }));
@@ -373,6 +409,7 @@ impl GPSApp {
             move |_, _| {
                 let app = upgrade_weak!(app_weak);
                 app.clear_graph();
+                GPS_ERROR!("clear graph");
             }
         });
         application.add_action(&action);
@@ -538,7 +575,7 @@ impl GPSApp {
                     // add an action to delete link
                     let action = gio::SimpleAction::new("port.delete-link", None);
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        println!("port.delete-link port {} node {}", port_id, node_id);
+                        GPS_DEBUG!("port.delete-link port {} node {}", port_id, node_id);
                         pop_menu.unparent();
                     }));
                     application.add_action(&action);
@@ -580,7 +617,7 @@ impl GPSApp {
                     let app_weak = app.downgrade();
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
                         let app = upgrade_weak!(app_weak);
-                        println!("node.delete {}", node_id);
+                        GPS_DEBUG!("node.delete {}", node_id);
                         let node = app.graphview.borrow().node(&node_id).unwrap();
                         app.add_to_favorite_list(node.name());
                         pop_menu.unparent();
@@ -590,7 +627,7 @@ impl GPSApp {
                     let app_weak = app.downgrade();
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
                         let app = upgrade_weak!(app_weak);
-                        println!("node.delete {}", node_id);
+                        GPS_DEBUG!("node.delete {}", node_id);
                         app.graphview.borrow_mut().remove_node(node_id);
                         pop_menu.unparent();
                     }));
@@ -600,7 +637,7 @@ impl GPSApp {
                     let app_weak = app.downgrade();
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
                         let app = upgrade_weak!(app_weak);
-                        println!("node.request-pad-input {}", node_id);
+                        GPS_DEBUG!("node.request-pad-input {}", node_id);
                         let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
                         let port_id = app.graphview.borrow().next_port_id();
                         node.add_port(port_id, "in", PortDirection::Input);
@@ -612,7 +649,7 @@ impl GPSApp {
                     let app_weak = app.downgrade();
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
                         let app = upgrade_weak!(app_weak);
-                        println!("node.request-pad-output {}", node_id);
+                        GPS_DEBUG!("node.request-pad-output {}", node_id);
                         let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
                         let port_id = app.graphview.borrow_mut().next_port_id();
                         node.add_port(port_id, "out", PortDirection::Output);
@@ -622,7 +659,7 @@ impl GPSApp {
 
                     let action = gio::SimpleAction::new("node.properties", None);
                     action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        println!("node.properties {}", node_id);
+                        GPS_DEBUG!("node.properties {}", node_id);
                         let node = app.graphview.borrow().node(&node_id).unwrap();
                         plugindialogs::display_plugin_properties(&app, &node.name(), node_id);
                         pop_menu.unparent();
@@ -638,6 +675,17 @@ impl GPSApp {
 
         // Setup the favorite list
         self.setup_favorite_list();
+
+        // Setup the logger to get messages into the TreeView
+        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        let app_weak = self.downgrade();
+        logger::init_logger(ready_tx, logger::LogLevel::Debug);
+        self.setup_logger_list();
+        let _ = ready_rx.attach(None, move |msg: String| {
+            let app = upgrade_weak!(app_weak, glib::Continue(false));
+            app.add_to_logger_list(msg);
+            glib::Continue(true)
+        });
     }
 
     // Downgrade to a weak reference
@@ -654,7 +702,7 @@ impl GPSApp {
         let pads = Pipeline::pads(element_name, false);
         if Pipeline::element_is_uri_src_handler(element_name) {
             GPSApp::get_file_from_dialog(self, false, move |app, filename| {
-                println!("Open file {}", filename);
+                GPS_DEBUG!("Open file {}", filename);
                 let node = app.graphview.borrow().node(&node_id).unwrap();
                 let mut properties: HashMap<String, String> = HashMap::new();
                 properties.insert(String::from("location"), filename);

@@ -22,6 +22,8 @@ mod macros;
 mod app;
 mod common;
 mod graphmanager;
+#[macro_use]
+mod logger;
 mod pipeline;
 mod plugindialogs;
 mod settings;
