@@ -9,6 +9,11 @@ use crate::logger;
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Settings {
     pub favorites: Vec<String>,
+    pub app_maximized: bool,
+    pub app_width: i32,
+    pub app_height: i32,
+    pub app_graph_logs_paned_pos: i32,
+    pub app_graph_favorites_paned_pos: i32,
 }
 
 impl Settings {
@@ -81,7 +86,13 @@ impl Settings {
                 }
             }
         } else {
-            Settings::default()
+            Settings {
+                app_width: 800,
+                app_height: 600,
+                app_graph_logs_paned_pos: 400,
+                app_graph_favorites_paned_pos: 600,
+                ..Default::default()
+            }
         }
     }
 }

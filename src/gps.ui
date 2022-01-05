@@ -231,47 +231,52 @@
           </object>
         </child>
         <child>
-          <object class="GtkPaned">
-            <property name="position">600</property>
-            <property name="position-set">True</property>
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <child>
-              <object class="GtkScrolledWindow" id="drawing_area-window">
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <property name="child">
-                  <object class="GtkViewport" id="drawing_area">
+          <object class="GtkPaned" id="graph_logs-paned">
+          <property name="orientation">vertical</property>
+          <property name="position">400</property>
+          <child>
+            <object class="GtkPaned" id="graph_favorites-paned">
+              <property name="position">600</property>
+              <property name="position-set">True</property>
+              <property name="hexpand">True</property>
+              <property name="vexpand">True</property>
+              <child>
+                <object class="GtkScrolledWindow" id="drawing_area-window">
+                  <property name="hexpand">True</property>
+                  <property name="vexpand">True</property>
+                  <property name="child">
+                    <object class="GtkViewport" id="drawing_area">
+                      <child>
+                        <placeholder/>
+                      </child>
+                    </object>
+                  </property>
+                </object>
+              </child>
+              <child>
+                <object class="GtkScrolledWindow">
+                  <property name="hexpand">True</property>
+                  <property name="vexpand">True</property>
+                  <property name="child">
+                    <object class="GtkTreeView" id="favorites_list">
                     <child>
-                      <placeholder/>
+                    <object class="GtkPopoverMenu" id="fav_pop_menu">
+                      <property name="menu-model">fav_menu</property>
+                    </object>
                     </child>
-                  </object>
-                </property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkScrolledWindow">
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <property name="child">
-                  <object class="GtkTreeView" id="favorites_list">
-                   <child>
-                  <object class="GtkPopoverMenu" id="fav_pop_menu">
-                    <property name="menu-model">fav_menu</property>
-                  </object>
-                  </child>
-                  </object>
-                </property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkScrolledWindow">
-            <property name="valign">end</property>
-            <property name="child">
-              <object class="GtkTreeView" id="logger_list"/>
-            </property>
+                    </object>
+                  </property>
+                </object>
+              </child>
+            </object>
+          </child>
+          <child>
+            <object class="GtkScrolledWindow">
+              <property name="child">
+                <object class="GtkTreeView" id="logger_list"/>
+              </property>
+            </object>
+          </child>
           </object>
         </child>
     <child>

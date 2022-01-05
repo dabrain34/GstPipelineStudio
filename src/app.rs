@@ -21,8 +21,8 @@ use gtk::gdk::Rectangle;
 use gtk::prelude::*;
 use gtk::{
     gdk::BUTTON_SECONDARY, AboutDialog, Application, ApplicationWindow, Builder, Button,
-    CellRendererText, FileChooserAction, FileChooserDialog, ListStore, PopoverMenu, ResponseType,
-    Statusbar, TreeView, TreeViewColumn, Viewport,
+    CellRendererText, FileChooserAction, FileChooserDialog, ListStore, Paned, PopoverMenu,
+    ResponseType, Statusbar, TreeView, TreeViewColumn, Viewport,
 };
 use gtk::{gio, glib, graphene};
 use once_cell::unsync::OnceCell;
@@ -81,7 +81,19 @@ impl GPSApp {
         let window: ApplicationWindow = builder.object("mainwindow").expect("Couldn't get window");
         window.set_application(Some(application));
         window.set_title(Some("GstPipelineStudio"));
-        window.set_size_request(800, 600);
+        let settings = Settings::load_settings();
+        window.set_size_request(settings.app_width, settings.app_height);
+        let paned: Paned = builder
+            .object("graph_logs-paned")
+            .expect("Couldn't get window");
+        paned.set_position(settings.app_graph_logs_paned_pos);
+        let paned: Paned = builder
+            .object("graph_favorites-paned")
+            .expect("Couldn't get window");
+        paned.set_position(settings.app_graph_favorites_paned_pos);
+        if settings.app_maximized {
+            window.maximize();
+        }
         let pipeline = Pipeline::new().expect("Unable to initialize the pipeline");
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
@@ -120,6 +132,25 @@ impl GPSApp {
                 .borrow_mut()
                 .take()
                 .expect("Shutdown called multiple times");
+            let window: ApplicationWindow = app
+                .builder
+                .object("mainwindow")
+                .expect("Couldn't get window");
+            let mut settings = Settings::load_settings();
+            settings.app_maximized = window.is_maximized();
+            settings.app_width = window.width();
+            settings.app_height = window.height();
+            let paned: Paned = app
+                .builder
+                .object("graph_logs-paned")
+                .expect("Couldn't get window");
+            settings.app_graph_logs_paned_pos = paned.position();
+            let paned: Paned = app
+                .builder
+                .object("graph_favorites-paned")
+                .expect("Couldn't get window");
+            settings.app_graph_favorites_paned_pos = paned.position();
+            Settings::save_settings(&settings);
             app.drop();
         });
     }
@@ -134,10 +165,13 @@ impl GPSApp {
             ok_button = "Save";
             action = FileChooserAction::Save;
         }
-
+        let window: ApplicationWindow = app
+            .builder
+            .object("mainwindow")
+            .expect("Couldn't get window");
         let file_chooser: FileChooserDialog = FileChooserDialog::new(
             Some(message),
-            Some(&app.window),
+            Some(&window),
             action,
             &[
                 (ok_button, ResponseType::Ok),
@@ -191,6 +225,7 @@ impl GPSApp {
         dialog.set_resizable(false);
         dialog.show();
     }
+
     fn reset_logger_list(&self, logger_list: &TreeView) {
         let model = ListStore::new(&[String::static_type()]);
         logger_list.set_model(Some(&model));
@@ -298,7 +333,11 @@ impl GPSApp {
                         app.reset_favorite_list(&favorite_list);
                         pop_menu.unparent();
                     }));
-                    if let Some(application) = app.window.application() {
+                    let window: ApplicationWindow = app
+                    .builder
+                    .object("mainwindow")
+                    .expect("Couldn't get window");
+                    if let Some(application) = window.application() {
                         application.add_action(&action);
                     }
 
