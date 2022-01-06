@@ -24,14 +24,36 @@ use gtk::subclass::prelude::*;
 use super::Port;
 use super::PortDirection;
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::HashMap;
 
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum NodeType {
     Source,
     Transform,
     Sink,
+    All,
     Unknown,
+}
+
+impl fmt::Display for NodeType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl NodeType {
+    pub fn from_str(node_type_name: &str) -> NodeType {
+        match node_type_name {
+            "Source" => NodeType::Source,
+            "Transform" => NodeType::Transform,
+            "Sink" => NodeType::Sink,
+            "All" => NodeType::All,
+            _ => NodeType::Unknown,
+        }
+    }
 }
 
 mod imp {
@@ -104,11 +126,14 @@ impl Node {
         let private = imp::Node::from_instance(&res);
         private.id.set(id).expect("Node id already set");
         res.set_name(name);
-        private.node_type.set(node_type);
+        private
+            .node_type
+            .set(node_type)
+            .expect("Node type is already set");
         res
     }
 
-    pub fn set_name(&self, name: &str) {
+    fn set_name(&self, name: &str) {
         let self_ = imp::Node::from_instance(self);
         self_.label.set_text(name);
         println!("{}", name);
@@ -130,14 +155,19 @@ impl Node {
                     .attach(&port, 1, private.num_ports_out.get() + 1, 1, 1);
                 private.num_ports_out.set(private.num_ports_out.get() + 1);
             }
+            _ => panic!("Port without direction"),
         }
 
         private.ports.borrow_mut().insert(id, port);
     }
 
-    pub fn get_port(&self, id: u32) -> Option<super::port::Port> {
+    pub fn ports(&self) -> Ref<HashMap<u32, Port>> {
         let private = imp::Node::from_instance(self);
-        private.ports.borrow_mut().get(&id).cloned()
+        private.ports.borrow()
+    }
+    pub fn port(&self, id: &u32) -> Option<super::port::Port> {
+        let private = imp::Node::from_instance(self);
+        private.ports.borrow().get(id).cloned()
     }
 
     pub fn remove_port(&self, id: u32) {
@@ -146,13 +176,31 @@ impl Node {
             match port.direction() {
                 PortDirection::Input => private.num_ports_in.set(private.num_ports_in.get() - 1),
                 PortDirection::Output => private.num_ports_in.set(private.num_ports_out.get() - 1),
+                _ => panic!("Port without direction"),
             }
-
             port.unparent();
         }
     }
+
     pub fn id(&self) -> u32 {
         let private = imp::Node::from_instance(self);
         private.id.get().copied().expect("Node id is not set")
+    }
+
+    pub fn name(&self) -> String {
+        let private = imp::Node::from_instance(self);
+        private.label.text().to_string()
+    }
+
+    pub fn unique_name(&self) -> String {
+        let private = imp::Node::from_instance(self);
+        let mut unique_name = private.label.text().to_string();
+        unique_name.push_str(&self.id().to_string());
+        unique_name
+    }
+
+    pub fn node_type(&self) -> Option<&NodeType> {
+        let private = imp::Node::from_instance(self);
+        private.node_type.get()
     }
 }

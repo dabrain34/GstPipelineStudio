@@ -18,7 +18,15 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use super::{node::Node, port::Port, port::PortDirection};
+extern crate xml;
+use xml::reader::EventReader;
+use xml::reader::XmlEvent as XMLREvent;
+use xml::writer::EmitterConfig;
+use xml::writer::XmlEvent as XMLWEvent;
+
+use super::{node::Node, node::NodeType, port::Port, port::PortDirection};
+use std::fs::File;
+use std::io::BufReader;
 
 use gtk::{
     glib::{self, clone},
@@ -29,14 +37,15 @@ use gtk::{
 use log::{error, warn};
 
 use std::cell::RefMut;
-use std::{cmp::Ordering, collections::HashMap};
-
+use std::{cmp::Ordering, collections::HashMap, error};
 #[derive(Debug, Clone)]
 pub struct NodeLink {
+    pub id: u32,
     pub node_from: u32,
     pub node_to: u32,
     pub port_from: u32,
     pub port_to: u32,
+    pub active: bool,
 }
 
 static GRAPHVIEW_STYLE: &str = include_str!("graphview.css");
@@ -54,7 +63,7 @@ mod imp {
     #[derive(Default)]
     pub struct GraphView {
         pub(super) nodes: RefCell<HashMap<u32, Node>>,
-        pub(super) links: RefCell<HashMap<u32, (NodeLink, bool)>>,
+        pub(super) links: RefCell<HashMap<u32, NodeLink>>,
         pub(super) current_node_id: Cell<u32>,
         pub(super) current_port_id: Cell<u32>,
         pub(super) current_link_id: Cell<u32>,
@@ -132,24 +141,27 @@ mod imp {
                         .expect("click event has no widget")
                         .dynamic_cast::<Self::Type>()
                         .expect("click event is not on the GraphView");
-                if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
-                    if let Some(target) = target.ancestor(Port::static_type()) {
-                        let to_port = target.dynamic_cast::<Port>().expect("click event is not on the Port");
-                        if !widget.port_is_linked(&to_port) {
-                            let selected_port = widget.selected_port().to_owned();
-                            if let Some(from_port) = selected_port {
-                                println!("Port {} is clicked at {}:{}", to_port.id(), x, y);
-                                if widget.ports_compatible(&to_port) {
-                                    let from_node = from_port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                    let to_node = to_port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                    println!("add link");
-                                    widget.add_link(widget.get_next_link_id(), NodeLink {
-                                        node_from: from_node.id(),
-                                        node_to: to_node.id(),
-                                        port_from: from_port.id(),
-                                        port_to: to_port.id()
-                                    }, true);
-                                }
+
+            if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
+                if let Some(target) = target.ancestor(Port::static_type()) {
+                    let to_port = target.dynamic_cast::<Port>().expect("click event is not on the Port");
+                    if let None = widget.port_is_linked(to_port.id()) {
+                        let selected_port = widget.selected_port().to_owned();
+                        if let Some(from_port) = selected_port {
+                            println!("Port {} is clicked at {}:{}", to_port.id(), x, y);
+                            if widget.ports_compatible(&to_port) {
+                                let from_node = from_port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
+                                let to_node = to_port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
+                                println!("add link");
+                                widget.add_link(NodeLink {
+                                    id: widget.next_link_id(),
+                                    node_from: from_node.id(),
+                                    node_to: to_node.id(),
+                                    port_from: from_port.id(),
+                                    port_to: to_port.id(),
+                                    active: true
+                                } );
+                            }
                                 widget.set_selected_port(None);
                             } else {
                                 println!("add selected port id");
@@ -195,12 +207,12 @@ mod imp {
 
             link_cr.set_line_width(1.5);
 
-            for (link, active) in self.links.borrow().values() {
-                if let Some((from_x, from_y, to_x, to_y)) = self.get_link_coordinates(link) {
+            for link in self.links.borrow().values() {
+                if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
                     //println!("from_x: {} from_y: {} to_x: {} to_y: {}", from_x, from_y, to_x, to_y);
 
                     // Use dashed line for inactive links, full line otherwise.
-                    if *active {
+                    if link.active {
                         link_cr.set_dash(&[], 0.0);
                     } else {
                         link_cr.set_dash(&[10.0, 5.0], 0.0);
@@ -225,13 +237,13 @@ mod imp {
         ///
         /// # Returns
         /// `Some((from_x, from_y, to_x, to_y))` if all objects the links refers to exist as widgets.
-        fn get_link_coordinates(&self, link: &NodeLink) -> Option<(f64, f64, f64, f64)> {
+        fn link_coordinates(&self, link: &NodeLink) -> Option<(f64, f64, f64, f64)> {
             let nodes = self.nodes.borrow();
 
             // For some reason, gtk4::WidgetExt::translate_coordinates gives me incorrect values,
             // so we manually calculate the needed offsets here.
 
-            let from_port = &nodes.get(&link.node_from)?.get_port(link.port_from)?;
+            let from_port = &nodes.get(&link.node_from)?.port(&link.port_from)?;
             let gtk::Allocation {
                 x: mut fx,
                 y: mut fy,
@@ -246,7 +258,7 @@ mod imp {
             fx += fnx + (fw / 2);
             fy += fny + (fh / 2);
 
-            let to_port = &nodes.get(&link.node_to)?.get_port(link.port_to)?;
+            let to_port = &nodes.get(&link.node_to)?.port(&link.port_to)?;
             let gtk::Allocation {
                 x: mut tx,
                 y: mut ty,
@@ -284,21 +296,22 @@ impl GraphView {
         glib::Object::new(&[]).expect("Failed to create GraphView")
     }
 
-    pub fn add_node(&self, id: u32, node: Node, input: u32, output: u32) {
+    pub fn add_node_with_port(&self, id: u32, node: Node, input: u32, output: u32) {
         let private = imp::GraphView::from_instance(self);
         node.set_parent(self);
 
         // Place widgets in colums of 3, growing down
-        // let x = if let Some(node_type) = node_type {
-        //     match node_type {
-        //         NodeType::Src => 20.0,
-        //         NodeType::Transform => 420.0,
-        //         NodeType::Sink => 820.0,
-        //     }
-        // } else {
-        //     420.0
-        // };
-        let x = 20.0;
+        let x = if let Some(node_type) = node.node_type() {
+            match node_type {
+                NodeType::Source => 20.0,
+                NodeType::Transform => 320.0,
+                NodeType::Sink => 620.0,
+                _ => 20.0,
+            }
+        } else {
+            420.0
+        };
+
         let y = private
             .nodes
             .borrow()
@@ -335,6 +348,10 @@ impl GraphView {
         }
     }
 
+    pub fn add_node(&self, id: u32, node: Node) {
+        self.add_node_with_port(id, node, 0, 0);
+    }
+
     pub fn remove_node(&self, id: u32) {
         let private = imp::GraphView::from_instance(self);
         let mut nodes = private.nodes.borrow_mut();
@@ -347,7 +364,7 @@ impl GraphView {
     }
     pub fn all_nodes(&self) -> Vec<Node> {
         let private = imp::GraphView::from_instance(self);
-        let nodes = private.nodes.borrow_mut();
+        let nodes = private.nodes.borrow();
         let nodes_list: Vec<_> = nodes.iter().map(|(_, node)| node.clone()).collect();
         nodes_list
     }
@@ -368,6 +385,17 @@ impl GraphView {
         self.queue_draw();
     }
 
+    pub fn node_is_linked(&self, node_id: u32) -> Option<u32> {
+        let private = imp::GraphView::from_instance(self);
+        for (key, link) in private.links.borrow().iter() {
+            if link.node_from == node_id || link.node_to == node_id {
+                return Some(*key);
+            }
+        }
+        None
+    }
+
+    // Port related methods
     pub fn add_port(&self, node_id: u32, port_id: u32, port: Port) {
         let private = imp::GraphView::from_instance(self);
         println!(
@@ -392,18 +420,37 @@ impl GraphView {
         }
     }
 
-    pub fn add_link(&self, link_id: u32, link: NodeLink, active: bool) {
+    pub fn port_is_linked(&self, port_id: u32) -> Option<(u32, u32, u32)> {
+        let private = imp::GraphView::from_instance(self);
+        for (key, link) in private.links.borrow().iter() {
+            if link.port_from == port_id || link.port_to == port_id {
+                return Some((*key, link.node_from, link.port_from));
+            }
+        }
+        None
+    }
+
+    // Link related methods
+
+    pub fn all_links(&self) -> Vec<NodeLink> {
+        let private = imp::GraphView::from_instance(self);
+        let links = private.links.borrow();
+        let links_list: Vec<_> = links.iter().map(|(_, link)| link.clone()).collect();
+        links_list
+    }
+
+    pub fn add_link(&self, link: NodeLink) {
         let private = imp::GraphView::from_instance(self);
         if !self.link_exists(&link) {
-            private.links.borrow_mut().insert(link_id, (link, active));
+            private.links.borrow_mut().insert(link.id, link);
             self.queue_draw();
         }
     }
 
     pub fn set_link_state(&self, link_id: u32, active: bool) {
         let private = imp::GraphView::from_instance(self);
-        if let Some((_, state)) = private.links.borrow_mut().get_mut(&link_id) {
-            *state = active;
+        if let Some(link) = private.links.borrow_mut().get_mut(&link_id) {
+            link.active = active;
             self.queue_draw();
         } else {
             warn!("Link state changed on unknown link (id={})", link_id);
@@ -416,17 +463,6 @@ impl GraphView {
         links.remove(&id);
 
         self.queue_draw();
-    }
-
-    pub fn node_is_linked(&self, node_id: u32) -> Option<u32> {
-        let private = imp::GraphView::from_instance(self);
-        let links = private.links.borrow_mut();
-        for (key, value) in &*links {
-            if value.0.node_from == node_id || value.0.node_to == node_id {
-                return Some(*key);
-            }
-        }
-        None
     }
 
     /// Get the position of the specified node inside the graphview.
@@ -476,7 +512,7 @@ impl GraphView {
     pub(super) fn link_exists(&self, new_link: &NodeLink) -> bool {
         let private = imp::GraphView::from_instance(self);
 
-        for (link, _active) in private.links.borrow().values() {
+        for link in private.links.borrow().values() {
             if (new_link.port_from == link.port_from && new_link.port_to == link.port_to)
                 || (new_link.port_to == link.port_from && new_link.port_from == link.port_to)
             {
@@ -485,18 +521,6 @@ impl GraphView {
             }
         }
         false
-    }
-
-    pub(super) fn port_is_linked(&self, port: &Port) -> bool {
-        let private = imp::GraphView::from_instance(self);
-
-        for (id, (link, _active)) in private.links.borrow().iter() {
-            if port.id() == link.port_from || port.id() == link.port_to {
-                println!("port {} is already linked {}", port.id(), id);
-                return true;
-            }
-        }
-        return false;
     }
 
     pub(super) fn ports_compatible(&self, to_port: &Port) -> bool {
@@ -539,7 +563,7 @@ impl GraphView {
         private.current_port_id.get()
     }
 
-    fn get_next_link_id(&self) -> u32 {
+    fn next_link_id(&self) -> u32 {
         let private = imp::GraphView::from_instance(self);
         private
             .current_link_id
@@ -555,6 +579,181 @@ impl GraphView {
     fn selected_port(&self) -> RefMut<Option<Port>> {
         let private = imp::GraphView::from_instance(self);
         private.port_selected.borrow_mut()
+    }
+
+    // Render graph methods
+    pub fn render_xml(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+        let mut file = File::create(filename).unwrap();
+        let mut writer = EmitterConfig::new()
+            .perform_indent(true)
+            .create_writer(&mut file);
+
+        writer.write(XMLWEvent::start_element("Graph"))?;
+
+        //Get the nodes
+        let nodes = self.all_nodes();
+        for node in nodes {
+            writer.write(
+                XMLWEvent::start_element("Node")
+                    .attr("name", &node.name())
+                    .attr("id", &node.id().to_string())
+                    .attr("type", &node.node_type().unwrap().to_string()),
+            )?;
+            for port in node.ports().values() {
+                writer.write(
+                    XMLWEvent::start_element("Port")
+                        .attr("name", &port.name())
+                        .attr("id", &port.id().to_string())
+                        .attr("direction", &port.direction().to_string()),
+                )?;
+                writer.write(XMLWEvent::end_element())?;
+            }
+            writer.write(XMLWEvent::end_element())?;
+        }
+        //Get the link and write it.
+        for link in self.all_links() {
+            writer.write(
+                XMLWEvent::start_element("Link")
+                    .attr("id", &link.id.to_string())
+                    .attr("node_from", &link.node_from.to_string())
+                    .attr("node_to", &link.node_to.to_string())
+                    .attr("port_from", &link.port_from.to_string())
+                    .attr("port_to", &link.port_to.to_string())
+                    .attr("active", &link.active.to_string()),
+            )?;
+            writer.write(XMLWEvent::end_element())?;
+        }
+        writer.write(XMLWEvent::end_element())?;
+        Ok(())
+    }
+
+    pub fn load_xml(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+        let file = File::open(filename).unwrap();
+        let file = BufReader::new(file);
+
+        let parser = EventReader::new(file);
+
+        let mut current_node: Option<Node> = None;
+        let mut current_port: Option<Port> = None;
+        let mut current_link: Option<NodeLink> = None;
+        for e in parser {
+            match e {
+                Ok(XMLREvent::StartElement {
+                    ref name,
+                    ref attributes,
+                    ..
+                }) => {
+                    println!("{}", name);
+                    let mut attrs = HashMap::new();
+                    attributes.iter().for_each(|a| {
+                        attrs.insert(a.name.to_string(), a.value.to_string());
+                    });
+                    match name.to_string().as_str() {
+                        "Graph" => {
+                            println!("New graph detected");
+                        }
+                        "Node" => {
+                            let id = attrs
+                                .get::<String>(&String::from("id"))
+                                .expect("Unable to find node id");
+                            let name = attrs
+                                .get::<String>(&String::from("name"))
+                                .expect("Unable to find node name");
+                            let node_type: &String = attrs
+                                .get::<String>(&String::from("type"))
+                                .expect("Unable to find node type");
+
+                            current_node = Some(Node::new(
+                                id.parse::<u32>().unwrap(),
+                                name,
+                                NodeType::from_str(node_type.as_str()),
+                            ));
+                        }
+                        "Port" => {
+                            let id = attrs
+                                .get::<String>(&String::from("id"))
+                                .expect("Unable to find port id");
+                            let name = attrs
+                                .get::<String>(&String::from("name"))
+                                .expect("Unable to find port name");
+                            let direction: &String = attrs
+                                .get::<String>(&String::from("direction"))
+                                .expect("Unable to find port direction");
+                            current_port = Some(Port::new(
+                                id.parse::<u32>().unwrap(),
+                                name,
+                                PortDirection::from_str(direction),
+                            ));
+                        }
+                        "Link" => {
+                            let id = attrs
+                                .get::<String>(&String::from("id"))
+                                .expect("Unable to find link id");
+                            let node_from = attrs
+                                .get::<String>(&String::from("node_from"))
+                                .expect("Unable to find link node_from");
+                            let node_to = attrs
+                                .get::<String>(&String::from("node_to"))
+                                .expect("Unable to find link node_to");
+                            let port_from = attrs
+                                .get::<String>(&String::from("port_from"))
+                                .expect("Unable to find link port_from");
+                            let port_to = attrs
+                                .get::<String>(&String::from("port_to"))
+                                .expect("Unable to find link port_to");
+                            let active: &String = attrs
+                                .get::<String>(&String::from("active"))
+                                .expect("Unable to find link state");
+                            current_link = Some(NodeLink {
+                                id: id.parse::<u32>().unwrap(),
+                                node_from: node_from.parse::<u32>().unwrap(),
+                                node_to: node_to.parse::<u32>().unwrap(),
+                                port_from: port_from.parse::<u32>().unwrap(),
+                                port_to: port_to.parse::<u32>().unwrap(),
+                                active: active.parse::<bool>().unwrap(),
+                            });
+                        }
+                        _ => println!("name unknown: {}", name),
+                    }
+                }
+                Ok(XMLREvent::EndElement { name }) => {
+                    println!("closing {}", name);
+                    match name.to_string().as_str() {
+                        "Graph" => {
+                            println!("Graph ended");
+                        }
+                        "Node" => {
+                            if let Some(node) = current_node {
+                                let id = node.id();
+                                self.add_node(id, node);
+                            }
+                            current_node = None;
+                        }
+                        "Port" => {
+                            if let Some(port) = current_port {
+                                let node = current_node.clone();
+                                node.expect("No current node, error...")
+                                    .add_port(port.id(), port);
+                            }
+                            current_port = None;
+                        }
+                        "Link" => {
+                            if let Some(link) = current_link {
+                                self.add_link(link);
+                            }
+                            current_link = None;
+                        }
+                        _ => println!("name unknown: {}", name),
+                    }
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 }
 

@@ -19,8 +19,8 @@
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use gtk::{
-    AboutDialog, Application, ApplicationWindow, Builder, Button, FileChooserDialog, ResponseType,
-    Statusbar, Viewport,
+    AboutDialog, Application, ApplicationWindow, Builder, Button, FileChooserAction,
+    FileChooserDialog, ResponseType, Statusbar, Viewport,
 };
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -115,8 +115,6 @@ impl GPSApp {
     }
 
     pub fn build_ui(&self, application: &Application) {
-        //let app_weak = self.downgrade();
-
         let drawing_area_window: Viewport = self
             .builder
             .object("drawing_area")
@@ -132,6 +130,63 @@ impl GPSApp {
             .object("status_bar")
             .expect("Couldn't get window");
         status_bar.push(status_bar.context_id("Description"), "GPS is ready");
+
+        let action = gio::SimpleAction::new("open", None);
+        let app_weak = self.downgrade();
+        // Add a dialog to open the graph
+        action.connect_activate(glib::clone!(@weak window => move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                let file_chooser = FileChooserDialog::new(
+                    Some("Open File"),
+                    Some(&window),
+                    FileChooserAction::Open,
+                    &[("Open", ResponseType::Ok), ("Cancel", ResponseType::Cancel)],
+                );
+                file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
+                    if response == ResponseType::Ok {
+                        let file = d.file().expect("Couldn't get file");
+                        let filename = String::from(file.path().expect("Couldn't get file path").to_str().expect("unable to convert to string"));
+                        println!("Open file {}", filename);
+                        app.load_graph(&filename).expect("Unable to open file");
+                    }
+
+                    d.close();
+                });
+
+                file_chooser.show();
+
+        }));
+        application.add_action(&action);
+        application.set_accels_for_action("app.open", &["<primary>o"]);
+
+        // Add a dialog to save the graph
+        let action = gio::SimpleAction::new("save_as", None);
+        let app_weak = self.downgrade();
+        action.connect_activate(glib::clone!(@weak window => move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            let file_chooser = FileChooserDialog::new(
+                Some("Save File"),
+                Some(&window),
+                FileChooserAction::Open,
+                &[("Save", ResponseType::Ok), ("Cancel", ResponseType::Cancel)],
+            );
+            file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
+                if response == ResponseType::Ok {
+                    let file = d.file().expect("Couldn't get file");
+                    let filename = String::from(file.path().expect("Couldn't get file path").to_str().expect("unable to convert to string"));
+                    println!("Save file {}", filename);
+                    app.save_graph(&filename).expect("Unable to save file");
+                }
+
+                d.close();
+            });
+
+            file_chooser.show();
+
+         }));
+
+        application.add_action(&action);
+        application.set_accels_for_action("app.save", &["<primary>s"]);
 
         let action = gio::SimpleAction::new("quit", None);
         action.connect_activate({
@@ -173,42 +228,17 @@ impl GPSApp {
             let elements = Pipeline::elements_list().expect("Unable to obtain element's list");
             pluginlist::display_plugin_list(&app, &elements);
         }));
-        // Create a dialog to open a file
-        let open_button: Button = self
+
+        let add_button: Button = self
             .builder
-            .object("button-open-file")
+            .object("button-play")
             .expect("Couldn't get app_button");
-        let open_dialog: FileChooserDialog = self
-            .builder
-            .object("dialog-open-file")
-            .expect("Couldn't get window");
-        open_button.connect_clicked(glib::clone!(@weak window => move |_| {
-            open_dialog.connect_response(|dialog, _| dialog.close());
-            open_dialog.add_buttons(&[
-                ("Open", ResponseType::Ok),
-                ("Cancel", ResponseType::Cancel)
-            ]);
+        let app_weak = self.downgrade();
+        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+            // entry.set_text("Clicked!");
+            let _app = upgrade_weak!(app_weak);
 
-            open_dialog.connect_response(|open_dialog, response| {
-                if response == ResponseType::Ok {
-                    let file = open_dialog.file().expect("Couldn't get file");
-                    println!("Files: {:?}", file);
-                }
-                open_dialog.close();
-            });
-            open_dialog.show();
         }));
-
-        // let add_button: Button = self
-        //     .builder
-        //     .object("button-play")
-        //     .expect("Couldn't get app_button");
-        // let app_weak = self.downgrade();
-        // add_button.connect_clicked(glib::clone!(@weak window => move |_| {
-        //     // entry.set_text("Clicked!");
-        //     let app = upgrade_weak!(app_weak);
-
-        // }));
         let add_button: Button = self
             .builder
             .object("button-stop")
@@ -221,15 +251,15 @@ impl GPSApp {
             let node_id = graph_view.get_next_node_id();
             let element_name = String::from("appsink");
             let pads = Pipeline::get_pads(&element_name, false);
-            graph_view.add_node(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
+            graph_view.add_node_with_port(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
             let node_id = graph_view.get_next_node_id();
             let element_name = String::from("videotestsrc");
             let pads = Pipeline::get_pads(&element_name, false);
-            graph_view.add_node(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
+            graph_view.add_node_with_port(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
             let node_id = graph_view.get_next_node_id();
             let element_name = String::from("videoconvert");
             let pads = Pipeline::get_pads(&element_name, false);
-            graph_view.add_node(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
+            graph_view.add_node_with_port(node_id, Node::new(node_id, &element_name, Pipeline::get_element_type(&element_name)), pads.0, pads.1);
 
         }));
         let add_button: Button = self
@@ -256,7 +286,7 @@ impl GPSApp {
         let graph_view = self.graphview.borrow_mut();
         let node_id = graph_view.next_node_id();
         let pads = Pipeline::get_pads(&element_name, false);
-        graph_view.add_node(
+        graph_view.add_node_with_port(
             node_id,
             Node::new(
                 node_id,
@@ -266,5 +296,18 @@ impl GPSApp {
             pads.0,
             pads.1,
         );
+    }
+
+    pub fn save_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+        let graph_view = self.graphview.borrow_mut();
+        graph_view.render_xml(filename)?;
+        Ok(())
+    }
+
+    pub fn load_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+        let graph_view = self.graphview.borrow_mut();
+        graph_view.remove_all_nodes();
+        graph_view.load_xml(filename)?;
+        Ok(())
     }
 }

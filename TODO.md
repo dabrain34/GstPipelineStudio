@@ -14,13 +14,14 @@ TODO:
 - [] create contextual menu on pad or element
 - [] upclass the element
 - [] create a crate for graphview/node/port
-- [] save/load pipeline
+- [x] save/load pipeline
 - [] Run a pipeline with GStreamer
 - [] Run the pipeline with GStreamer
 - [] Control the pipeline with GStreamer
 - [x] Define the license
 - [] Connect the logs to the window
 - [] Create a window for the video output
+- [] Add multiple graphviews with tabs.
 
 ## Code cleanup
 
