@@ -17,7 +17,7 @@ variables:
   variables:
     FDO_DISTRIBUTION_VERSION: "35"
     # Update this to trigger a container rebuild
-    FDO_DISTRIBUTION_TAG: "2021-12-15.0"
+    FDO_DISTRIBUTION_TAG: "2022-01-07.2"
 
 build-fedora-container:
   extends:
@@ -35,6 +35,14 @@ build-fedora-container:
       clang-devel
       gstreamer1-devel
       gstreamer1-plugins-base-devel
+      gstreamer1-plugins-bad-free-devel
+      ninja-build
+      pkg-config
+      python3-devel
+      python3-pip
+      python3-setuptools
+    FDO_DISTRIBUTION_EXEC: >-
+      pip3 install meson
 
 rustfmt:
   extends:
@@ -42,6 +50,7 @@ rustfmt:
     - .fdo.distribution-image@fedora
   stage: lint
   script:
+    - meson build
     - cargo fmt --version
     - cargo fmt -- --color=always --check
 
@@ -51,6 +60,7 @@ test-stable:
     - .fdo.distribution-image@fedora
   stage: test
   script:
+    - meson build
     - rustc --version
     - cargo build --color=always --all-targets
     - cargo test --color=always
@@ -63,6 +73,7 @@ rustdoc:
   variables:
     RUSTDOCFLAGS: "-Dwarnings"
   script:
+    - meson build
     - rustdoc --version
     - cargo doc --no-deps
 
@@ -72,5 +83,6 @@ clippy:
     - .fdo.distribution-image@fedora
   stage: extras
   script:
+    - meson build
     - cargo clippy --version
     - cargo clippy --color=always --all-targets -- -D warnings

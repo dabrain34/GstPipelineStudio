@@ -20,8 +20,6 @@
 use anyhow::Result;
 use gstreamer as gst;
 
-pub const APPLICATION_NAME: &str = "org.freedesktop.gst-pipeline-studio";
-
 pub fn init() -> Result<()> {
     unsafe {
         x11::xlib::XInitThreads();

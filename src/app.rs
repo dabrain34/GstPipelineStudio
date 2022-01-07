@@ -21,9 +21,9 @@ use glib::Value;
 use gtk::gdk::Rectangle;
 use gtk::prelude::*;
 use gtk::{
-    gdk::BUTTON_SECONDARY, AboutDialog, Application, ApplicationWindow, Builder, Button,
-    CellRendererText, FileChooserAction, FileChooserDialog, ListStore, Paned, PopoverMenu,
-    ResponseType, Statusbar, TreeView, TreeViewColumn, Viewport, Widget,
+    gdk::BUTTON_SECONDARY, Application, ApplicationWindow, Builder, Button, CellRendererText,
+    FileChooserAction, FileChooserDialog, ListStore, Paned, PopoverMenu, ResponseType, Statusbar,
+    TreeView, TreeViewColumn, Viewport, Widget,
 };
 use gtk::{gio, gio::SimpleAction, glib, graphene};
 use once_cell::unsync::OnceCell;
@@ -32,6 +32,7 @@ use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use std::{error, ops};
 
+use crate::about;
 use crate::logger;
 use crate::pipeline::{Pipeline, PipelineState};
 use crate::plugindialogs;
@@ -524,21 +525,10 @@ impl GPSApp {
         });
 
         let app_weak = self.downgrade();
-        application
-            .lookup_action("about")
-            .expect("Unable to find action")
-            .dynamic_cast::<SimpleAction>()
-            .expect("Unable to cast to SimpleAction")
-            .connect_activate({
-                move |_, _| {
-                    let app = upgrade_weak!(app_weak);
-                    let about_dialog: AboutDialog = app
-                        .builder
-                        .object("dialog-about")
-                        .expect("Couldn't get window");
-                    about_dialog.show();
-                }
-            });
+        self.connect_app_menu_action("about", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            about::display_about_dialog(&app);
+        });
 
         let app_weak = self.downgrade();
         self.connect_button_action("button-add-plugin", move |_| {

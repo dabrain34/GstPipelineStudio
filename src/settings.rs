@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::common;
+use crate::config;
 use crate::logger;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -37,7 +37,7 @@ impl Settings {
 
     fn get_settings_file_path() -> PathBuf {
         let mut path = glib::user_config_dir();
-        path.push(common::APPLICATION_NAME);
+        path.push(config::APP_ID);
         path.push("settings.toml");
         path
     }
