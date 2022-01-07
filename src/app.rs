@@ -16,15 +16,16 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
+use glib::SignalHandlerId;
 use glib::Value;
 use gtk::gdk::Rectangle;
 use gtk::prelude::*;
 use gtk::{
     gdk::BUTTON_SECONDARY, AboutDialog, Application, ApplicationWindow, Builder, Button,
     CellRendererText, FileChooserAction, FileChooserDialog, ListStore, Paned, PopoverMenu,
-    ResponseType, Statusbar, TreeView, TreeViewColumn, Viewport,
+    ResponseType, Statusbar, TreeView, TreeViewColumn, Viewport, Widget,
 };
-use gtk::{gio, glib, graphene};
+use gtk::{gio, gio::SimpleAction, glib, graphene};
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -46,6 +47,7 @@ pub struct GPSAppInner {
     pub builder: Builder,
     pub pipeline: RefCell<Pipeline>,
     pub plugin_list_initialized: OnceCell<bool>,
+    pub menu_signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
 }
 
 // This represents our main application window.
@@ -101,9 +103,11 @@ impl GPSApp {
             builder,
             pipeline: RefCell::new(pipeline),
             plugin_list_initialized: OnceCell::new(),
+            menu_signal_handlers: RefCell::new(HashMap::new()),
         }));
         Ok(app)
     }
+
     pub fn on_startup(application: &gtk::Application) {
         // Create application and error out if that fails for whatever reason
         let app = match GPSApp::new(application) {
@@ -151,11 +155,108 @@ impl GPSApp {
                 .expect("Couldn't get window");
             settings.app_graph_favorites_paned_pos = paned.position();
             Settings::save_settings(&settings);
+
+            let pop_menu: PopoverMenu = app
+                .builder
+                .object("app_pop_menu")
+                .expect("Couldn't get pop over menu for app");
+            pop_menu.unparent();
+
             app.drop();
         });
     }
 
-    pub fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, save: bool, f: F) {
+    fn setup_app_actions(&self, application: &gtk::Application) {
+        application.add_action(&gio::SimpleAction::new("open", None));
+        application.set_accels_for_action("app.open", &["<primary>o"]);
+
+        application.add_action(&gio::SimpleAction::new("save_as", None));
+        application.set_accels_for_action("app.save", &["<primary>s"]);
+
+        application.add_action(&gio::SimpleAction::new("delete", None));
+        application.set_accels_for_action("app.delete", &["<primary>d", "Delete"]);
+
+        application.add_action(&gio::SimpleAction::new("quit", None));
+        application.set_accels_for_action("app.quit", &["<primary>q"]);
+
+        application.add_action(&gio::SimpleAction::new("new-window", None));
+        application.set_accels_for_action("app.new-window", &["<primary>n"]);
+
+        application.add_action(&gio::SimpleAction::new("about", None));
+        application.set_accels_for_action("app.about", &["<primary>a"]);
+
+        application.add_action(&gio::SimpleAction::new("favorite.remove", None));
+
+        application.add_action(&gio::SimpleAction::new("graph.add-plugin", None));
+
+        application.add_action(&gio::SimpleAction::new("port.delete-link", None));
+
+        application.add_action(&gio::SimpleAction::new("node.add-to-favorite", None));
+        application.add_action(&gio::SimpleAction::new("node.delete", None));
+        application.add_action(&gio::SimpleAction::new("node.request-pad-input", None));
+        application.add_action(&gio::SimpleAction::new("node.request-pad-output", None));
+        application.add_action(&gio::SimpleAction::new("node.properties", None));
+    }
+
+    fn app_pop_menu_at_position(&self, widget: &impl IsA<Widget>, x: f64, y: f64) -> PopoverMenu {
+        let mainwindow: ApplicationWindow = self
+            .builder
+            .object("mainwindow")
+            .expect("Couldn't get mainwindow");
+
+        let pop_menu: PopoverMenu = self
+            .builder
+            .object("app_pop_menu")
+            .expect("Couldn't get popover menu");
+
+        if let Some((x, y)) = widget.translate_coordinates(&mainwindow, x, y) {
+            let point = graphene::Point::new(x as f32, y as f32);
+            pop_menu.set_pointing_to(&Rectangle {
+                x: point.to_vec2().x() as i32,
+                y: point.to_vec2().y() as i32,
+                width: 0,
+                height: 0,
+            });
+        }
+        pop_menu
+    }
+
+    fn connect_app_menu_action<
+        F: Fn(&SimpleAction, std::option::Option<&glib::Variant>) + 'static,
+    >(
+        &self,
+        action_name: &str,
+        f: F,
+    ) {
+        let application = gio::Application::default()
+            .expect("No default application")
+            .downcast::<gtk::Application>()
+            .expect("Default application has wrong type");
+        let action = application
+            .lookup_action(action_name)
+            .expect("Unable to find action")
+            .dynamic_cast::<SimpleAction>()
+            .expect("Unable to cast to SimpleAction");
+
+        if let Some(signal_handler_id) = self.menu_signal_handlers.borrow_mut().remove(action_name)
+        {
+            action.disconnect(signal_handler_id);
+        }
+        let signal_handler_id = action.connect_activate(f);
+        self.menu_signal_handlers
+            .borrow_mut()
+            .insert(String::from(action_name), signal_handler_id);
+    }
+
+    fn connect_button_action<F: Fn(&Button) + 'static>(&self, button_name: &str, f: F) {
+        let button: Button = self
+            .builder
+            .object(button_name)
+            .unwrap_or_else(|| panic!("Couldn't get app_button {}", button_name));
+        button.connect_clicked(f);
+    }
+
+    fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, save: bool, f: F) {
         let mut message = "Open file";
         let mut ok_button = "Open";
         let cancel_button = "Cancel";
@@ -269,7 +370,7 @@ impl GPSApp {
         }
     }
 
-    fn setup_favorite_list(&self) {
+    fn setup_favorite_list(&self, application: &Application) {
         let favorite_list: TreeView = self
             .builder
             .object("favorites_list")
@@ -300,7 +401,7 @@ impl GPSApp {
         gesture.set_button(0);
         let app_weak = self.downgrade();
         gesture.connect_pressed(
-            glib::clone!(@weak favorite_list => move |gesture, _n_press, x, y| {
+            glib::clone!(@weak favorite_list, @weak application => move |gesture, _n_press, x, y| {
                 let app = upgrade_weak!(app_weak);
                 if gesture.current_button() == BUTTON_SECONDARY {
                     let selection = favorite_list.selection();
@@ -310,38 +411,24 @@ impl GPSApp {
                         .get::<String>()
                         .expect("Treeview selection, column 1");
                         GPS_DEBUG!("{}", element_name);
-                        let point = graphene::Point::new(x as f32,y as f32);
 
-
-                    let pop_menu: PopoverMenu = app
+                        let pop_menu = app.app_pop_menu_at_position(&favorite_list, x, y);
+                        let menu: gio::MenuModel = app
                         .builder
-                        .object("fav_pop_menu")
-                        .expect("Couldn't get menu model for favorites");
+                        .object("fav_menu")
+                        .expect("Couldn't get menu model for graph");
+                        pop_menu.set_menu_model(Some(&menu));
 
-                    pop_menu.set_pointing_to(&Rectangle {
-                        x: point.to_vec2().x() as i32,
-                        y: point.to_vec2().y() as i32,
-                        width: 0,
-                        height: 0,
-                    });
-                    // add an action to delete link
-                    let action = gio::SimpleAction::new("favorite.remove", None);
-                    let app_weak = app.downgrade();
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        Settings::remove_favorite(&element_name);
-                        app.reset_favorite_list(&favorite_list);
-                        pop_menu.unparent();
-                    }));
-                    let window: ApplicationWindow = app
-                    .builder
-                    .object("mainwindow")
-                    .expect("Couldn't get window");
-                    if let Some(application) = window.application() {
-                        application.add_action(&action);
-                    }
+                        let app_weak = app.downgrade();
+                        app.connect_app_menu_action("favorite.remove",
+                            move |_,_| {
+                                let app = upgrade_weak!(app_weak);
+                                Settings::remove_favorite(&element_name);
+                                app.reset_favorite_list(&favorite_list);
+                            }
+                        );
 
-                    pop_menu.show();
+                        pop_menu.show();
                     }
 
                 }
@@ -389,95 +476,75 @@ impl GPSApp {
             .expect("Couldn't get window");
         status_bar.push(status_bar.context_id("Description"), "GPS is ready");
 
-        let action = gio::SimpleAction::new("open", None);
-        let app_weak = self.downgrade();
-        // Add a dialog to open the graph
-        action.connect_activate(glib::clone!(@weak window => move |_, _| {
-                let app = upgrade_weak!(app_weak);
-                GPSApp::get_file_from_dialog(&app, false, move |app, filename|
-                    {
-                        //logger::print_log(format!("Open file {}", filename));
-                        app.load_graph(&filename).expect("Unable to open file");
-                    });
-        }));
-        application.add_action(&action);
-        application.set_accels_for_action("app.open", &["<primary>o"]);
+        self.setup_app_actions(application);
 
-        // Add a dialog to save the graph
-        let action = gio::SimpleAction::new("save_as", None);
-        let app_weak = self.downgrade();
-        action.connect_activate(glib::clone!(@weak window => move |_, _| {
-
-           let app = upgrade_weak!(app_weak);
-           GPSApp::get_file_from_dialog(&app, true, move |app, filename|
-               {
-                   GPS_DEBUG!("Save file {}", filename);
-                   app.save_graph(&filename).expect("Unable to save file");
-               });
-        }));
-
-        application.add_action(&action);
-        application.set_accels_for_action("app.save", &["<primary>s"]);
-
-        let action = gio::SimpleAction::new("delete", None);
-        application.set_accels_for_action("app.delete", &["<primary>d", "Delete"]);
-        let app_weak = self.downgrade();
-        action.connect_activate({
-            move |_, _| {
-                let app = upgrade_weak!(app_weak);
-                let graph_view = app.graphview.borrow();
-                graph_view.delete_selected();
-            }
-        });
-        application.add_action(&action);
-
-        let action = gio::SimpleAction::new("quit", None);
-        action.connect_activate({
-            let app = application.downgrade();
-            move |_, _| {
-                let app = app.upgrade().unwrap();
-                app.quit();
-            }
-        });
-        application.add_action(&action);
-        application.set_accels_for_action("app.quit", &["<primary>q"]);
-
-        let action = gio::SimpleAction::new("new-window", None);
-        let app_weak = self.downgrade();
-        action.connect_activate({
-            move |_, _| {
-                let app = upgrade_weak!(app_weak);
-                app.clear_graph();
-                GPS_ERROR!("clear graph");
-            }
-        });
-        application.add_action(&action);
-        application.set_accels_for_action("app.new-window", &["<primary>n"]);
-
-        let about_dialog: AboutDialog = self
+        let pop_menu: PopoverMenu = self
             .builder
-            .object("dialog-about")
-            .expect("Couldn't get window");
-        let action = gio::SimpleAction::new("about", None);
-        action.connect_activate({
-            move |_, _| {
-                about_dialog.show();
-            }
-        });
-        application.add_action(&action);
-        //application.set_accels_for_action("app.about", &["<primary>a"]);
+            .object("app_pop_menu")
+            .expect("Couldn't get pop over menu for app");
+        pop_menu.set_parent(window);
 
-        // Create a dialog to select GStreamer elements.
-        let add_button: Button = self
-            .builder
-            .object("button-add-plugin")
-            .expect("Couldn't get app_button");
         let app_weak = self.downgrade();
-        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+        self.connect_app_menu_action("new-window", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            app.clear_graph();
+            GPS_ERROR!("clear graph");
+        });
+
+        let app_weak = self.downgrade();
+        self.connect_app_menu_action("open", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            GPSApp::get_file_from_dialog(&app, false, move |app, filename| {
+                app.load_graph(&filename)
+                    .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", filename));
+            });
+        });
+
+        let app_weak = self.downgrade();
+        self.connect_app_menu_action("save_as", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            GPSApp::get_file_from_dialog(&app, true, move |app, filename| {
+                GPS_DEBUG!("Save file {}", filename);
+                app.save_graph(&filename)
+                    .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
+            });
+        });
+
+        let app_weak = self.downgrade();
+        self.connect_app_menu_action("delete", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            let graph_view = app.graphview.borrow();
+            graph_view.delete_selected();
+        });
+
+        let app = application.downgrade();
+        self.connect_app_menu_action("quit", move |_, _| {
+            let app = app.upgrade().unwrap();
+            app.quit();
+        });
+
+        let app_weak = self.downgrade();
+        application
+            .lookup_action("about")
+            .expect("Unable to find action")
+            .dynamic_cast::<SimpleAction>()
+            .expect("Unable to cast to SimpleAction")
+            .connect_activate({
+                move |_, _| {
+                    let app = upgrade_weak!(app_weak);
+                    let about_dialog: AboutDialog = app
+                        .builder
+                        .object("dialog-about")
+                        .expect("Couldn't get window");
+                    about_dialog.show();
+                }
+            });
+
+        let app_weak = self.downgrade();
+        self.connect_button_action("button-add-plugin", move |_| {
             let app = upgrade_weak!(app_weak);
             GPSApp::display_plugin_list(&app);
-        }));
-
+        });
         let add_button: Button = self
             .builder
             .object("button-play")
@@ -527,27 +594,21 @@ impl GPSApp {
                 pipeline.set_state(PipelineState::Paused).expect("Unable to change state");
             }
         }));
-        let add_button: Button = self
-            .builder
-            .object("button-stop")
-            .expect("Couldn't get app_button");
+
         let app_weak = self.downgrade();
-        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+        self.connect_button_action("button-stop", move |_| {
             let app = upgrade_weak!(app_weak);
             let pipeline = app.pipeline.borrow();
-            pipeline.set_state(PipelineState::Stopped).expect("Unable to change state to STOP");
-        }));
-        let add_button: Button = self
-            .builder
-            .object("button-clear")
-            .expect("Couldn't get app_button");
+            let _ = pipeline.set_state(PipelineState::Stopped);
+        });
         let app_weak = self.downgrade();
         add_button.connect_clicked(glib::clone!(@weak window => move |_| {
             let app = upgrade_weak!(app_weak);
-            app.load_graph("graphs/video.xml").expect("Unable to open file");
+            app.load_graph("graphs/compositor.xml").expect("Unable to open file");
         }));
-        let app_weak = self.downgrade();
+
         // When user clicks on port with right button
+        let app_weak = self.downgrade();
         self.graphview
             .borrow()
             .connect_local(
@@ -555,77 +616,61 @@ impl GPSApp {
                 false,
                 glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
                     let app = upgrade_weak!(app_weak, None);
-
                     let point = values[1].get::<graphene::Point>().expect("point in args[2]");
 
-                    let port_menu: gio::MenuModel = app
-                        .builder
-                        .object("graph_menu")
-                        .expect("Couldn't get menu model for graph");
+                    let pop_menu = app.app_pop_menu_at_position(&*app.graphview.borrow(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
+                    let menu: gio::MenuModel = app
+                    .builder
+                    .object("graph_menu")
+                    .expect("Couldn't get menu model for graph");
+                    pop_menu.set_menu_model(Some(&menu));
 
-                    let pop_menu: PopoverMenu = PopoverMenu::from_model(Some(&port_menu));
-                    pop_menu.set_parent(&*app.graphview.borrow_mut());
-                    pop_menu.set_pointing_to(&Rectangle {
-                        x: point.to_vec2().x() as i32,
-                        y: point.to_vec2().y() as i32,
-                        width: 0,
-                        height: 0,
-                    });
-                    // add an action to delete link
-                    let action = gio::SimpleAction::new("graph.add-plugin", None);
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        GPSApp::display_plugin_list(&app);
-                        pop_menu.unparent();
-                    }));
-                    application.add_action(&action);
+                    let app_weak = app.downgrade();
+                    app.connect_app_menu_action("graph.add-plugin",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPSApp::display_plugin_list(&app);
+                        }
+                    );
 
                     pop_menu.show();
                     None
                 }),
             )
             .expect("Failed to register graph-right-clicked signal of graphview");
-        let app_weak = self.downgrade();
+
         // When user clicks on port with right button
+        let app_weak = self.downgrade();
         self.graphview
             .borrow()
-            .connect_local(
-                "port-right-clicked",
-                false,
-                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                    let app = upgrade_weak!(app_weak, None);
+            .connect_local("port-right-clicked", false, move |values: &[Value]| {
+                let app = upgrade_weak!(app_weak, None);
 
-                    let port_id = values[1].get::<u32>().expect("port id args[1]");
-                    let node_id = values[2].get::<u32>().expect("node id args[2]");
-                    let point = values[3].get::<graphene::Point>().expect("point in args[3]");
+                let port_id = values[1].get::<u32>().expect("port id args[1]");
+                let node_id = values[2].get::<u32>().expect("node id args[2]");
+                let point = values[3]
+                    .get::<graphene::Point>()
+                    .expect("point in args[3]");
 
-                    let port_menu: gio::MenuModel = app
-                        .builder
-                        .object("port_menu")
-                        .expect("Couldn't get menu model for port");
-
-                    let pop_menu: PopoverMenu = PopoverMenu::from_model(Some(&port_menu));
-                    pop_menu.set_parent(&*app.graphview.borrow_mut());
-                    pop_menu.set_pointing_to(&Rectangle {
-                        x: point.to_vec2().x() as i32,
-                        y: point.to_vec2().y() as i32,
-                        width: 0,
-                        height: 0,
-                    });
-                    // add an action to delete link
-                    let action = gio::SimpleAction::new("port.delete-link", None);
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        GPS_DEBUG!("port.delete-link port {} node {}", port_id, node_id);
-                        pop_menu.unparent();
-                    }));
-                    application.add_action(&action);
-
-                    pop_menu.show();
-                    None
-                }),
-            )
+                let pop_menu = app.app_pop_menu_at_position(
+                    &*app.graphview.borrow(),
+                    point.to_vec2().x() as f64,
+                    point.to_vec2().y() as f64,
+                );
+                let menu: gio::MenuModel = app
+                    .builder
+                    .object("port_menu")
+                    .expect("Couldn't get menu model for port");
+                pop_menu.set_menu_model(Some(&menu));
+                app.connect_app_menu_action("port.delete-link", move |_, _| {
+                    GPS_DEBUG!("port.delete-link port {} node {}", port_id, node_id);
+                });
+                pop_menu.show();
+                None
+            })
             .expect("Failed to register port-right-clicked signal of graphview");
 
-        // When user clicks on  node with right button
+        // When user clicks on node with right button
         let app_weak = self.downgrade();
         self.graphview
             .borrow()
@@ -638,73 +683,65 @@ impl GPSApp {
                     let node_id = values[1].get::<u32>().expect("node id args[1]");
                     let point = values[2].get::<graphene::Point>().expect("point in args[2]");
 
-                    let node_menu: gio::MenuModel = app
+                    let pop_menu = app.app_pop_menu_at_position(&*app.graphview.borrow(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
+                    let menu: gio::MenuModel = app
                         .builder
                         .object("node_menu")
                         .expect("Couldn't get menu model for node");
+                    pop_menu.set_menu_model(Some(&menu));
 
-                    let pop_menu: PopoverMenu = PopoverMenu::from_model(Some(&node_menu));
-                    pop_menu.set_parent(&*app.graphview.borrow_mut());
-                    pop_menu.set_pointing_to(&Rectangle {
-                        x: point.to_vec2().x() as i32,
-                        y: point.to_vec2().y() as i32,
-                        width: 0,
-                        height: 0,
-                    });
-
-                    let action = gio::SimpleAction::new("node.add-to-favorite", None);
                     let app_weak = app.downgrade();
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_DEBUG!("node.delete {}", node_id);
-                        let node = app.graphview.borrow().node(&node_id).unwrap();
-                        app.add_to_favorite_list(node.name());
-                        pop_menu.unparent();
-                    }));
-                    application.add_action(&action);
-                    let action = gio::SimpleAction::new("node.delete", None);
+                    app.connect_app_menu_action("node.add-to-favorite",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPS_DEBUG!("node.add-to-favorite {}", node_id);
+                            if let Some(node) = app.graphview.borrow().node(&node_id) {
+                                app.add_to_favorite_list(node.name());
+                            };
+                        }
+                    );
+
                     let app_weak = app.downgrade();
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_DEBUG!("node.delete {}", node_id);
-                        app.graphview.borrow_mut().remove_node(node_id);
-                        pop_menu.unparent();
-                    }));
-                    application.add_action(&action);
+                    app.connect_app_menu_action("node.delete",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPS_DEBUG!("node.delete {}", node_id);
+                            app.graphview.borrow_mut().remove_node(node_id);
+                        }
+                    );
 
-                    let action = gio::SimpleAction::new("node.request-pad-input", None);
                     let app_weak = app.downgrade();
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_DEBUG!("node.request-pad-input {}", node_id);
-                        let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
-                        let port_id = app.graphview.borrow().next_port_id();
-                        node.add_port(port_id, "in", PortDirection::Input);
-                        pop_menu.unparent();
-                    }));
-                    application.add_action(&action);
+                    app.connect_app_menu_action("node.request-pad-input",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPS_DEBUG!("node.request-pad-input {}", node_id);
+                            let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
+                            let port_id = app.graphview.borrow().next_port_id();
+                            node.add_port(port_id, "in", PortDirection::Input);
+                        }
+                    );
 
-                    let action = gio::SimpleAction::new("node.request-pad-output", None);
                     let app_weak = app.downgrade();
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_DEBUG!("node.request-pad-output {}", node_id);
-                        let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
-                        let port_id = app.graphview.borrow_mut().next_port_id();
-                        node.add_port(port_id, "out", PortDirection::Output);
-                        pop_menu.unparent();
-                    }));
-                    application.add_action(&action);
+                    app.connect_app_menu_action("node.request-pad-output",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPS_DEBUG!("node.request-pad-output {}", node_id);
+                            let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
+                            let port_id = app.graphview.borrow_mut().next_port_id();
+                            node.add_port(port_id, "out", PortDirection::Output);
 
-                    let action = gio::SimpleAction::new("node.properties", None);
-                    action.connect_activate(glib::clone!(@weak pop_menu => move |_,_| {
-                        GPS_DEBUG!("node.properties {}", node_id);
-                        let node = app.graphview.borrow().node(&node_id).unwrap();
-                        plugindialogs::display_plugin_properties(&app, &node.name(), node_id);
-                        pop_menu.unparent();
-                    }));
-                    application.add_action(&action);
+                        }
+                    );
 
+                    let app_weak = app.downgrade();
+                    app.connect_app_menu_action("node.properties",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPS_DEBUG!("node.properties {}", node_id);
+                            let node = app.graphview.borrow().node(&node_id).unwrap();
+                            plugindialogs::display_plugin_properties(&app, &node.name(), node_id);
+                        }
+                    );
 
                     pop_menu.show();
                     None
@@ -713,7 +750,7 @@ impl GPSApp {
             .expect("Failed to register node-right-clicked signal of graphview");
 
         // Setup the favorite list
-        self.setup_favorite_list();
+        self.setup_favorite_list(application);
 
         // Setup the logger to get messages into the TreeView
         let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
@@ -761,18 +798,18 @@ impl GPSApp {
         node.update_node_properties(properties);
     }
 
-    pub fn clear_graph(&self) {
+    fn clear_graph(&self) {
         let graph_view = self.graphview.borrow_mut();
         graph_view.remove_all_nodes();
     }
 
-    pub fn save_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+    fn save_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
         let graph_view = self.graphview.borrow_mut();
         graph_view.render_xml(filename)?;
         Ok(())
     }
 
-    pub fn load_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+    fn load_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
         self.clear_graph();
         let graph_view = self.graphview.borrow_mut();
         graph_view.load_xml(filename)?;

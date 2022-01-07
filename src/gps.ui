@@ -83,7 +83,8 @@
       </item>
     </section>
   </menu>
-
+  <object class="GtkPopoverMenu" id="app_pop_menu">
+  </object>
   <object class="GtkAboutDialog" id="dialog-about">
     <property name="program-name">GstPipelineStudio</property>
     <property name="authors">Stéphane Cerveau</property>
@@ -259,11 +260,6 @@
                   <property name="vexpand">True</property>
                   <property name="child">
                     <object class="GtkTreeView" id="favorites_list">
-                    <child>
-                    <object class="GtkPopoverMenu" id="fav_pop_menu">
-                      <property name="menu-model">fav_menu</property>
-                    </object>
-                    </child>
                     </object>
                   </property>
                 </object>
