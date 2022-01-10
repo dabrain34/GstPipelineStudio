@@ -592,10 +592,11 @@ impl GPSApp {
             let _ = pipeline.set_state(PipelineState::Stopped);
         });
         let app_weak = self.downgrade();
-        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+        self.connect_button_action("button-clear", move |_| {
             let app = upgrade_weak!(app_weak);
-            app.load_graph("graphs/compositor.xml").expect("Unable to open file");
-        }));
+            app.clear_graph();
+            //app.load_graph("graphs/compositor.xml").expect("Unable to open file");
+        });
 
         // When user clicks on port with right button
         let app_weak = self.downgrade();
