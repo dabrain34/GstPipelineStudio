@@ -372,12 +372,14 @@ impl Pipeline {
         &self,
         graphview: &GraphView,
         node: &Node,
+        elements: &mut HashMap<String, String>,
         mut description: String,
     ) -> String {
         let unique_name = node.unique_name();
-        description.push_str(&format!("{} name={}", node.name(), unique_name));
+        description.push_str(&format!("{} name={} ", node.name(), unique_name));
+        elements.insert(unique_name.clone(), unique_name.clone());
         for (name, value) in node.properties().iter() {
-            description.push_str(&format!(" {}={}", name, value));
+            description.push_str(&format!("{}={}", name, value));
         }
 
         let ports = node.all_ports(PortDirection::Output);
@@ -385,12 +387,17 @@ impl Pipeline {
         for port in ports {
             if let Some((_port_to, node_to)) = graphview.port_connected_to(port.id()) {
                 if n_ports > 1 {
-                    description.push_str(&format!(" {}. ! ", unique_name));
+                    description.push_str(&format!("{}. ! ", unique_name));
                 } else {
-                    description.push_str(" ! ");
+                    description.push_str("! ");
                 }
                 if let Some(node) = graphview.node(&node_to) {
-                    description = self.process_node(graphview, &node, description.clone());
+                    if elements.contains_key(&node.unique_name()) {
+                        description.push_str(&format!("{}. ", node.unique_name()));
+                    } else {
+                        description =
+                            self.process_node(graphview, &node, elements, description.clone());
+                    }
                 }
             }
         }
@@ -398,10 +405,12 @@ impl Pipeline {
     }
 
     pub fn render_gst_launch(&self, graphview: &GraphView) -> String {
-        let nodes = graphview.all_nodes(NodeType::Source);
+        let source_nodes = graphview.all_nodes(NodeType::Source);
+        let mut elements: HashMap<String, String> = HashMap::new();
         let mut description = String::from("");
-        for node in nodes {
-            description = self.process_node(graphview, &node, description.clone());
+        for source_node in source_nodes {
+            description =
+                self.process_node(graphview, &source_node, &mut elements, description.clone());
         }
         description
     }
