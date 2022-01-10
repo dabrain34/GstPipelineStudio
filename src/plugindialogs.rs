@@ -17,6 +17,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::app::GPSApp;
+use crate::logger;
 use crate::pipeline::ElementInfo;
 use crate::pipeline::Pipeline;
 use gtk::glib;
@@ -153,7 +154,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
         entry.set_widget_name(&name);
         entry.connect_changed(
             glib::clone!(@weak entry, @strong update_properties => move |_| {
-                println!("{}:{}", entry.widget_name(), entry.text());
+                GPS_LOG!("{}:{}", entry.widget_name(), entry.text());
                 update_properties.borrow_mut().insert(entry.widget_name().to_string(), entry.text().to_string());
             }),
         );
@@ -176,6 +177,6 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
 
     dialog.show();
     for p in update_properties.borrow().values() {
-        println!("updated properties {}", p);
+        GPS_LOG!("updated properties {}", p);
     }
 }

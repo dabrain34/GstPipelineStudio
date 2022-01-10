@@ -103,25 +103,24 @@ impl Pipeline {
         /* create playbin */
 
         let pipeline = gst::parse_launch(&description.to_string())?;
-        let pipeline = pipeline
-            .downcast::<gst::Pipeline>()
-            .expect("Couldn't downcast pipeline");
+        if let Ok(pipeline) = pipeline.downcast::<gst::Pipeline>() {
+            //pipeline.set_property_message_forward(true);
 
-        //pipeline.set_property_message_forward(true);
+            let bus = pipeline.bus().expect("Pipeline had no bus");
+            let pipeline_weak = self.downgrade();
+            bus.add_watch_local(move |_bus, msg| {
+                let pipeline = upgrade_weak!(pipeline_weak, glib::Continue(false));
 
-        let bus = pipeline.bus().expect("Pipeline had no bus");
-        let pipeline_weak = self.downgrade();
-        bus.add_watch_local(move |_bus, msg| {
-            let pipeline = upgrade_weak!(pipeline_weak, glib::Continue(false));
+                pipeline.on_pipeline_message(msg);
 
-            pipeline.on_pipeline_message(msg);
+                glib::Continue(true)
+            })?;
 
-            glib::Continue(true)
-        })?;
-
-        *self.pipeline.borrow_mut() = Some(pipeline);
-        /* start playing */
-
+            *self.pipeline.borrow_mut() = Some(pipeline);
+            /* start playing */
+        } else {
+            GPS_ERROR!("Couldn't downcast pipeline")
+        }
         Ok(())
     }
 
@@ -152,6 +151,12 @@ impl Pipeline {
         use gst::MessageView;
         match msg.view() {
             MessageView::Error(err) => {
+                GPS_ERROR!(
+                    "Error from {:?}: {} ({:?})",
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
+                );
                 GPSApp::show_error_dialog(
                     false,
                     format!(
@@ -168,7 +173,7 @@ impl Pipeline {
                 // the UI in case something goes wrong
                 Some(s) if s.name() == "warning" => {
                     let text = s.get::<&str>("text").expect("Warning message without text");
-                    GPSApp::show_error_dialog(false, text);
+                    GPS_WARN!("{}", text);
                 }
                 _ => (),
             },

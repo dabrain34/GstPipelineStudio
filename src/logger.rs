@@ -15,9 +15,9 @@ struct Logger {
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum LogLevel {
     Error,
-    _Warning,
+    Warning,
     Info,
-    _Log,
+    Log,
     Debug,
 }
 impl fmt::Display for LogLevel {
@@ -90,8 +90,8 @@ pub fn print_log(log_level: LogLevel, msg: String) {
             .lock()
             .expect("guarded");
 
-        if let Err(e) = sender.get_mut().send(format!("{}:{}", log_level, msg)) {
-            println!("Error: {}", e)
+        if let Err(e) = sender.get_mut().send(format!("{}\t{}", log_level, msg)) {
+            println!("Error: {} for {}", e, msg);
         };
     }
 }

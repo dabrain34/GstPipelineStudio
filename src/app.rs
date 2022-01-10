@@ -329,7 +329,7 @@ impl GPSApp {
     }
 
     fn reset_logger_list(&self, logger_list: &TreeView) {
-        let model = ListStore::new(&[String::static_type()]);
+        let model = ListStore::new(&[String::static_type(), String::static_type()]);
         logger_list.set_model(Some(&model));
     }
 
@@ -340,11 +340,17 @@ impl GPSApp {
             .expect("Couldn't get window");
         let column = TreeViewColumn::new();
         let cell = CellRendererText::new();
-
         column.pack_start(&cell, true);
         // Association of the view's column with the model's `id` column.
         column.add_attribute(&cell, "text", 0);
-        column.set_title("");
+        column.set_title("LEVEL");
+        logger_list.append_column(&column);
+        let column = TreeViewColumn::new();
+        let cell = CellRendererText::new();
+        column.pack_start(&cell, true);
+        // Association of the view's column with the model's `id` column.
+        column.add_attribute(&cell, "text", 1);
+        column.set_title("LOG");
         logger_list.append_column(&column);
         self.reset_logger_list(&logger_list);
     }
@@ -358,7 +364,9 @@ impl GPSApp {
             let list_store = model
                 .dynamic_cast::<ListStore>()
                 .expect("Could not cast to ListStore");
-            list_store.insert_with_values(None, &[(0, &log_entry)]);
+            if let Some(log) = log_entry.split_once('\t') {
+                list_store.insert_with_values(None, &[(0, &log.0), (1, &log.1)]);
+            }
         }
     }
 
@@ -547,11 +555,8 @@ impl GPSApp {
             let pipeline = app.pipeline.borrow();
             if pipeline.state() == PipelineState::Stopped {
                 if let Err(err)  = pipeline.create_pipeline(&pipeline.render_gst_launch(&graph_view)) {
-                    GPSApp::show_error_dialog(
-                        false,
-                        format!("Unable to start a pipeline: {}", err)
-                        .as_str(),
-                    );
+                    GPS_ERROR!("Unable to start a pipeline: {}", err);
+
                 }
                 pipeline.set_state(PipelineState::Playing).expect("Unable to change state");
             } else if pipeline.state() == PipelineState::Paused {
@@ -571,11 +576,7 @@ impl GPSApp {
             let pipeline = app.pipeline.borrow();
             if pipeline.state() == PipelineState::Stopped {
                 if let Err(err)  = pipeline.create_pipeline(&pipeline.render_gst_launch(&graph_view)) {
-                    GPSApp::show_error_dialog(
-                        false,
-                        format!("Unable to start a pipeline: {}", err)
-                        .as_str(),
-                    );
+                    GPS_ERROR!("Unable to start a pipeline: {}", err);
                 }
                 pipeline.set_state(PipelineState::Paused).expect("Unable to change state");
             } else if pipeline.state() == PipelineState::Paused {
