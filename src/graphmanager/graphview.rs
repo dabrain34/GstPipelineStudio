@@ -40,7 +40,7 @@ use gtk::{
 use log::{error, warn};
 
 use std::cell::RefMut;
-use std::{cmp::Ordering, collections::HashMap, error};
+use std::{cmp::Ordering, collections::HashMap};
 
 static GRAPHVIEW_STYLE: &str = include_str!("graphview.css");
 
@@ -771,7 +771,7 @@ impl GraphView {
         self.queue_draw();
     }
 
-    pub fn render_xml(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+    pub fn render_xml(&self, filename: &str) -> anyhow::Result<()> {
         let mut file = File::create(filename).unwrap();
         let mut writer = EmitterConfig::new()
             .perform_indent(true)
@@ -825,7 +825,7 @@ impl GraphView {
         Ok(())
     }
 
-    pub fn load_xml(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+    pub fn load_xml(&self, filename: &str) -> anyhow::Result<()> {
         let file = File::open(filename).unwrap();
         let file = BufReader::new(file);
 

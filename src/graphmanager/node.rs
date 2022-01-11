@@ -170,7 +170,7 @@ impl Node {
     pub fn new(id: u32, name: &str, node_type: NodeType) -> Self {
         let res: Self = glib::Object::new(&[]).expect("Failed to create Node");
         let private = imp::Node::from_instance(&res);
-        private.id.set(id).expect("Node id already set");
+        private.id.set(id).expect("Node id is already set");
         res.set_name(name);
         res.add_css_class("node");
         private
@@ -183,7 +183,6 @@ impl Node {
     fn set_name(&self, name: &str) {
         let self_ = imp::Node::from_instance(self);
         self_.name.set_text(name);
-        println!("{}", name);
     }
 
     fn set_description(&self, description: &str) {
@@ -276,7 +275,7 @@ impl Node {
 
     pub fn add_property(&self, name: String, value: String) {
         let private = imp::Node::from_instance(self);
-        println!("{} {} updated", name, value);
+        println!("property name={} updated with value={}", name, value);
         private.properties.borrow_mut().insert(name, value);
         self.update_description();
     }

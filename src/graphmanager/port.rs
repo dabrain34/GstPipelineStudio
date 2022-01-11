@@ -18,7 +18,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 use gtk::{
-    glib::{self, subclass::Signal},
+    glib::{self},
     prelude::*,
     subclass::prelude::*,
 };
@@ -36,8 +36,6 @@ pub enum PortDirection {
 impl fmt::Display for PortDirection {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
-        // or, alternatively:
-        // fmt::Debug::fmt(self, f)
     }
 }
 
@@ -54,7 +52,7 @@ impl PortDirection {
 
 mod imp {
     use super::*;
-    use once_cell::{sync::Lazy, unsync::OnceCell};
+    use once_cell::unsync::OnceCell;
 
     /// Graphical representation of a pipewire port.
     #[derive(Default, Clone)]
@@ -84,21 +82,6 @@ mod imp {
             if let Some(label) = self.label.get() {
                 label.unparent()
             }
-        }
-
-        fn signals() -> &'static [Signal] {
-            static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
-                vec![Signal::builder(
-                    "port-toggled",
-                    // Provide id of output port and input port to signal handler.
-                    &[<u32>::static_type().into(), <u32>::static_type().into()],
-                    // signal handler sends back nothing.
-                    <()>::static_type().into(),
-                )
-                .build()]
-            });
-
-            SIGNALS.as_ref()
         }
     }
     impl WidgetImpl for Port {}
