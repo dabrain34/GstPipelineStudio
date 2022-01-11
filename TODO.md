@@ -1,4 +1,4 @@
-TODO:
+## 0.1.0
 
 - [x] Fix c.fill issue
 - [x] Create Element structure with pads and connections
@@ -7,42 +7,50 @@ TODO:
 - [x] Draw element with its pad
 - [x] Be able to move the element on Screen
 - [x] Create connection between element
-- [] Control the connection between element
-  - [x] unable to connect in and in out and out
-  - [] unable to connect element with incompatible caps.
-  - [x] unable to connect a port which is already connected
 - [x] create contextual menu on pad or element
-- [] upclass the element
-- [] create a crate for graphview/node/port
 - [x] save/load pipeline
 - [x] Run a pipeline with GStreamer
 - [x] Run the pipeline with GStreamer
 - [x] Control the pipeline with GStreamer
-- [x] Define the license
-- [] check that a node accept to create a port on request (input/output)
 - [x] select nodes/links with a Trait Selectable
 - [x] be able to remove a link by selecting it
 - [x] Connect the logs to the window
-- [] Create a window for the video output
-- [] Add multiple graphviews with tabs.
-- [] Property window in the main window
-- [] Connect the GPS status to GST status
-- [] Implement graph dot render/load
-- [] Implement a command line parser to graph
-- [] Unable to create a pad in an element without the template
-- [] Remove a pad from the graph
-- [] Implement graphview unit test
-- [] Implement pipeline unit test
-- [] Save node position in XML
+- [x] Define the license
+- [x] crash with x11 on contextual menu
+- [x] open multiple times dialog (About) prevent to close it.
+- [x] remove useless code from graphview
+- [x] Move render to a specific module
+- [x] Move GST render to a specific module
+
+## TODO
+
+- [ ] Control the connection between element
+  - [x] unable to connect in and in out and out
+  - [ ] unable to connect element with incompatible caps.
+  - [x] unable to connect a port which is already connected
+- [ ] create a crate for graphview/node/port
+- [ ] check that a node accept to create a port on request (input/output)
+- [ ] Create a window for the video output
+- [ ] Add multiple graphviews with tabs.
+- [ ] Property window in the main window
+- [ ] Connect the GPS status to GST status
+- [ ] Implement graph dot render/load
+- [ ] Implement a command line parser to graph
+- [ ] Unable to create a pad in an element without the template
+- [ ] Remove a pad from a node
+- [ ] Implement graphview unit test
+- [ ] Implement pipeline unit test
+- [ ] Save node position in XML
+- [ ] Autosave the graph
+- [ ] Check the pîpeline live
+- [ ] Display pad properties with tooltip hover
+- [ ] Render a media file
+- [ ] Offer compatible element to a pad (autorender)
+- [ ] Display tags/meta/message detected
+- [ ] Seek to position
+- [ ] Icon install
+- [ ] Flatpak infrastructure
 
 ## bugs
 
-- [x] crash with x11 on contextual menu
-- [] check that element exists before creating it on file load.
-- [x] open multiple times dialog (About) prevent to close it.
-
-## Code cleanup
-
-[] remove useless code from graphview
-[X] Move render to a specific module
-[x] Move GST render to a specific module
+- [ ] check that element exists before creating it on file load.
