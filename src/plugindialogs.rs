@@ -61,7 +61,7 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
     let dialog: Dialog = app
         .builder
         .object("dialog-plugin-list")
-        .expect("Couldn't get window");
+        .expect("Couldn't get the dialog-plugin-list window");
 
     if app.plugin_list_initialized.get().is_none() {
         dialog.set_title(Some("Plugin list"));
@@ -70,13 +70,13 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
         let text_view: TextView = app
             .builder
             .object("textview-plugin-list")
-            .expect("Couldn't get window");
+            .expect("Couldn't get textview-plugin-list window");
         let text_buffer: TextBuffer = text_view.buffer();
 
         let tree: TreeView = app
             .builder
             .object("treeview-plugin-list")
-            .expect("Couldn't get window");
+            .expect("Couldn't get treeview-plugin-list window");
         if tree.n_columns() < 2 {
             append_column(&tree, 0);
             append_column(&tree, 1);
@@ -94,8 +94,8 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
                 let element_name = model
                 .get(&iter, 1)
                 .get::<String>()
-                .expect("Treeview selection, column 1");
-                let description = Pipeline::element_description(&element_name).expect("Unable to get element list from GStreamer");
+                .expect("Unable to get the treeview selection, column 1");
+                let description = Pipeline::element_description(&element_name).expect("Unable to get element description from GStreamer");
                 text_buffer.set_text("");
                 text_buffer.insert_markup(&mut text_buffer.end_iter(), &description);
             }
@@ -110,14 +110,12 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
                     let element_name = model
                     .get(&iter, 1)
                     .get::<String>()
-                    .expect("Treeview selection, column 1");
+                    .expect("Unable to get the treeview selection, column 1");
                     app.add_new_element(&element_name);
                 }
             }),
         );
-        app.plugin_list_initialized
-            .set(true)
-            .expect("Should never happen");
+        app.plugin_list_initialized.set(true).unwrap();
     }
 
     dialog.show();
@@ -127,7 +125,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
     let dialog: Dialog = app
         .builder
         .object("dialog-plugin-properties")
-        .expect("Couldn't get window");
+        .expect("Couldn't get dialog-plugin-properties");
 
     dialog.set_title(Some(&format!("{} properties", element_name)));
     dialog.set_default_size(640, 480);
@@ -136,7 +134,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
     let properties_box: Box = app
         .builder
         .object("box-plugin-properties")
-        .expect("Couldn't get window");
+        .expect("Couldn't get box-plugin-properties");
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
     let properties = Pipeline::element_properties(element_name).unwrap();
@@ -163,8 +161,8 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
     }
     let properties_apply_btn: Button = app
         .builder
-        .object("apply-plugin-properties")
-        .expect("Couldn't get window");
+        .object("button-apply-plugin-properties")
+        .expect("Couldn't get button-apply-plugin-properties");
 
     let app_weak = app.downgrade();
     properties_apply_btn.connect_clicked(

@@ -25,7 +25,6 @@ use gst::prelude::*;
 use gstreamer as gst;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::error;
 use std::fmt;
 use std::ops;
 use std::rc::{Rc, Weak};
@@ -88,7 +87,7 @@ pub struct PipelineInner {
 }
 
 impl Pipeline {
-    pub fn new() -> Result<Self, Box<dyn error::Error>> {
+    pub fn new() -> anyhow::Result<Self> {
         let pipeline = Pipeline(Rc::new(PipelineInner {
             pipeline: RefCell::new(None),
             current_state: Cell::new(PipelineState::Stopped),
@@ -97,36 +96,58 @@ impl Pipeline {
         Ok(pipeline)
     }
 
-    pub fn create_pipeline(&self, description: &str) -> Result<(), Box<dyn error::Error>> {
+    pub fn create_pipeline(&self, description: &str) -> anyhow::Result<()> {
         GPS_INFO!("Creating pipeline {}", description);
 
-        /* create playbin */
-
+        // Create pipeline from the description
         let pipeline = gst::parse_launch(&description.to_string())?;
         if let Ok(pipeline) = pipeline.downcast::<gst::Pipeline>() {
-            //pipeline.set_property_message_forward(true);
-
             let bus = pipeline.bus().expect("Pipeline had no bus");
             let pipeline_weak = self.downgrade();
             bus.add_watch_local(move |_bus, msg| {
                 let pipeline = upgrade_weak!(pipeline_weak, glib::Continue(false));
-
                 pipeline.on_pipeline_message(msg);
-
                 glib::Continue(true)
             })?;
 
             *self.pipeline.borrow_mut() = Some(pipeline);
             /* start playing */
         } else {
-            GPS_ERROR!("Couldn't downcast pipeline")
+            GPS_ERROR!("Can not create a proper pipeline from gstreamer parse_launch");
         }
         Ok(())
     }
 
-    pub fn set_state(&self, state: PipelineState) -> Result<(), Box<dyn error::Error>> {
+    pub fn start_pipeline(
+        &self,
+        graphview: &GraphView,
+        new_state: PipelineState,
+    ) -> anyhow::Result<PipelineState> {
+        if self.state() == PipelineState::Stopped {
+            self.create_pipeline(&self.render_gst_launch(graphview))
+                .map_err(|err| {
+                    GPS_ERROR!("Unable to start a pipeline: {}", err);
+                })
+                .unwrap();
+            self.set_state(new_state)
+                .map_err(|_| GPS_ERROR!("Unable to change state"))
+                .unwrap();
+        } else if self.state() == PipelineState::Paused {
+            self.set_state(PipelineState::Playing)
+                .map_err(|_| GPS_ERROR!("Unable to change state"))
+                .unwrap();
+        } else {
+            self.set_state(PipelineState::Paused)
+                .map_err(|_| GPS_ERROR!("Unable to change state"))
+                .unwrap();
+        }
+
+        Ok(self.state())
+    }
+
+    pub fn set_state(&self, new_state: PipelineState) -> anyhow::Result<PipelineState> {
         if let Some(pipeline) = self.pipeline.borrow().to_owned() {
-            match state {
+            match new_state {
                 PipelineState::Playing => pipeline.set_state(gst::State::Playing)?,
                 PipelineState::Paused => pipeline.set_state(gst::State::Paused)?,
                 PipelineState::Stopped => {
@@ -134,9 +155,9 @@ impl Pipeline {
                     gst::StateChangeSuccess::Success
                 }
             };
-            self.current_state.set(state);
+            self.current_state.set(new_state);
         }
-        Ok(())
+        Ok(new_state)
     }
 
     pub fn state(&self) -> PipelineState {
@@ -181,7 +202,7 @@ impl Pipeline {
         };
     }
 
-    pub fn elements_list() -> Result<Vec<ElementInfo>, Box<dyn error::Error>> {
+    pub fn elements_list() -> anyhow::Result<Vec<ElementInfo>> {
         let registry = gst::Registry::get();
         let mut elements: Vec<ElementInfo> = Vec::new();
         let plugins = gst::Registry::plugin_list(&registry);
@@ -204,24 +225,15 @@ impl Pipeline {
         Ok(elements)
     }
 
-    pub fn element_feature(
-        element_name: &str,
-    ) -> anyhow::Result<gst::PluginFeature, Box<dyn error::Error>> {
+    fn element_feature(element_name: &str) -> Option<gst::PluginFeature> {
         let registry = gst::Registry::get();
-        let feature = gst::Registry::find_feature(
-            &registry,
-            element_name,
-            gst::ElementFactory::static_type(),
-        )
-        .expect("Unable to find the element name");
-        Ok(feature)
+        gst::Registry::find_feature(&registry, element_name, gst::ElementFactory::static_type())
     }
 
-    pub fn element_description(
-        element_name: &str,
-    ) -> anyhow::Result<String, Box<dyn error::Error>> {
+    pub fn element_description(element_name: &str) -> anyhow::Result<String> {
         let mut desc = String::from("");
-        let feature = Pipeline::element_feature(element_name)?;
+        let feature = Pipeline::element_feature(element_name)
+            .ok_or_else(|| glib::bool_error!("Failed get element feature"))?;
 
         if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
             desc.push_str("<b>Factory details:</b>\n");
@@ -330,15 +342,13 @@ impl Pipeline {
         }
     }
 
-    pub fn element_properties(
-        element_name: &str,
-    ) -> anyhow::Result<HashMap<String, String>, Box<dyn error::Error>> {
+    pub fn element_properties(element_name: &str) -> anyhow::Result<HashMap<String, String>> {
         let mut properties_list = HashMap::new();
         let feature = Pipeline::element_feature(element_name).expect("Unable to get feature");
 
         let factory = feature
             .downcast::<gst::ElementFactory>()
-            .expect("Factory not found");
+            .expect("Unable to get the factory from the feature");
         let element = factory.create(None)?;
         let params = element.class().list_properties();
 
@@ -364,8 +374,10 @@ impl Pipeline {
 
         let factory = feature
             .downcast::<gst::ElementFactory>()
-            .expect("Factory not found");
-        let element = factory.create(None).expect("Unable to get factory");
+            .expect("Unable to get the factory from the feature");
+        let element = factory
+            .create(None)
+            .expect("Unable to create an element from the feature");
         match element.dynamic_cast::<gst::URIHandler>() {
             Ok(uri_handler) => uri_handler.uri_type() == gst::URIType::Src,
             Err(_e) => false,
@@ -373,7 +385,7 @@ impl Pipeline {
     }
 
     // Render graph methods
-    pub fn process_node(
+    fn process_gst_node(
         &self,
         graphview: &GraphView,
         node: &Node,
@@ -401,7 +413,7 @@ impl Pipeline {
                         description.push_str(&format!("{}. ", node.unique_name()));
                     } else {
                         description =
-                            self.process_node(graphview, &node, elements, description.clone());
+                            self.process_gst_node(graphview, &node, elements, description.clone());
                     }
                 }
             }
@@ -415,7 +427,7 @@ impl Pipeline {
         let mut description = String::from("");
         for source_node in source_nodes {
             description =
-                self.process_node(graphview, &source_node, &mut elements, description.clone());
+                self.process_gst_node(graphview, &source_node, &mut elements, description.clone());
         }
         description
     }

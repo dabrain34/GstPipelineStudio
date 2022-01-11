@@ -25,6 +25,15 @@ TODO:
 - [x] Connect the logs to the window
 - [] Create a window for the video output
 - [] Add multiple graphviews with tabs.
+- [] Property window in the main window
+- [] Connect the GPS status to GST status
+- [] Implement graph dot render/load
+- [] Implement a command line parser to graph
+- [] Unable to create a pad in an element without the template
+- [] Remove a pad from the graph
+- [] Implement graphview unit test
+- [] Implement pipeline unit test
+- [] Save node position in XML
 
 ## bugs
 
@@ -35,5 +44,5 @@ TODO:
 ## Code cleanup
 
 [] remove useless code from graphview
-[] Move render to a specific module
+[X] Move render to a specific module
 [x] Move GST render to a specific module

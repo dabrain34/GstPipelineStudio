@@ -139,7 +139,7 @@
           </object>
         </child>
         <child>
-          <object class="GtkButton" id="apply-plugin-properties">
+          <object class="GtkButton" id="button-apply-plugin-properties">
             <property name="halign">end</property>
             <property name="hexpand">1</property>
             <property name="receives-default">1</property>
@@ -254,7 +254,7 @@
                   <property name="hexpand">True</property>
                   <property name="vexpand">True</property>
                   <property name="child">
-                    <object class="GtkTreeView" id="favorites_list">
+                    <object class="GtkTreeView" id="treeview-favorites">
                     </object>
                   </property>
                 </object>
@@ -264,7 +264,7 @@
           <child>
             <object class="GtkScrolledWindow">
               <property name="child">
-                <object class="GtkTreeView" id="logger_list"/>
+                <object class="GtkTreeView" id="treeview-logger"/>
               </property>
             </object>
           </child>

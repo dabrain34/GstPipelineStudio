@@ -16,6 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
+
 use glib::SignalHandlerId;
 use glib::Value;
 use gtk::gdk::Rectangle;
@@ -29,8 +30,8 @@ use gtk::{gio, gio::SimpleAction, glib, graphene};
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops;
 use std::rc::{Rc, Weak};
-use std::{error, ops};
 
 use crate::about;
 use crate::logger;
@@ -78,26 +79,29 @@ impl GPSAppWeak {
 }
 
 impl GPSApp {
-    fn new(application: &gtk::Application) -> anyhow::Result<GPSApp, Box<dyn error::Error>> {
+    fn new(application: &gtk::Application) -> anyhow::Result<GPSApp> {
         let glade_src = include_str!("gps.ui");
         let builder = Builder::from_string(glade_src);
-        let window: ApplicationWindow = builder.object("mainwindow").expect("Couldn't get window");
+        let window: ApplicationWindow = builder
+            .object("mainwindow")
+            .expect("Couldn't get the main window");
         window.set_application(Some(application));
         window.set_title(Some("GstPipelineStudio"));
+
         let settings = Settings::load_settings();
         window.set_size_request(settings.app_width, settings.app_height);
         let paned: Paned = builder
             .object("graph_logs-paned")
-            .expect("Couldn't get window");
+            .expect("Couldn't get graph_logs-paned");
         paned.set_position(settings.app_graph_logs_paned_pos);
         let paned: Paned = builder
             .object("graph_favorites-paned")
-            .expect("Couldn't get window");
+            .expect("Couldn't get graph_favorites-paned");
         paned.set_position(settings.app_graph_favorites_paned_pos);
         if settings.app_maximized {
             window.maximize();
         }
-        let pipeline = Pipeline::new().expect("Unable to initialize the pipeline");
+        let pipeline = Pipeline::new().expect("Unable to initialize GStreamer subsystem");
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
             graphview: RefCell::new(GraphView::new()),
@@ -113,11 +117,8 @@ impl GPSApp {
         // Create application and error out if that fails for whatever reason
         let app = match GPSApp::new(application) {
             Ok(app) => app,
-            Err(_err) => {
-                /*                 utils::show_error_dialog(
-                    true,
-                    format!("Error creating application: {}", err).as_str(),
-                ); */
+            Err(err) => {
+                println!("Error creating application: {}", err);
                 return;
             }
         };
@@ -125,7 +126,6 @@ impl GPSApp {
         // When the application is activated show the UI. This happens when the first process is
         // started, and in the first process whenever a second process is started
         let app_weak = app.downgrade();
-
         application.connect_activate(glib::clone!(@weak application => move |_| {
             let app = upgrade_weak!(app_weak);
             app.build_ui(&application);
@@ -140,7 +140,7 @@ impl GPSApp {
             let window: ApplicationWindow = app
                 .builder
                 .object("mainwindow")
-                .expect("Couldn't get window");
+                .expect("Couldn't get the main window");
             let mut settings = Settings::load_settings();
             settings.app_maximized = window.is_maximized();
             settings.app_width = window.width();
@@ -148,19 +148,19 @@ impl GPSApp {
             let paned: Paned = app
                 .builder
                 .object("graph_logs-paned")
-                .expect("Couldn't get window");
+                .expect("Couldn't get graph_logs-paned");
             settings.app_graph_logs_paned_pos = paned.position();
             let paned: Paned = app
                 .builder
                 .object("graph_favorites-paned")
-                .expect("Couldn't get window");
+                .expect("Couldn't get graph_favorites-paned");
             settings.app_graph_favorites_paned_pos = paned.position();
             Settings::save_settings(&settings);
 
             let pop_menu: PopoverMenu = app
                 .builder
                 .object("app_pop_menu")
-                .expect("Couldn't get pop over menu for app");
+                .expect("Couldn't get app_pop_menu");
             pop_menu.unparent();
 
             app.drop();
@@ -203,12 +203,12 @@ impl GPSApp {
         let mainwindow: ApplicationWindow = self
             .builder
             .object("mainwindow")
-            .expect("Couldn't get mainwindow");
+            .expect("Couldn't get the main window");
 
         let pop_menu: PopoverMenu = self
             .builder
             .object("app_pop_menu")
-            .expect("Couldn't get popover menu");
+            .expect("Couldn't get app_pop_menu");
 
         if let Some((x, y)) = widget.translate_coordinates(&mainwindow, x, y) {
             let point = graphene::Point::new(x as f32, y as f32);
@@ -232,12 +232,12 @@ impl GPSApp {
         let application = gio::Application::default()
             .expect("No default application")
             .downcast::<gtk::Application>()
-            .expect("Default application has wrong type");
+            .expect("Unable to downcast default application");
         let action = application
             .lookup_action(action_name)
-            .expect("Unable to find action")
+            .unwrap_or_else(|| panic!("Unable to find action {}", action_name))
             .dynamic_cast::<SimpleAction>()
-            .expect("Unable to cast to SimpleAction");
+            .expect("Unable to dynamic cast to SimpleAction");
 
         if let Some(signal_handler_id) = self.menu_signal_handlers.borrow_mut().remove(action_name)
         {
@@ -270,7 +270,7 @@ impl GPSApp {
         let window: ApplicationWindow = app
             .builder
             .object("mainwindow")
-            .expect("Couldn't get window");
+            .expect("Couldn't get main window");
         let file_chooser: FileChooserDialog = FileChooserDialog::new(
             Some(message),
             Some(&window),
@@ -289,7 +289,7 @@ impl GPSApp {
                     file.path()
                         .expect("Couldn't get file path")
                         .to_str()
-                        .expect("unable to convert to string"),
+                        .expect("Unable to convert to string"),
                 );
                 f(app, filename);
             }
@@ -336,8 +336,8 @@ impl GPSApp {
     fn setup_logger_list(&self) {
         let logger_list: TreeView = self
             .builder
-            .object("logger_list")
-            .expect("Couldn't get window");
+            .object("treeview-logger")
+            .expect("Couldn't get treeview-logger");
         let column = TreeViewColumn::new();
         let cell = CellRendererText::new();
         column.pack_start(&cell, true);
@@ -358,8 +358,8 @@ impl GPSApp {
     fn add_to_logger_list(&self, log_entry: String) {
         let logger_list: TreeView = self
             .builder
-            .object("logger_list")
-            .expect("Couldn't get window");
+            .object("treeview-logger")
+            .expect("Couldn't get treeview-logger");
         if let Some(model) = logger_list.model() {
             let list_store = model
                 .dynamic_cast::<ListStore>()
@@ -382,8 +382,8 @@ impl GPSApp {
     fn setup_favorite_list(&self, application: &Application) {
         let favorite_list: TreeView = self
             .builder
-            .object("favorites_list")
-            .expect("Couldn't get window");
+            .object("treeview-favorites")
+            .expect("Couldn't get treeview-favorites");
         let column = TreeViewColumn::new();
         let cell = CellRendererText::new();
 
@@ -402,7 +402,7 @@ impl GPSApp {
                     .get(&iter, 0)
                     .get::<String>()
                     .expect("Treeview selection, column 1");
-                GPS_DEBUG!("{}", element_name);
+                GPS_DEBUG!("{} selected", element_name);
                 app.add_new_element(&element_name);
             }
         });
@@ -418,14 +418,14 @@ impl GPSApp {
                         let element_name = model
                         .get(&iter, 0)
                         .get::<String>()
-                        .expect("Treeview selection, column 1");
-                        GPS_DEBUG!("{}", element_name);
+                        .expect("Treeview selection, column 0");
+                        GPS_DEBUG!("Element {} selected", element_name);
 
                         let pop_menu = app.app_pop_menu_at_position(&favorite_list, x, y);
                         let menu: gio::MenuModel = app
                         .builder
                         .object("fav_menu")
-                        .expect("Couldn't get menu model for graph");
+                        .expect("Couldn't get fav_menu model");
                         pop_menu.set_menu_model(Some(&menu));
 
                         let app_weak = app.downgrade();
@@ -451,8 +451,8 @@ impl GPSApp {
         if !favorites.contains(&element_name) {
             let favorite_list: TreeView = self
                 .builder
-                .object("favorites_list")
-                .expect("Couldn't get window");
+                .object("treeview-favorites")
+                .expect("Couldn't get treeview-favorites");
             if let Some(model) = favorite_list.model() {
                 let list_store = model
                     .dynamic_cast::<ListStore>()
@@ -472,7 +472,7 @@ impl GPSApp {
         let drawing_area_window: Viewport = self
             .builder
             .object("drawing_area")
-            .expect("Couldn't get window");
+            .expect("Couldn't get drawing_area");
 
         drawing_area_window.set_child(Some(&*self.graphview.borrow()));
 
@@ -482,7 +482,7 @@ impl GPSApp {
         let status_bar: Statusbar = self
             .builder
             .object("status_bar")
-            .expect("Couldn't get window");
+            .expect("Couldn't get status_bar");
         status_bar.push(status_bar.context_id("Description"), "GPS is ready");
 
         self.setup_app_actions(application);
@@ -490,7 +490,7 @@ impl GPSApp {
         let pop_menu: PopoverMenu = self
             .builder
             .object("app_pop_menu")
-            .expect("Couldn't get pop over menu for app");
+            .expect("Couldn't get app_pop_menu");
         pop_menu.set_parent(window);
 
         let app_weak = self.downgrade();
@@ -543,48 +543,26 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             GPSApp::display_plugin_list(&app);
         });
-        let add_button: Button = self
-            .builder
-            .object("button-play")
-            .expect("Couldn't get app_button");
-        let app_weak = self.downgrade();
-        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
-            // entry.set_text("Clicked!");
-            let app = upgrade_weak!(app_weak);
-            let graph_view = app.graphview.borrow();
-            let pipeline = app.pipeline.borrow();
-            if pipeline.state() == PipelineState::Stopped {
-                if let Err(err)  = pipeline.create_pipeline(&pipeline.render_gst_launch(&graph_view)) {
-                    GPS_ERROR!("Unable to start a pipeline: {}", err);
 
-                }
-                pipeline.set_state(PipelineState::Playing).expect("Unable to change state");
-            } else if pipeline.state() == PipelineState::Paused {
-                pipeline.set_state(PipelineState::Playing).expect("Unable to change state");
-            } else {
-                pipeline.set_state(PipelineState::Paused).expect("Unable to change state");
-            }
-        }));
-        let add_button: Button = self
-            .builder
-            .object("button-pause")
-            .expect("Couldn't get app_button");
         let app_weak = self.downgrade();
-        add_button.connect_clicked(glib::clone!(@weak window => move |_| {
+        self.connect_button_action("button-play", move |_| {
             let app = upgrade_weak!(app_weak);
             let graph_view = app.graphview.borrow();
-            let pipeline = app.pipeline.borrow();
-            if pipeline.state() == PipelineState::Stopped {
-                if let Err(err)  = pipeline.create_pipeline(&pipeline.render_gst_launch(&graph_view)) {
-                    GPS_ERROR!("Unable to start a pipeline: {}", err);
-                }
-                pipeline.set_state(PipelineState::Paused).expect("Unable to change state");
-            } else if pipeline.state() == PipelineState::Paused {
-                pipeline.set_state(PipelineState::Playing).expect("Unable to change state");
-            } else {
-                pipeline.set_state(PipelineState::Paused).expect("Unable to change state");
-            }
-        }));
+            let _ = app
+                .pipeline
+                .borrow()
+                .start_pipeline(&graph_view, PipelineState::Playing);
+        });
+
+        let app_weak = self.downgrade();
+        self.connect_button_action("button-pause", move |_| {
+            let app = upgrade_weak!(app_weak);
+            let graph_view = app.graphview.borrow();
+            let _ = app
+                .pipeline
+                .borrow()
+                .start_pipeline(&graph_view, PipelineState::Paused);
+        });
 
         let app_weak = self.downgrade();
         self.connect_button_action("button-stop", move |_| {
@@ -592,6 +570,7 @@ impl GPSApp {
             let pipeline = app.pipeline.borrow();
             let _ = pipeline.set_state(PipelineState::Stopped);
         });
+
         let app_weak = self.downgrade();
         self.connect_button_action("button-clear", move |_| {
             let app = upgrade_weak!(app_weak);
@@ -614,7 +593,7 @@ impl GPSApp {
                     let menu: gio::MenuModel = app
                     .builder
                     .object("graph_menu")
-                    .expect("Couldn't get menu model for graph");
+                    .expect("Couldn't graph_menu");
                     pop_menu.set_menu_model(Some(&menu));
 
                     let app_weak = app.downgrade();
@@ -624,7 +603,6 @@ impl GPSApp {
                             GPSApp::display_plugin_list(&app);
                         }
                     );
-
                     pop_menu.show();
                     None
                 }),
@@ -795,13 +773,13 @@ impl GPSApp {
         graph_view.remove_all_nodes();
     }
 
-    fn save_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+    fn save_graph(&self, filename: &str) -> anyhow::Result<()> {
         let graph_view = self.graphview.borrow_mut();
         graph_view.render_xml(filename)?;
         Ok(())
     }
 
-    fn load_graph(&self, filename: &str) -> anyhow::Result<(), Box<dyn error::Error>> {
+    fn load_graph(&self, filename: &str) -> anyhow::Result<()> {
         self.clear_graph();
         let graph_view = self.graphview.borrow_mut();
         graph_view.load_xml(filename)?;
