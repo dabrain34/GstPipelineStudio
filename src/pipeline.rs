@@ -127,20 +127,14 @@ impl Pipeline {
             self.create_pipeline(&self.render_gst_launch(graphview))
                 .map_err(|err| {
                     GPS_ERROR!("Unable to start a pipeline: {}", err);
-                })
-                .unwrap();
-            self.set_state(new_state)
-                .map_err(|_| GPS_ERROR!("Unable to change state"))
-                .unwrap();
-        } else if self.state() == PipelineState::Paused {
-            self.set_state(PipelineState::Playing)
-                .map_err(|_| GPS_ERROR!("Unable to change state"))
-                .unwrap();
-        } else {
-            self.set_state(PipelineState::Paused)
-                .map_err(|_| GPS_ERROR!("Unable to change state"))
-                .unwrap();
+                    err
+                })?;
         }
+
+        self.set_state(new_state).map_err(|error| {
+            GPS_ERROR!("Unable to change state {}", error);
+            error
+        })?;
 
         Ok(self.state())
     }
