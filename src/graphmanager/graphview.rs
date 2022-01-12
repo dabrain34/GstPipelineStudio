@@ -56,6 +56,7 @@ mod imp {
 
     #[derive(Default)]
     pub struct GraphView {
+        pub(super) id: Cell<u32>,
         pub(super) nodes: RefCell<HashMap<u32, Node>>,
         pub(super) links: RefCell<HashMap<u32, Link>>,
         pub(super) current_node_id: Cell<u32>,
@@ -126,6 +127,18 @@ mod imp {
                 }
                 ),
             );
+            drag_controller.connect_drag_end(
+                clone!(@strong drag_state => move |drag_controller, _x, _y| {
+                    let widget = drag_controller
+                        .widget()
+                        .expect("drag-end event has no widget")
+                        .dynamic_cast::<Self::Type>()
+                        .expect("drag-end event is not on the GraphView");
+                    widget.graph_updated();
+                }
+                ),
+            );
+
             obj.add_controller(&drag_controller);
 
             let gesture = gtk::GestureClick::new();
@@ -252,6 +265,13 @@ mod imp {
                         <()>::static_type().into(),
                     )
                     .build(),
+                    Signal::builder(
+                        "graph-updated",
+                        // returns graph ID
+                        &[u32::static_type().into()],
+                        <()>::static_type().into(),
+                    )
+                    .build(),
                 ]
             });
             SIGNALS.as_ref()
@@ -374,6 +394,16 @@ impl GraphView {
         );
         glib::Object::new(&[]).expect("Failed to create GraphView")
     }
+    pub fn set_id(&self, id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        private.id.set(id)
+    }
+
+    fn graph_updated(&self) {
+        let private = imp::GraphView::from_instance(self);
+        self.emit_by_name("graph-updated", &[&private.id.get()])
+            .expect("unable to send signal");
+    }
 
     pub fn add_node_with_port(&self, id: u32, node: Node, input: u32, output: u32) {
         let private = imp::GraphView::from_instance(self);
@@ -423,6 +453,7 @@ impl GraphView {
             let port_id = self.next_port_id();
             self.add_port(id, port_id, "out", PortDirection::Output);
         }
+        self.graph_updated();
     }
 
     pub fn add_node(&self, id: u32, node: Node) {
@@ -544,6 +575,7 @@ impl GraphView {
         let private = imp::GraphView::from_instance(self);
         if !self.link_exists(&link) {
             private.links.borrow_mut().insert(link.id, link);
+            self.graph_updated();
             self.queue_draw();
         }
     }
@@ -772,12 +804,14 @@ impl GraphView {
     }
 
     pub fn render_xml(&self, filename: &str) -> anyhow::Result<()> {
+        let private = imp::GraphView::from_instance(self);
         let mut file = File::create(filename).unwrap();
         let mut writer = EmitterConfig::new()
             .perform_indent(true)
             .create_writer(&mut file);
 
-        writer.write(XMLWEvent::start_element("Graph"))?;
+        writer
+            .write(XMLWEvent::start_element("Graph").attr("id", &private.id.get().to_string()))?;
 
         //Get the nodes
         let nodes = self.all_nodes(NodeType::All);
@@ -806,6 +840,20 @@ impl GraphView {
                 )?;
                 writer.write(XMLWEvent::end_element())?;
             }
+            if let Some(position) = self.node_position(&node.upcast()) {
+                writer.write(
+                    XMLWEvent::start_element("Property")
+                        .attr("name", "_pos_x")
+                        .attr("value", &position.0.to_string()),
+                )?;
+                writer.write(XMLWEvent::end_element())?;
+                writer.write(
+                    XMLWEvent::start_element("Property")
+                        .attr("name", "_pos_y")
+                        .attr("value", &position.1.to_string()),
+                )?;
+                writer.write(XMLWEvent::end_element())?;
+            }
             writer.write(XMLWEvent::end_element())?;
         }
         //Get the link and write it.
@@ -826,7 +874,7 @@ impl GraphView {
     }
 
     pub fn load_xml(&self, filename: &str) -> anyhow::Result<()> {
-        let file = File::open(filename).unwrap();
+        let file = File::open(filename)?;
         let file = BufReader::new(file);
 
         let parser = EventReader::new(file);
@@ -849,6 +897,9 @@ impl GraphView {
                     match name.to_string().as_str() {
                         "Graph" => {
                             println!("New graph detected");
+                            if let Some(id) = attrs.get::<String>(&String::from("id")) {
+                                self.set_id(id.parse::<u32>().expect("id should be an u32"));
+                            }
                         }
                         "Node" => {
                             let id = attrs
@@ -935,7 +986,21 @@ impl GraphView {
                         "Node" => {
                             if let Some(node) = current_node {
                                 let id = node.id();
+                                let mut pos_x = 0 as f32;
+                                let mut pos_y = 0 as f32;
+                                if let Some(value) = node.property("_pos_x") {
+                                    pos_x = value.parse::<f32>().unwrap();
+                                }
+                                if let Some(value) = node.property("_pos_y") {
+                                    pos_y = value.parse::<f32>().unwrap();
+                                }
+
                                 self.add_node(id, node);
+                                if let Some(node) = self.node(&id) {
+                                    if pos_x != 0.0 || pos_y != 0.0 {
+                                        self.move_node(&node.upcast(), pos_x, pos_y);
+                                    }
+                                }
                                 self.update_current_node_id(id);
                             }
                             current_node = None;
