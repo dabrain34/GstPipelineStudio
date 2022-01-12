@@ -40,8 +40,8 @@
 - [ ] Remove a pad from a node
 - [ ] Implement graphview unit test
 - [ ] Implement pipeline unit test
-- [ ] Save node position in XML
-- [ ] Autosave the graph
+- [x] Save node position in XML
+- [x] Autosave the graph
 - [ ] Check the pîpeline live
 - [ ] Display pad properties with tooltip hover
 - [ ] Render a media file

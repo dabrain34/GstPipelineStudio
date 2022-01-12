@@ -38,7 +38,7 @@ use crate::logger;
 use crate::pipeline::{Pipeline, PipelineState};
 use crate::plugindialogs;
 use crate::settings::Settings;
-use crate::{GPS_DEBUG, GPS_ERROR};
+use crate::{GPS_DEBUG, GPS_ERROR, GPS_WARN};
 
 use crate::graphmanager::{GraphView, Node, PortDirection};
 
@@ -110,6 +110,7 @@ impl GPSApp {
             plugin_list_initialized: OnceCell::new(),
             menu_signal_handlers: RefCell::new(HashMap::new()),
         }));
+        app.graphview.borrow_mut().set_id(0);
         Ok(app)
     }
 
@@ -476,6 +477,17 @@ impl GPSApp {
 
         drawing_area_window.set_child(Some(&*self.graphview.borrow()));
 
+        // Setup the logger to get messages into the TreeView
+        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        let app_weak = self.downgrade();
+        logger::init_logger(ready_tx, logger::LogLevel::Debug);
+        self.setup_logger_list();
+        let _ = ready_rx.attach(None, move |msg: String| {
+            let app = upgrade_weak!(app_weak, glib::Continue(false));
+            app.add_to_logger_list(msg);
+            glib::Continue(true)
+        });
+
         let window = &self.window;
 
         window.show();
@@ -575,9 +587,29 @@ impl GPSApp {
         self.connect_button_action("button-clear", move |_| {
             let app = upgrade_weak!(app_weak);
             app.clear_graph();
-            //app.load_graph("graphs/compositor.xml").expect("Unable to open file");
         });
 
+        let app_weak = self.downgrade();
+        self.graphview
+            .borrow()
+            .connect_local(
+                "graph-updated",
+                false,
+                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                    let app = upgrade_weak!(app_weak, None);
+                    let id = values[1].get::<u32>().expect("id in args[1]");
+                    GPS_DEBUG!("Graph updated id={}", id);
+                    let _ = app
+                        .save_graph(
+                            Settings::default_graph_file_path()
+                                .to_str()
+                                .expect("Unable to convert to string"),
+                        )
+                        .map_err(|e| GPS_WARN!("Unable to save file {}", e));
+                    None
+                }),
+            )
+            .expect("Failed to register graph-updated signal of graphview");
         // When user clicks on port with right button
         let app_weak = self.downgrade();
         self.graphview
@@ -722,16 +754,15 @@ impl GPSApp {
         // Setup the favorite list
         self.setup_favorite_list(application);
 
-        // Setup the logger to get messages into the TreeView
-        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        let app_weak = self.downgrade();
-        logger::init_logger(ready_tx, logger::LogLevel::Debug);
-        self.setup_logger_list();
-        let _ = ready_rx.attach(None, move |msg: String| {
-            let app = upgrade_weak!(app_weak, glib::Continue(false));
-            app.add_to_logger_list(msg);
-            glib::Continue(true)
-        });
+        let _ = self
+            .load_graph(
+                Settings::default_graph_file_path()
+                    .to_str()
+                    .expect("Unable to convert to string"),
+            )
+            .map_err(|_e| {
+                GPS_WARN!("Unable to load default graph");
+            });
     }
 
     // Downgrade to a weak reference
@@ -743,7 +774,7 @@ impl GPSApp {
     fn drop(self) {}
 
     pub fn add_new_element(&self, element_name: &str) {
-        let graph_view = self.graphview.borrow_mut();
+        let graph_view = self.graphview.borrow();
         let node_id = graph_view.next_node_id();
         let pads = Pipeline::pads(element_name, false);
         if Pipeline::element_is_uri_src_handler(element_name) {
@@ -752,7 +783,7 @@ impl GPSApp {
                 let node = app.graphview.borrow().node(&node_id).unwrap();
                 let mut properties: HashMap<String, String> = HashMap::new();
                 properties.insert(String::from("location"), filename);
-                node.update_node_properties(&properties);
+                node.update_properties(&properties);
             });
         }
         graph_view.add_node_with_port(
@@ -765,7 +796,7 @@ impl GPSApp {
 
     pub fn update_element_properties(&self, node_id: u32, properties: &HashMap<String, String>) {
         let node = self.graphview.borrow().node(&node_id).unwrap();
-        node.update_node_properties(properties);
+        node.update_properties(properties);
     }
 
     fn clear_graph(&self) {
@@ -774,14 +805,14 @@ impl GPSApp {
     }
 
     fn save_graph(&self, filename: &str) -> anyhow::Result<()> {
-        let graph_view = self.graphview.borrow_mut();
+        let graph_view = self.graphview.borrow();
         graph_view.render_xml(filename)?;
         Ok(())
     }
 
     fn load_graph(&self, filename: &str) -> anyhow::Result<()> {
         self.clear_graph();
-        let graph_view = self.graphview.borrow_mut();
+        let graph_view = self.graphview.borrow();
         graph_view.load_xml(filename)?;
         Ok(())
     }

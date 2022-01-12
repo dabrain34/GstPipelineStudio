@@ -396,7 +396,9 @@ impl Pipeline {
         description.push_str(&format!("{} name={} ", node.name(), unique_name));
         elements.insert(unique_name.clone(), unique_name.clone());
         for (name, value) in node.properties().iter() {
-            description.push_str(&format!("{}={}", name, value));
+            if !node.hidden_property(name) {
+                description.push_str(&format!("{}={}", name, value));
+            }
         }
 
         let ports = node.all_ports(PortDirection::Output);
