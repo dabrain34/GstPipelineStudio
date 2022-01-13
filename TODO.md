@@ -50,6 +50,8 @@
 - [ ] Seek to position
 - [ ] Icon install
 - [ ] Flatpak infrastructure
+- [ ] handle the caps setter
+- [x] Logger in file/app all over the app
 
 ## bugs
 

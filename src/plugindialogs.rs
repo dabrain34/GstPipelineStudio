@@ -152,7 +152,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
         entry.set_widget_name(&name);
         entry.connect_changed(
             glib::clone!(@weak entry, @strong update_properties => move |_| {
-                GPS_LOG!("{}:{}", entry.widget_name(), entry.text());
+                GPS_TRACE!("property changed: {}:{}", entry.widget_name(), entry.text());
                 update_properties.borrow_mut().insert(entry.widget_name().to_string(), entry.text().to_string());
             }),
         );
@@ -175,6 +175,6 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
 
     dialog.show();
     for p in update_properties.borrow().values() {
-        GPS_LOG!("updated properties {}", p);
+        GPS_TRACE!("updated properties {}", p);
     }
 }

@@ -1,24 +1,20 @@
 use glib::Sender;
 use gtk::glib;
-use once_cell::sync::Lazy;
-use once_cell::sync::OnceCell;
-use std::cell::RefCell;
+use log::{debug, error, info, trace, warn};
+use simplelog::*;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::io;
 
-#[derive(Default)]
-struct Logger {
-    pub log_sender: OnceCell<Arc<Mutex<RefCell<Sender<String>>>>>,
-    pub log_level: OnceCell<LogLevel>,
-}
+use std::fs::File;
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+
 pub enum LogLevel {
     Error,
     Warning,
     Info,
-    Log,
     Debug,
+    Trace,
 }
 impl fmt::Display for LogLevel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -51,14 +47,6 @@ macro_rules! GPS_INFO (
 );
 
 #[macro_export]
-macro_rules! GPS_LOG (
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ({
-        logger::print_log(logger::LogLevel::Log, format_args!($($arg)*).to_string());
-    })
-);
-
-#[macro_export]
 macro_rules! GPS_DEBUG (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
@@ -66,32 +54,89 @@ macro_rules! GPS_DEBUG (
     })
 );
 
-static LOGGER: Lazy<Logger> = Lazy::new(Logger::default);
+#[macro_export]
+macro_rules! GPS_TRACE (
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ({
+        logger::print_log(logger::LogLevel::Trace, format_args!($($arg)*).to_string());
+    })
+);
 
-pub fn init_logger(sender: Sender<String>, log_level: LogLevel) {
-    LOGGER
-        .log_sender
-        .set(Arc::new(Mutex::new(RefCell::new(sender))))
-        .expect("init logger should be called once");
-    let _ = LOGGER.log_level.set(log_level);
+struct WriteAdapter {
+    sender: Sender<String>,
+    buffer: String,
+}
+
+impl io::Write for WriteAdapter {
+    // On write we forward each u8 of the buffer to the sender and return the length of the buffer
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.buffer
+            .push_str(&String::from_utf8(buf.to_vec()).unwrap());
+        if self.buffer.ends_with('\n') {
+            self.buffer.pop();
+            self.sender.send(self.buffer.clone()).unwrap();
+            self.buffer = String::from("");
+        }
+
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn translate_to_simple_logger(log_level: LogLevel) -> LevelFilter {
+    match log_level {
+        LogLevel::Error => LevelFilter::Error,
+        LogLevel::Warning => LevelFilter::Warn,
+        LogLevel::Info => LevelFilter::Info,
+        LogLevel::Debug => LevelFilter::Debug,
+        LogLevel::Trace => LevelFilter::Trace,
+    }
+}
+
+pub fn init_logger(sender: Sender<String>, log_file: &str) {
+    simplelog::CombinedLogger::init(vec![
+        WriteLogger::new(
+            translate_to_simple_logger(LogLevel::Trace),
+            Config::default(),
+            File::create(log_file).unwrap(),
+        ),
+        WriteLogger::new(
+            translate_to_simple_logger(LogLevel::Debug),
+            Config::default(),
+            WriteAdapter {
+                sender,
+                buffer: String::from(""),
+            },
+        ),
+        TermLogger::new(
+            LevelFilter::Info,
+            Config::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+    ])
+    .unwrap();
 }
 
 pub fn print_log(log_level: LogLevel, msg: String) {
-    if log_level
-        <= *LOGGER
-            .log_level
-            .get()
-            .expect("Logger should be initialized before calling print_log")
-    {
-        let mut sender = LOGGER
-            .log_sender
-            .get()
-            .expect("Logger should be initialized before calling print_log")
-            .lock()
-            .expect("guarded");
-
-        if let Err(e) = sender.get_mut().send(format!("{}\t{}", log_level, msg)) {
-            println!("Error: {} for {}", e, msg);
-        };
-    }
+    match log_level {
+        LogLevel::Error => {
+            error!("{}", msg);
+        }
+        LogLevel::Warning => {
+            warn!("{}", msg);
+        }
+        LogLevel::Info => {
+            info!("{}", msg);
+        }
+        LogLevel::Debug => {
+            debug!("{}", msg);
+        }
+        LogLevel::Trace => {
+            trace!("{}", msg);
+        }
+    };
 }

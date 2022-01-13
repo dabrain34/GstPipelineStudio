@@ -41,7 +41,7 @@ impl Settings {
         path.push("settings.toml");
         path
     }
-
+    // Public methods
     pub fn default_graph_file_path() -> PathBuf {
         let mut path = glib::user_config_dir();
         path.push(config::APP_ID);
@@ -49,7 +49,12 @@ impl Settings {
         path
     }
 
-    // Public methods
+    pub fn default_log_file_path() -> PathBuf {
+        let mut path = PathBuf::new();
+        path.push("gstpipelinestudio.log");
+        path
+    }
+
     pub fn add_favorite(favorite: &str) {
         let mut settings = Settings::load_settings();
         settings.favorites.sort();

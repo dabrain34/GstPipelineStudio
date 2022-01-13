@@ -27,6 +27,7 @@ use gtk::{
     TreeView, TreeViewColumn, Viewport, Widget,
 };
 use gtk::{gio, gio::SimpleAction, glib, graphene};
+use log::error;
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -38,7 +39,7 @@ use crate::logger;
 use crate::pipeline::{Pipeline, PipelineState};
 use crate::plugindialogs;
 use crate::settings::Settings;
-use crate::{GPS_DEBUG, GPS_ERROR, GPS_WARN};
+use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 
 use crate::graphmanager::{GraphView, Node, PortDirection};
 
@@ -119,7 +120,7 @@ impl GPSApp {
         let app = match GPSApp::new(application) {
             Ok(app) => app,
             Err(err) => {
-                println!("Error creating application: {}", err);
+                error!("Error creating application: {}", err);
                 return;
             }
         };
@@ -328,35 +329,41 @@ impl GPSApp {
         dialog.set_resizable(false);
         dialog.show();
     }
+    fn add_column_to_treeview(&self, tree_name: &str, column_name: &str, column_n: i32) {
+        let treeview: TreeView = self
+            .builder
+            .object(tree_name)
+            .expect("Couldn't get tree_name");
+        let column = TreeViewColumn::new();
+        let cell = CellRendererText::new();
+        column.pack_start(&cell, true);
+        // Association of the view's column with the model's `id` column.
+        column.add_attribute(&cell, "text", column_n);
+        column.set_title(column_name);
+        treeview.append_column(&column);
+    }
 
     fn reset_logger_list(&self, logger_list: &TreeView) {
-        let model = ListStore::new(&[String::static_type(), String::static_type()]);
+        let model = ListStore::new(&[
+            String::static_type(),
+            String::static_type(),
+            String::static_type(),
+        ]);
         logger_list.set_model(Some(&model));
     }
 
     fn setup_logger_list(&self) {
+        self.add_column_to_treeview("treeview-logger", "TIME", 0);
+        self.add_column_to_treeview("treeview-logger", "LEVEL", 1);
+        self.add_column_to_treeview("treeview-logger", "LOG", 2);
         let logger_list: TreeView = self
             .builder
             .object("treeview-logger")
             .expect("Couldn't get treeview-logger");
-        let column = TreeViewColumn::new();
-        let cell = CellRendererText::new();
-        column.pack_start(&cell, true);
-        // Association of the view's column with the model's `id` column.
-        column.add_attribute(&cell, "text", 0);
-        column.set_title("LEVEL");
-        logger_list.append_column(&column);
-        let column = TreeViewColumn::new();
-        let cell = CellRendererText::new();
-        column.pack_start(&cell, true);
-        // Association of the view's column with the model's `id` column.
-        column.add_attribute(&cell, "text", 1);
-        column.set_title("LOG");
-        logger_list.append_column(&column);
         self.reset_logger_list(&logger_list);
     }
 
-    fn add_to_logger_list(&self, log_entry: String) {
+    fn add_to_logger_list(&self, log_entry: &str) {
         let logger_list: TreeView = self
             .builder
             .object("treeview-logger")
@@ -365,9 +372,8 @@ impl GPSApp {
             let list_store = model
                 .dynamic_cast::<ListStore>()
                 .expect("Could not cast to ListStore");
-            if let Some(log) = log_entry.split_once('\t') {
-                list_store.insert_with_values(None, &[(0, &log.0), (1, &log.1)]);
-            }
+            let log: Vec<&str> = log_entry.splitn(3, ' ').collect();
+            list_store.insert_with_values(None, &[(0, &log[0]), (1, &log[1]), (2, &log[2])]);
         }
     }
 
@@ -385,14 +391,7 @@ impl GPSApp {
             .builder
             .object("treeview-favorites")
             .expect("Couldn't get treeview-favorites");
-        let column = TreeViewColumn::new();
-        let cell = CellRendererText::new();
-
-        column.pack_start(&cell, true);
-        // Association of the view's column with the model's `id` column.
-        column.add_attribute(&cell, "text", 0);
-        column.set_title("favorites");
-        favorite_list.append_column(&column);
+        self.add_column_to_treeview("treeview-favorites", "Element", 0);
         self.reset_favorite_list(&favorite_list);
         let app_weak = self.downgrade();
         favorite_list.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
@@ -480,11 +479,16 @@ impl GPSApp {
         // Setup the logger to get messages into the TreeView
         let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         let app_weak = self.downgrade();
-        logger::init_logger(ready_tx, logger::LogLevel::Debug);
+        logger::init_logger(
+            ready_tx,
+            Settings::default_log_file_path()
+                .to_str()
+                .expect("Unable to convert log file path to a string"),
+        );
         self.setup_logger_list();
         let _ = ready_rx.attach(None, move |msg: String| {
             let app = upgrade_weak!(app_weak, glib::Continue(false));
-            app.add_to_logger_list(msg);
+            app.add_to_logger_list(&msg);
             glib::Continue(true)
         });
 
@@ -598,7 +602,7 @@ impl GPSApp {
                 glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
                     let app = upgrade_weak!(app_weak, None);
                     let id = values[1].get::<u32>().expect("id in args[1]");
-                    GPS_DEBUG!("Graph updated id={}", id);
+                    GPS_TRACE!("Graph updated id={}", id);
                     let _ = app
                         .save_graph(
                             Settings::default_graph_file_path()
