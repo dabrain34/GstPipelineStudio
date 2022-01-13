@@ -37,7 +37,7 @@ use gtk::{
     prelude::*,
     subclass::prelude::*,
 };
-use log::{error, warn};
+use log::{debug, error, info, trace, warn};
 
 use std::cell::RefMut;
 use std::{cmp::Ordering, collections::HashMap};
@@ -197,13 +197,13 @@ mod imp {
                             if widget.port_is_linked(port_to.id()).is_none() {
                                 let selected_port = widget.selected_port().to_owned();
                                 if let Some(mut port_from) = selected_port {
-                                    println!("Port {} is clicked at {}:{}", port_to.id(), x, y);
+                                    debug!("Port {} is clicked at {}:{}", port_to.id(), x, y);
                                     if widget.ports_compatible(&port_to) {
                                         let mut node_from = port_from.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
                                         let mut node_to = port_to.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                        println!("add link");
+                                        info!("add link");
                                         if port_to.direction() == PortDirection::Output {
-                                            println!("swap ports and nodes to create the link");
+                                            debug!("swap ports and nodes to create the link");
                                             std::mem::swap(&mut node_from, &mut node_to);
                                             std::mem::swap(&mut port_from, &mut port_to);
                                         }
@@ -219,7 +219,7 @@ mod imp {
                                     }
                                     widget.set_selected_port(None);
                                 } else {
-                                    println!("add selected port id");
+                                    info!("add selected port id");
                                     widget.set_selected_port(Some(&port_to));
                                 }
                             }
@@ -303,7 +303,7 @@ mod imp {
 
             for link in self.links.borrow().values() {
                 if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
-                    //println!("from_x: {} from_y: {} to_x: {} to_y: {}", from_x, from_y, to_x, to_y);
+                    //trace!("from_x: {} from_y: {} to_x: {} to_y: {}", from_x, from_y, to_x, to_y);
                     link_cr.set_line_width(link.thickness as f64);
                     // Use dashed line for inactive links, full line otherwise.
                     if link.active {
@@ -371,7 +371,7 @@ mod imp {
                 tx += tnx + port_x as i32;
                 ty = tny + (th / 2) + port_y as i32;
             }
-            //println!("{} {} -> {} {}", fx, fy, tx, ty);
+            //trace!("{} {} -> {} {}", fx, fy, tx, ty);
             Some((fx.into(), fy.into(), tx.into(), ty.into()))
         }
     }
@@ -531,7 +531,7 @@ impl GraphView {
         port_direction: PortDirection,
     ) {
         let private = imp::GraphView::from_instance(self);
-        println!(
+        info!(
             "adding a port with port id {} to node id {}",
             port_id, node_id
         );
@@ -678,7 +678,7 @@ impl GraphView {
             if (new_link.port_from == link.port_from && new_link.port_to == link.port_to)
                 || (new_link.port_to == link.port_from && new_link.port_from == link.port_to)
             {
-                println!("link already existing");
+                warn!("link already existing");
                 return true;
             }
         }
@@ -702,7 +702,7 @@ impl GraphView {
                 && from_port.direction() != to_port.direction()
                 && from_node.id() != to_node.id();
             if !res {
-                println!("Unable add the following link");
+                warn!("Unable add the following link");
             }
             return res;
         }
@@ -889,14 +889,14 @@ impl GraphView {
                     ref attributes,
                     ..
                 }) => {
-                    println!("{}", name);
+                    trace!("Found XLM element={}", name);
                     let mut attrs = HashMap::new();
                     attributes.iter().for_each(|a| {
                         attrs.insert(a.name.to_string(), a.value.to_string());
                     });
                     match name.to_string().as_str() {
                         "Graph" => {
-                            println!("New graph detected");
+                            trace!("New graph detected");
                             if let Some(id) = attrs.get::<String>(&String::from("id")) {
                                 self.set_id(id.parse::<u32>().expect("id should be an u32"));
                             }
@@ -974,14 +974,14 @@ impl GraphView {
                                 false,
                             ));
                         }
-                        _ => println!("name unknown: {}", name),
+                        _ => warn!("name unknown: {}", name),
                     }
                 }
                 Ok(XMLREvent::EndElement { name }) => {
-                    println!("closing {}", name);
+                    trace!("closing {}", name);
                     match name.to_string().as_str() {
                         "Graph" => {
-                            println!("Graph ended with success");
+                            trace!("Graph ended with success");
                         }
                         "Node" => {
                             if let Some(node) = current_node {
@@ -1027,11 +1027,11 @@ impl GraphView {
                             }
                             current_link = None;
                         }
-                        _ => println!("name unknown: {}", name),
+                        _ => warn!("name unknown: {}", name),
                     }
                 }
                 Err(e) => {
-                    println!("Error: {}", e);
+                    error!("Error: {}", e);
                     break;
                 }
                 _ => {}

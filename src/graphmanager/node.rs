@@ -20,6 +20,7 @@
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use log::trace;
 
 use super::Port;
 use super::PortDirection;
@@ -189,7 +190,7 @@ impl Node {
     fn set_description(&self, description: &str) {
         let self_ = imp::Node::from_instance(self);
         self_.description.set_text(description);
-        println!("{}", description);
+        trace!("Node description is {}", description);
     }
     pub fn hidden_property(&self, name: &str) -> bool {
         name.starts_with('_')
@@ -281,7 +282,7 @@ impl Node {
 
     pub fn add_property(&self, name: String, value: String) {
         let private = imp::Node::from_instance(self);
-        println!("property name={} updated with value={}", name, value);
+        trace!("property name={} updated with value={}", name, value);
         private.properties.borrow_mut().insert(name, value);
         self.update_description();
     }
