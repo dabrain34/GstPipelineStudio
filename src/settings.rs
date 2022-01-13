@@ -42,6 +42,13 @@ impl Settings {
         path
     }
 
+    pub fn default_graph_file_path() -> PathBuf {
+        let mut path = glib::user_config_dir();
+        path.push(config::APP_ID);
+        path.push("default_graph.toml");
+        path
+    }
+
     // Public methods
     pub fn add_favorite(favorite: &str) {
         let mut settings = Settings::load_settings();

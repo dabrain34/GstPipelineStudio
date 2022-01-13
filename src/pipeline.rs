@@ -127,20 +127,14 @@ impl Pipeline {
             self.create_pipeline(&self.render_gst_launch(graphview))
                 .map_err(|err| {
                     GPS_ERROR!("Unable to start a pipeline: {}", err);
-                })
-                .unwrap();
-            self.set_state(new_state)
-                .map_err(|_| GPS_ERROR!("Unable to change state"))
-                .unwrap();
-        } else if self.state() == PipelineState::Paused {
-            self.set_state(PipelineState::Playing)
-                .map_err(|_| GPS_ERROR!("Unable to change state"))
-                .unwrap();
-        } else {
-            self.set_state(PipelineState::Paused)
-                .map_err(|_| GPS_ERROR!("Unable to change state"))
-                .unwrap();
+                    err
+                })?;
         }
+
+        self.set_state(new_state).map_err(|error| {
+            GPS_ERROR!("Unable to change state {}", error);
+            error
+        })?;
 
         Ok(self.state())
     }
@@ -396,7 +390,9 @@ impl Pipeline {
         description.push_str(&format!("{} name={} ", node.name(), unique_name));
         elements.insert(unique_name.clone(), unique_name.clone());
         for (name, value) in node.properties().iter() {
-            description.push_str(&format!("{}={}", name, value));
+            if !node.hidden_property(name) {
+                description.push_str(&format!("{}={}", name, value));
+            }
         }
 
         let ports = node.all_ports(PortDirection::Output);

@@ -71,6 +71,7 @@ mod imp {
         pub(super) ports: RefCell<HashMap<u32, Port>>,
         pub(super) num_ports_in: Cell<i32>,
         pub(super) num_ports_out: Cell<i32>,
+        // Properties are differnet from GObject properties
         pub(super) properties: RefCell<HashMap<String, String>>,
         pub(super) selected: Cell<bool>,
     }
@@ -190,13 +191,18 @@ impl Node {
         self_.description.set_text(description);
         println!("{}", description);
     }
+    pub fn hidden_property(&self, name: &str) -> bool {
+        name.starts_with('_')
+    }
 
     fn update_description(&self) {
         let self_ = imp::Node::from_instance(self);
         let mut description = String::from("");
         for (name, value) in self_.properties.borrow().iter() {
-            description.push_str(&format!("{}:{}", name, value));
-            description.push('\n');
+            if !self.hidden_property(name) {
+                description.push_str(&format!("{}:{}", name, value));
+                description.push('\n');
+            }
         }
         self.set_description(&description);
     }
@@ -280,8 +286,8 @@ impl Node {
         self.update_description();
     }
 
-    pub fn update_node_properties(&self, new_properties: &HashMap<String, String>) {
-        for (key, value) in new_properties {
+    pub fn update_properties(&self, new_node_properties: &HashMap<String, String>) {
+        for (key, value) in new_node_properties {
             self.add_property(key.clone(), value.clone());
         }
     }
@@ -289,6 +295,14 @@ impl Node {
     pub fn properties(&self) -> Ref<HashMap<String, String>> {
         let private = imp::Node::from_instance(self);
         private.properties.borrow()
+    }
+
+    pub fn property(&self, name: &str) -> Option<String> {
+        let private = imp::Node::from_instance(self);
+        if let Some(property) = private.properties.borrow().get(name) {
+            return Some(property.clone());
+        }
+        None
     }
 
     pub fn toggle_selected(&self) {
