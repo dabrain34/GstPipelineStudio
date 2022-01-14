@@ -89,30 +89,30 @@ clippy:
     - cargo clippy --color=always --all-targets -- -D warnings
 
 flatpak:
-  image: $GNOME_RUNTIME_IMAGE
-  stage: "test"
+  image: "registry.gitlab.gnome.org/gnome/gnome-runtime-images/gnome:41"
+  stage: test
   only:
     - flatpak
-  timeout: "120min"
+    - tags
+  # Using gstreamer runner avoids an issue with 'bwrap: No permissions to creating new namespace' during flatpak builder
+  tags:
+    - gstreamer
   variables:
-    MANIFEST_PATH: "build-aux/org.karapulse.KarapulseDevel.json"
-    APP_ID: "org.karapulse.KarapulseDevel"
-    BUNDLE: "karapulse-nightly.flatpak"
-
+    BUNDLE: "gst-pipeline-studio-nightly.flatpak"
+    MANIFEST_PATH: "build-aux/org.freedesktop.dabrain34.GstPipelineStudio.Devel.json"
+    FLATPAK_MODULE: "gst-pipeline-studio"
+    APP_ID: "org.freedesktop.dabrain34.GstPipelineStudio.Devel"
+    RUNTIME_REPO: "https://nightly.gnome.org/gnome-nightly.flatpakrepo"
   script:
     - flatpak-builder app ${MANIFEST_PATH}
     - flatpak build-export repo app
     - flatpak build-bundle repo ${BUNDLE} ${APP_ID}
-
   artifacts:
+    name: "Flatpak artifacts"
+    expose_as: "Get Flatpak bundle here"
+    when: "always"
     paths:
-      - $BUNDLE
-    expire_in: 1 days
-
-  cache:
-    key: "flatpak"
-    paths:
-      - .flatpak-builder/downloads/
-      - .flatpak-builder/git/
-      - target/
-      - target_test/
+      - "${BUNDLE}"
+      - ".flatpak-builder/build/${FLATPAK_MODULE}/_flatpak_build/meson-logs/meson-log.txt"
+      - ".flatpak-builder/build/${FLATPAK_MODULE}/_flatpak_build/meson-logs/testlog.txt"
+    expire_in: 14 days
