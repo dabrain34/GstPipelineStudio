@@ -75,6 +75,7 @@ mod imp {
         // Properties are differnet from GObject properties
         pub(super) properties: RefCell<HashMap<String, String>>,
         pub(super) selected: Cell<bool>,
+        pub(super) position: Cell<(f32, f32)>,
     }
 
     #[glib::object_subclass]
@@ -145,6 +146,7 @@ mod imp {
                 num_ports_out: Cell::new(0),
                 properties: RefCell::new(HashMap::new()),
                 selected: Cell::new(false),
+                position: Cell::new((0.0, 0.0)),
             }
         }
     }
@@ -330,5 +332,17 @@ impl Node {
         for port in private.ports.borrow_mut().values() {
             port.set_selected(false);
         }
+    }
+    /// Set coordinates for the drawn node.
+    ///
+    pub fn set_position(&self, x: f32, y: f32) {
+        imp::Node::from_instance(self).position.set((x, y));
+    }
+    /// Get coordinates for the drawn node.
+    ///
+    /// # Returns
+    /// `(x, y)`
+    pub fn position(&self) -> (f32, f32) {
+        imp::Node::from_instance(self).position.get()
     }
 }

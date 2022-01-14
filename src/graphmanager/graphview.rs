@@ -647,7 +647,12 @@ impl GraphView {
         Some(transform.to_translate())
     }
 
-    pub(super) fn move_node(&self, node: &gtk::Widget, x: f32, y: f32) {
+    pub(super) fn move_node(&self, widget: &gtk::Widget, x: f32, y: f32) {
+        let node = widget
+            .clone()
+            .dynamic_cast::<Node>()
+            .expect("Unable to convert to Node");
+        node.set_position(x, y);
         let layout_manager = self
             .layout_manager()
             .expect("Failed to get layout manager")
@@ -660,7 +665,7 @@ impl GraphView {
             .unwrap();
 
         layout_manager
-            .layout_child(node)
+            .layout_child(widget)
             .expect("Could not get layout child")
             .dynamic_cast::<gtk::FixedLayoutChild>()
             .expect("Could not cast to FixedLayoutChild")
@@ -820,7 +825,9 @@ impl GraphView {
                 XMLWEvent::start_element("Node")
                     .attr("name", &node.name())
                     .attr("id", &node.id().to_string())
-                    .attr("type", &node.node_type().unwrap().to_string()),
+                    .attr("type", &node.node_type().unwrap().to_string())
+                    .attr("pos_x", &node.position().0.to_string())
+                    .attr("pos_y", &node.position().1.to_string()),
             )?;
             for port in node.ports().values() {
                 writer.write(
@@ -837,20 +844,6 @@ impl GraphView {
                     XMLWEvent::start_element("Property")
                         .attr("name", name)
                         .attr("value", value),
-                )?;
-                writer.write(XMLWEvent::end_element())?;
-            }
-            if let Some(position) = self.node_position(&node.upcast()) {
-                writer.write(
-                    XMLWEvent::start_element("Property")
-                        .attr("name", "_pos_x")
-                        .attr("value", &position.0.to_string()),
-                )?;
-                writer.write(XMLWEvent::end_element())?;
-                writer.write(
-                    XMLWEvent::start_element("Property")
-                        .attr("name", "_pos_y")
-                        .attr("value", &position.1.to_string()),
                 )?;
                 writer.write(XMLWEvent::end_element())?;
             }
@@ -911,12 +904,23 @@ impl GraphView {
                             let node_type: &String = attrs
                                 .get::<String>(&String::from("type"))
                                 .expect("Unable to find node type");
-
-                            current_node = Some(Node::new(
+                            let default_value = String::from("0");
+                            let pos_x: &String = attrs
+                                .get::<String>(&String::from("pos_x"))
+                                .unwrap_or(&default_value);
+                            let pos_y: &String = attrs
+                                .get::<String>(&String::from("pos_y"))
+                                .unwrap_or(&default_value);
+                            let node = Node::new(
                                 id.parse::<u32>().unwrap(),
                                 name,
                                 NodeType::from_str(node_type.as_str()),
-                            ));
+                            );
+                            node.set_position(
+                                pos_x.parse::<f32>().unwrap(),
+                                pos_y.parse::<f32>().unwrap(),
+                            );
+                            current_node = Some(node);
                         }
                         "Property" => {
                             let name = attrs
@@ -986,20 +990,10 @@ impl GraphView {
                         "Node" => {
                             if let Some(node) = current_node {
                                 let id = node.id();
-                                let mut pos_x = 0 as f32;
-                                let mut pos_y = 0 as f32;
-                                if let Some(value) = node.property("_pos_x") {
-                                    pos_x = value.parse::<f32>().unwrap();
-                                }
-                                if let Some(value) = node.property("_pos_y") {
-                                    pos_y = value.parse::<f32>().unwrap();
-                                }
-
+                                let position = node.position();
                                 self.add_node(id, node);
                                 if let Some(node) = self.node(&id) {
-                                    if pos_x != 0.0 || pos_y != 0.0 {
-                                        self.move_node(&node.upcast(), pos_x, pos_y);
-                                    }
+                                    self.move_node(&node.upcast(), position.0, position.1);
                                 }
                                 self.update_current_node_id(id);
                             }
