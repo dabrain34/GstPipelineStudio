@@ -66,7 +66,7 @@ test-stable:
     - cargo build --color=always --all-targets
     - cargo test --color=always
 
-rustdoc:
+.rustdoc:
   extends:
     - .fedora
     - .fdo.distribution-image@fedora
