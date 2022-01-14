@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=GstPipelineStudio
+GenericName=GPS
+Comment=A GUI for GStreamer
+Type=Application
+Exec=gps_pipeline_studio
+Terminal=false
+Categories=AudioVideo;Audio;Video;Midi;Settings;GNOME;GTK;
+Icon=@icon@

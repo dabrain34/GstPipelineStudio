@@ -11,6 +11,7 @@ stages:
 
 variables:
   FDO_UPSTREAM_REPO: "dabrain34/GstPipelineStudio"
+  GNOME_RUNTIME_IMAGE: "registry.gitlab.gnome.org/gnome/gnome-runtime-images/gnome:3.38"
 
 # Version and tag for our current container
 .fedora:
@@ -86,3 +87,32 @@ clippy:
     - meson build
     - cargo clippy --version
     - cargo clippy --color=always --all-targets -- -D warnings
+
+flatpak:
+  image: $GNOME_RUNTIME_IMAGE
+  stage: "test"
+  only:
+    - flatpak
+  timeout: "120min"
+  variables:
+    MANIFEST_PATH: "build-aux/org.karapulse.KarapulseDevel.json"
+    APP_ID: "org.karapulse.KarapulseDevel"
+    BUNDLE: "karapulse-nightly.flatpak"
+
+  script:
+    - flatpak-builder app ${MANIFEST_PATH}
+    - flatpak build-export repo app
+    - flatpak build-bundle repo ${BUNDLE} ${APP_ID}
+
+  artifacts:
+    paths:
+      - $BUNDLE
+    expire_in: 1 days
+
+  cache:
+    key: "flatpak"
+    paths:
+      - .flatpak-builder/downloads/
+      - .flatpak-builder/git/
+      - target/
+      - target_test/

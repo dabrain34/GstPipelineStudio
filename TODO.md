@@ -43,12 +43,13 @@
 - [x] Save node position in XML
 - [x] Autosave the graph
 - [ ] Check the pîpeline live
+- [ ] Add probes on each pad to monitor the pipeline
 - [ ] Display pad properties with tooltip hover
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
 - [ ] Display tags/meta/message detected
 - [ ] Seek to position
-- [ ] Icon install
+- [x] Icon install
 - [ ] Flatpak infrastructure
 - [ ] handle the caps setter
 - [x] Logger in file/app all over the app
