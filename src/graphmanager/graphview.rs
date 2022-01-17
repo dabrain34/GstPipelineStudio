@@ -25,14 +25,13 @@ use xml::writer::EmitterConfig;
 use xml::writer::XmlEvent as XMLWEvent;
 
 use super::{link::Link, node::Node, node::NodeType, port::Port, port::PortDirection};
-use glib::subclass::Signal;
 use once_cell::sync::Lazy;
 use std::fs::File;
 use std::io::BufReader;
 
 use gtk::{
     gdk::{BUTTON_PRIMARY, BUTTON_SECONDARY},
-    glib::{self, clone},
+    glib::{self, clone, subclass::Signal},
     graphene, gsk,
     prelude::*,
     subclass::prelude::*,
@@ -90,7 +89,6 @@ mod imp {
                     let mut drag_state = drag_state.borrow_mut();
                     let widget = drag_controller
                         .widget()
-                        .expect("drag-begin event has no widget")
                         .dynamic_cast::<Self::Type>()
                         .expect("drag-begin event is not on the GraphView");
                     // pick() should at least return the widget itself.
@@ -117,7 +115,6 @@ mod imp {
                 clone!(@strong drag_state => move |drag_controller, x, y| {
                     let widget = drag_controller
                         .widget()
-                        .expect("drag-update event has no widget")
                         .dynamic_cast::<Self::Type>()
                         .expect("drag-update event is not on the GraphView");
                     let drag_state = drag_state.borrow();
@@ -131,7 +128,6 @@ mod imp {
                 clone!(@strong drag_state => move |drag_controller, _x, _y| {
                     let widget = drag_controller
                         .widget()
-                        .expect("drag-end event has no widget")
                         .dynamic_cast::<Self::Type>()
                         .expect("drag-end event is not on the GraphView");
                     widget.graph_updated();
@@ -146,25 +142,25 @@ mod imp {
             gesture.connect_pressed(
                 clone!(@weak obj, @weak drag_controller => move |gesture, _n_press, x, y| {
                     if gesture.current_button() == BUTTON_SECONDARY {
-                        let widget = drag_controller.widget().expect("click event has no widget")
+                        let widget = drag_controller.widget()
                         .dynamic_cast::<Self::Type>()
                         .expect("click event is not on the GraphView");
                         let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("port pick() did not return a widget");
                         if let Some(target) = target.ancestor(Port::static_type()) {
                             let port = target.dynamic_cast::<Port>().expect("click event is not on the Port");
                             let node = port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");                      
-                            obj.emit_by_name("port-right-clicked", &[&port.id(), &node.id(), &graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
+                            obj.emit_by_name::<()>("port-right-clicked", &[&port.id(), &node.id(), &graphene::Point::new(x as f32,y as f32)]);
                         } else if let Some(target) = target.ancestor(Node::static_type()) {
                             let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
                             widget.unselect_all();
                             node.set_selected(true);
-                            obj.emit_by_name("node-right-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
+                            obj.emit_by_name::<()>("node-right-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]);
                         } else {
                             widget.unselect_all();
-                            obj.emit_by_name("graph-right-clicked", &[&graphene::Point::new(x as f32,y as f32)]).expect("unable to send signal");
+                            obj.emit_by_name::<()>("graph-right-clicked", &[&graphene::Point::new(x as f32,y as f32)]);
                         }
                     } else if gesture.current_button() == BUTTON_PRIMARY {
-                        let widget = drag_controller.widget().expect("click event has no widget")
+                        let widget = drag_controller.widget()
                         .dynamic_cast::<Self::Type>()
                         .expect("click event is not on the GraphView");
                         let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("port pick() did not return a widget");
@@ -188,7 +184,6 @@ mod imp {
                 if gesture.current_button() == BUTTON_PRIMARY {
                     let widget = drag_controller
                             .widget()
-                            .expect("click event has no widget")
                             .dynamic_cast::<Self::Type>()
                             .expect("click event is not on the GraphView");
                     if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
@@ -292,14 +287,12 @@ mod imp {
                 .for_each(|node| self.instance().snapshot_child(node, snapshot));
 
             // Draw all links
-            let link_cr = snapshot
-                .append_cairo(&graphene::Rect::new(
-                    0.0,
-                    0.0,
-                    alloc.width as f32,
-                    alloc.height as f32,
-                ))
-                .expect("Failed to get cairo context");
+            let link_cr = snapshot.append_cairo(&graphene::Rect::new(
+                0.0,
+                0.0,
+                alloc.width() as f32,
+                alloc.height() as f32,
+            ));
 
             for link in self.links.borrow().values() {
                 if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
@@ -342,14 +335,13 @@ mod imp {
             let from_node = nodes.get(&link.node_from)?;
             let from_port = from_node.port(&link.port_from)?;
 
-            let gtk::Allocation {
-                x: mut fx,
-                y: mut fy,
-                width: fw,
-                height: fh,
-            } = from_port.allocation();
-
-            let gtk::Allocation { x: fnx, y: fny, .. } = from_node.allocation();
+            let (mut fx, mut fy, fw, fh) = (
+                from_port.allocation().x(),
+                from_port.allocation().y(),
+                from_port.allocation().width(),
+                from_port.allocation().height(),
+            );
+            let (fnx, fny) = (from_node.allocation().x(), from_node.allocation().y());
 
             if let Some((port_x, port_y)) = from_port.translate_coordinates(from_node, 0.0, 0.0) {
                 fx += fnx + fw + port_x as i32;
@@ -358,15 +350,15 @@ mod imp {
 
             let to_node = nodes.get(&link.node_to)?;
             let to_port = to_node.port(&link.port_to)?;
-            let gtk::Allocation {
-                x: mut tx,
-                y: mut ty,
-                width: _tw,
-                height: th,
-                ..
-            } = to_port.allocation();
 
-            let gtk::Allocation { x: tnx, y: tny, .. } = to_node.allocation();
+            let (mut tx, mut ty, th) = (
+                to_port.allocation().x(),
+                to_port.allocation().y(),
+                to_port.allocation().height(),
+            );
+
+            let (tnx, tny) = (to_node.allocation().x(), to_node.allocation().y());
+
             if let Some((port_x, port_y)) = to_port.translate_coordinates(to_node, 0.0, 0.0) {
                 tx += tnx + port_x as i32;
                 ty = tny + (th / 2) + port_y as i32;
@@ -401,8 +393,7 @@ impl GraphView {
 
     fn graph_updated(&self) {
         let private = imp::GraphView::from_instance(self);
-        self.emit_by_name("graph-updated", &[&private.id.get()])
-            .expect("unable to send signal");
+        self.emit_by_name::<()>("graph-updated", &[&private.id.get()]);
     }
 
     pub fn add_node_with_port(&self, id: u32, node: Node, input: u32, output: u32) {
@@ -638,7 +629,7 @@ impl GraphView {
             .expect("Failed to cast to FixedLayout");
 
         let node = layout_manager
-            .layout_child(node)?
+            .layout_child(node)
             .dynamic_cast::<gtk::FixedLayoutChild>()
             .expect("Could not cast to FixedLayoutChild");
         let transform = node
@@ -666,7 +657,6 @@ impl GraphView {
 
         layout_manager
             .layout_child(widget)
-            .expect("Could not get layout child")
             .dynamic_cast::<gtk::FixedLayoutChild>()
             .expect("Could not cast to FixedLayoutChild")
             .set_transform(&transform);
