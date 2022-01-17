@@ -391,7 +391,7 @@ impl Pipeline {
         elements.insert(unique_name.clone(), unique_name.clone());
         for (name, value) in node.properties().iter() {
             if !node.hidden_property(name) {
-                description.push_str(&format!("{}={}", name, value));
+                description.push_str(&format!("{}={} ", name, value));
             }
         }
 
