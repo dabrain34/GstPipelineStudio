@@ -1,5 +1,4 @@
-use glib::Sender;
-use gtk::glib;
+use gtk::glib::Sender;
 use log::{debug, error, info, trace, warn};
 use simplelog::*;
 use std::fmt;

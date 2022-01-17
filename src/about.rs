@@ -19,6 +19,7 @@
 use crate::app::GPSApp;
 use crate::config;
 use gettextrs::gettext;
+use gtk::builders::AboutDialogBuilder;
 use gtk::prelude::*;
 
 use gtk::ApplicationWindow;
@@ -28,7 +29,7 @@ pub fn display_about_dialog(app: &GPSApp) {
         .builder
         .object("mainwindow")
         .expect("Couldn't get window");
-    let about_dialog = gtk::AboutDialogBuilder::new()
+    let about_dialog = AboutDialogBuilder::new()
         .modal(true)
         .program_name("GstPipelineStudio")
         .version(config::VERSION)

@@ -214,12 +214,12 @@ impl GPSApp {
 
         if let Some((x, y)) = widget.translate_coordinates(&mainwindow, x, y) {
             let point = graphene::Point::new(x as f32, y as f32);
-            pop_menu.set_pointing_to(&Rectangle {
-                x: point.to_vec2().x() as i32,
-                y: point.to_vec2().y() as i32,
-                width: 0,
-                height: 0,
-            });
+            pop_menu.set_pointing_to(Some(&Rectangle::new(
+                point.to_vec2().x() as i32,
+                point.to_vec2().y() as i32,
+                0,
+                0,
+            )));
         }
         pop_menu
     }
@@ -398,10 +398,7 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let selection = tree_view.selection();
             if let Some((model, iter)) = selection.selected() {
-                let element_name = model
-                    .get(&iter, 0)
-                    .get::<String>()
-                    .expect("Treeview selection, column 1");
+                let element_name = model.get::<String>(&iter, 1);
                 GPS_DEBUG!("{} selected", element_name);
                 app.add_new_element(&element_name);
             }
@@ -416,9 +413,7 @@ impl GPSApp {
                     let selection = favorite_list.selection();
                     if let Some((model, iter)) = selection.selected() {
                         let element_name = model
-                        .get(&iter, 0)
-                        .get::<String>()
-                        .expect("Treeview selection, column 0");
+                        .get::<String>(&iter, 1);
                         GPS_DEBUG!("Element {} selected", element_name);
 
                         let pop_menu = app.app_pop_menu_at_position(&favorite_list, x, y);
@@ -594,26 +589,23 @@ impl GPSApp {
         });
 
         let app_weak = self.downgrade();
-        self.graphview
-            .borrow()
-            .connect_local(
-                "graph-updated",
-                false,
-                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                    let app = upgrade_weak!(app_weak, None);
-                    let id = values[1].get::<u32>().expect("id in args[1]");
-                    GPS_TRACE!("Graph updated id={}", id);
-                    let _ = app
-                        .save_graph(
-                            Settings::default_graph_file_path()
-                                .to_str()
-                                .expect("Unable to convert to string"),
-                        )
-                        .map_err(|e| GPS_WARN!("Unable to save file {}", e));
-                    None
-                }),
-            )
-            .expect("Failed to register graph-updated signal of graphview");
+        self.graphview.borrow().connect_local(
+            "graph-updated",
+            false,
+            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                let app = upgrade_weak!(app_weak, None);
+                let id = values[1].get::<u32>().expect("id in args[1]");
+                GPS_TRACE!("Graph updated id={}", id);
+                let _ = app
+                    .save_graph(
+                        Settings::default_graph_file_path()
+                            .to_str()
+                            .expect("Unable to convert to string"),
+                    )
+                    .map_err(|e| GPS_WARN!("Unable to save file {}", e));
+                None
+            }),
+        );
         // When user clicks on port with right button
         let app_weak = self.downgrade();
         self.graphview
@@ -642,14 +634,14 @@ impl GPSApp {
                     pop_menu.show();
                     None
                 }),
-            )
-            .expect("Failed to register graph-right-clicked signal of graphview");
+            );
 
         // When user clicks on port with right button
         let app_weak = self.downgrade();
-        self.graphview
-            .borrow()
-            .connect_local("port-right-clicked", false, move |values: &[Value]| {
+        self.graphview.borrow().connect_local(
+            "port-right-clicked",
+            false,
+            move |values: &[Value]| {
                 let app = upgrade_weak!(app_weak, None);
 
                 let port_id = values[1].get::<u32>().expect("port id args[1]");
@@ -673,8 +665,8 @@ impl GPSApp {
                 });
                 pop_menu.show();
                 None
-            })
-            .expect("Failed to register port-right-clicked signal of graphview");
+            },
+        );
 
         // When user clicks on node with right button
         let app_weak = self.downgrade();
@@ -752,8 +744,7 @@ impl GPSApp {
                     pop_menu.show();
                     None
                 }),
-            )
-            .expect("Failed to register node-right-clicked signal of graphview");
+            );
 
         // Setup the favorite list
         self.setup_favorite_list(application);

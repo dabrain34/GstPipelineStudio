@@ -92,9 +92,7 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
             let selection = tree_view.selection();
             if let Some((model, iter)) = selection.selected() {
                 let element_name = model
-                .get(&iter, 1)
-                .get::<String>()
-                .expect("Unable to get the treeview selection, column 1");
+                .get::<String>(&iter, 1);
                 let description = Pipeline::element_description(&element_name).expect("Unable to get element description from GStreamer");
                 text_buffer.set_text("");
                 text_buffer.insert_markup(&mut text_buffer.end_iter(), &description);
@@ -108,9 +106,7 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
                 let selection = tree_view.selection();
                 if let Some((model, iter)) = selection.selected() {
                     let element_name = model
-                    .get(&iter, 1)
-                    .get::<String>()
-                    .expect("Unable to get the treeview selection, column 1");
+                    .get::<String>(&iter, 1);
                     app.add_new_element(&element_name);
                 }
             }),

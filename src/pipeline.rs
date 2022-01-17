@@ -21,6 +21,7 @@ use crate::graphmanager::{GraphView, Node, NodeType, PortDirection};
 use crate::logger;
 use crate::GPS_INFO;
 
+use gst::glib;
 use gst::prelude::*;
 use gstreamer as gst;
 use std::cell::{Cell, RefCell};
