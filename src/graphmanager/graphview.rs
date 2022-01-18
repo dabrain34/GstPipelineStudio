@@ -516,6 +516,8 @@ impl GraphView {
     }
 
     // Port related methods
+    /// Add the port with id from node with id.
+    ///
     pub fn add_port(
         &self,
         node_id: u32,
@@ -538,19 +540,26 @@ impl GraphView {
         }
     }
 
-    pub fn remove_port(&self, id: u32, node_id: u32) {
+    /// Remove the port with id from node with id.
+    ///
+    pub fn remove_port(&self, port_id: u32, node_id: u32) {
         let private = imp::GraphView::from_instance(self);
         let nodes = private.nodes.borrow();
         if let Some(node) = nodes.get(&node_id) {
-            node.remove_port(id);
+            if let Some(link_id) = self.port_is_linked(port_id) {
+                self.remove_link(link_id);
+            }
+            node.remove_port(port_id);
         }
     }
-
-    pub fn port_is_linked(&self, port_id: u32) -> Option<(u32, u32, u32)> {
+    /// Check if the port is linked
+    ///
+    /// Returns Some(link id) or `None` if the port is not linked.
+    pub fn port_is_linked(&self, port_id: u32) -> Option<u32> {
         let private = imp::GraphView::from_instance(self);
         for (key, link) in private.links.borrow().iter() {
             if link.port_from == port_id || link.port_to == port_id {
-                return Some((*key, link.node_from, link.port_from));
+                return Some(*key);
             }
         }
         None
