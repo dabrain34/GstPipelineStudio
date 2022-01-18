@@ -477,10 +477,12 @@ impl GraphView {
             .collect();
         nodes_list
     }
-
-    pub fn node(&self, id: &u32) -> Option<super::node::Node> {
+    /// Get the node with the specified node id inside the graphview.
+    ///
+    /// Returns `None` if the node is not in the graphview.
+    pub fn node(&self, id: u32) -> Option<Node> {
         let private = imp::GraphView::from_instance(self);
-        private.nodes.borrow().get(id).cloned()
+        private.nodes.borrow().get(&id).cloned()
     }
 
     pub fn remove_all_nodes(&self) {
@@ -982,7 +984,7 @@ impl GraphView {
                                 let id = node.id();
                                 let position = node.position();
                                 self.add_node(id, node);
-                                if let Some(node) = self.node(&id) {
+                                if let Some(node) = self.node(id) {
                                     self.move_node(&node.upcast(), position.0, position.1);
                                 }
                                 self.update_current_node_id(id);
