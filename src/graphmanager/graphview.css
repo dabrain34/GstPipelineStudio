@@ -3,6 +3,10 @@
 button.node {
   color: rgb(0, 0, 255);
   background: rgb(170, 255, 170);
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 10px;
+  border-color: rgb(0, 0, 0);
 }
 
 button.node-selected {
@@ -12,6 +16,10 @@ button.node-selected {
 
 button.port {
   color: rgb(0, 0, 255);
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 10px;
+  border-color: rgb(0, 0, 0);
 }
 
 button.port-selected {
@@ -24,6 +32,14 @@ button.port-out {
 
 button.port-in {
   background: rgb(170, 170, 255);
+}
+
+button.port-sometimes {
+  border-style: dashed;
+}
+
+button.port-always {
+  border-style: solid;
 }
 
 graphview {

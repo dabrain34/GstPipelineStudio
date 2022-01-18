@@ -140,6 +140,11 @@ impl Port {
             .presence
             .set(presence)
             .expect("Port presence already set");
+        if presence == PortPresence::Always {
+            port.add_css_class("port-always");
+        } else {
+            port.add_css_class("port-sometimes");
+        }
 
         let label = gtk::Label::new(Some(name));
         label.set_parent(&port);
