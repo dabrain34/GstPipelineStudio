@@ -25,7 +25,7 @@ use gtk::{
 use std::cell::Cell;
 use std::{borrow::Borrow, fmt};
 
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialOrd, PartialEq, Copy)]
 pub enum PortDirection {
     Input,
     Output,
@@ -44,8 +44,34 @@ impl PortDirection {
         match port_direction_name {
             "Input" => PortDirection::Input,
             "Output" => PortDirection::Output,
-            "All" => PortDirection::Output,
+            "All" => PortDirection::All,
             _ => PortDirection::Unknown,
+        }
+    }
+}
+
+/// Port's presence
+#[derive(Debug, Clone, PartialEq, PartialOrd, Copy)]
+pub enum PortPresence {
+    /// Can not be removed from his parent independantly
+    Always,
+    /// Can be removed from a node
+    Sometimes,
+    Unknown,
+}
+
+impl fmt::Display for PortPresence {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl PortPresence {
+    pub fn from_str(port_direction_name: &str) -> PortPresence {
+        match port_direction_name {
+            "Always" => PortPresence::Always,
+            "Sometimes" => PortPresence::Sometimes,
+            _ => PortPresence::Unknown,
         }
     }
 }
@@ -54,13 +80,14 @@ mod imp {
     use super::*;
     use once_cell::unsync::OnceCell;
 
-    /// Graphical representation of a pipewire port.
+    /// Graphical representation of a port.
     #[derive(Default, Clone)]
     pub struct Port {
         pub(super) label: OnceCell<gtk::Label>,
         pub(super) id: OnceCell<u32>,
         pub(super) direction: OnceCell<PortDirection>,
         pub(super) selected: Cell<bool>,
+        pub(super) presence: OnceCell<PortPresence>,
     }
 
     #[glib::object_subclass]
@@ -93,7 +120,7 @@ glib::wrapper! {
 }
 
 impl Port {
-    pub fn new(id: u32, name: &str, direction: PortDirection) -> Self {
+    pub fn new(id: u32, name: &str, direction: PortDirection, presence: PortPresence) -> Self {
         // Create the widget and initialize needed fields
         let port: Self = glib::Object::new(&[]).expect("Failed to create Port");
         port.add_css_class("port");
@@ -109,6 +136,10 @@ impl Port {
         } else {
             port.add_css_class("port-out");
         }
+        private
+            .presence
+            .set(presence)
+            .expect("Port presence already set");
 
         let label = gtk::Label::new(Some(name));
         label.set_parent(&port);
@@ -128,6 +159,11 @@ impl Port {
     pub fn direction(&self) -> PortDirection {
         let private = imp::Port::from_instance(self);
         *private.direction.get().expect("Port direction is not set")
+    }
+
+    pub fn presence(&self) -> PortPresence {
+        let private = imp::Port::from_instance(self);
+        *private.presence.get().expect("Port presence is not set")
     }
 
     pub fn name(&self) -> String {

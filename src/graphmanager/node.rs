@@ -23,7 +23,7 @@ use gtk::subclass::prelude::*;
 use log::trace;
 
 use super::Port;
-use super::PortDirection;
+use super::{PortDirection, PortPresence};
 
 use std::cell::{Cell, Ref, RefCell};
 use std::collections::HashMap;
@@ -210,9 +210,15 @@ impl Node {
         self.set_description(&description);
     }
 
-    pub fn add_port(&mut self, id: u32, name: &str, direction: PortDirection) {
+    pub fn add_port(
+        &mut self,
+        id: u32,
+        name: &str,
+        direction: PortDirection,
+        presence: PortPresence,
+    ) {
         let private = imp::Node::from_instance(self);
-        let port = Port::new(id, name, direction);
+        let port = Port::new(id, name, direction, presence);
         match port.direction() {
             PortDirection::Input => {
                 private.inputs.append(&port);
@@ -246,6 +252,16 @@ impl Node {
     pub fn port(&self, id: &u32) -> Option<super::port::Port> {
         let private = imp::Node::from_instance(self);
         private.ports.borrow().get(id).cloned()
+    }
+
+    pub fn can_remove_port(&self, id: u32) -> bool {
+        let private = imp::Node::from_instance(self);
+        if let Some(port) = private.ports.borrow().get(&id) {
+            if port.presence() != PortPresence::Always {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn remove_port(&self, id: u32) {

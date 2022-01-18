@@ -24,7 +24,11 @@ use xml::reader::XmlEvent as XMLREvent;
 use xml::writer::EmitterConfig;
 use xml::writer::XmlEvent as XMLWEvent;
 
-use super::{link::Link, node::Node, node::NodeType, port::Port, port::PortDirection};
+use super::{
+    link::Link,
+    node::{Node, NodeType},
+    port::{Port, PortDirection, PortPresence},
+};
 use once_cell::sync::Lazy;
 use std::fs::File;
 use std::io::BufReader;
@@ -436,13 +440,25 @@ impl GraphView {
         let _i = 0;
         for _i in 0..input {
             let port_id = self.next_port_id();
-            self.add_port(id, port_id, "in", PortDirection::Input);
+            self.add_port(
+                id,
+                port_id,
+                "in",
+                PortDirection::Input,
+                PortPresence::Always,
+            );
         }
 
         let _i = 0;
         for _i in 0..output {
             let port_id = self.next_port_id();
-            self.add_port(id, port_id, "out", PortDirection::Output);
+            self.add_port(
+                id,
+                port_id,
+                "out",
+                PortDirection::Output,
+                PortPresence::Always,
+            );
         }
         self.graph_updated();
     }
@@ -524,6 +540,7 @@ impl GraphView {
         port_id: u32,
         port_name: &str,
         port_direction: PortDirection,
+        port_nature: PortPresence,
     ) {
         let private = imp::GraphView::from_instance(self);
         info!(
@@ -531,7 +548,7 @@ impl GraphView {
             port_id, node_id
         );
         if let Some(node) = private.nodes.borrow_mut().get_mut(&node_id) {
-            node.add_port(port_id, port_name, port_direction);
+            node.add_port(port_id, port_name, port_direction, port_nature);
         } else {
             error!(
                 "Node with id {} not found when trying to add port with id {} to graph",
@@ -540,9 +557,19 @@ impl GraphView {
         }
     }
 
+    pub fn can_remove_port(&self, node_id: u32, port_id: u32) -> bool {
+        let private = imp::GraphView::from_instance(self);
+        let nodes = private.nodes.borrow();
+        if let Some(node) = nodes.get(&node_id) {
+            return node.can_remove_port(port_id);
+        }
+        warn!("Unable to find a node with the id {}", node_id);
+        false
+    }
+
     /// Remove the port with id from node with id.
     ///
-    pub fn remove_port(&self, port_id: u32, node_id: u32) {
+    pub fn remove_port(&self, node_id: u32, port_id: u32) {
         let private = imp::GraphView::from_instance(self);
         let nodes = private.nodes.borrow();
         if let Some(node) = nodes.get(&node_id) {
@@ -835,7 +862,8 @@ impl GraphView {
                     XMLWEvent::start_element("Port")
                         .attr("name", &port.name())
                         .attr("id", &port.id().to_string())
-                        .attr("direction", &port.direction().to_string()),
+                        .attr("direction", &port.direction().to_string())
+                        .attr("presence", &port.presence().to_string()),
                 )?;
                 writer.write(XMLWEvent::end_element())?;
             }
@@ -944,10 +972,15 @@ impl GraphView {
                             let direction: &String = attrs
                                 .get::<String>(&String::from("direction"))
                                 .expect("Unable to find port direction");
+                            let default_value = PortPresence::Always.to_string();
+                            let presence: &String = attrs
+                                .get::<String>(&String::from("presence"))
+                                .unwrap_or(&default_value);
                             current_port = Some(Port::new(
                                 id.parse::<u32>().unwrap(),
                                 name,
                                 PortDirection::from_str(direction),
+                                PortPresence::from_str(presence),
                             ));
                         }
                         "Link" => {
@@ -1009,6 +1042,7 @@ impl GraphView {
                                     id,
                                     &port.name(),
                                     port.direction(),
+                                    port.presence(),
                                 );
                                 self.update_current_port_id(id);
                             }
