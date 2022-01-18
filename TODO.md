@@ -24,35 +24,46 @@
 
 ## TODO
 
+### Graphview
+
+- [ ] create a crate for graphview/node/port
+- [ ] Remove a port from a node
+- [ ] Implement graphview unit test
+
+### app
+
+- [ ] check that a node accept to create a port on request (input/output)
 - [ ] Control the connection between element
   - [x] unable to connect in and in out and out
   - [ ] unable to connect element with incompatible caps.
   - [x] unable to connect a port which is already connected
-- [ ] create a crate for graphview/node/port
-- [ ] check that a node accept to create a port on request (input/output)
-- [ ] Create a window for the video output
+  - [ ] Create a window for the video output
 - [ ] Add multiple graphviews with tabs.
 - [ ] Property window in the main window
 - [ ] Connect the GPS status to GST status
 - [ ] Implement graph dot render/load
 - [ ] Implement a command line parser to graph
-- [ ] Unable to create a pad in an element without the template
-- [ ] Remove a pad from a node
-- [ ] Implement graphview unit test
+- [ ] Render the parse launch line in a message box
+- [ ] Prevent to create a pad in an element without the template
+- [ ] Check the pîpeline live
 - [ ] Implement pipeline unit test
 - [x] Save node position in XML
 - [x] Autosave the graph
-- [ ] Check the pîpeline live
+- [x] Logger in file/app all over the app
+- [ ] handle the caps setter element
 - [ ] Add probes on each pad to monitor the pipeline
 - [ ] Display pad properties with tooltip hover
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
 - [ ] Display tags/meta/message detected
 - [ ] Seek to position
+- [ ] Use one listbox with name, favorites and rank (sort list)
+
+### CI/Infra
+
 - [x] Icon install
-- [ ] Flatpak infrastructure
-- [ ] handle the caps setter
-- [x] Logger in file/app all over the app
+- [x] Flatpak infrastructure
+- [ ] Create a macos/windows job
 
 ## bugs
 
