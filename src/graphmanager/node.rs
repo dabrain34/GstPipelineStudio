@@ -23,6 +23,7 @@ use gtk::subclass::prelude::*;
 use log::trace;
 
 use super::Port;
+use super::SelectionExt;
 use super::{PortDirection, PortPresence};
 
 use std::cell::{Cell, Ref, RefCell};
@@ -171,6 +172,8 @@ glib::wrapper! {
 }
 
 impl Node {
+    /// Create a new node
+    ///
     pub fn new(id: u32, name: &str, node_type: NodeType) -> Self {
         let res: Self = glib::Object::new(&[]).expect("Failed to create Node");
         let private = imp::Node::from_instance(&res);
@@ -184,32 +187,8 @@ impl Node {
         res
     }
 
-    fn set_name(&self, name: &str) {
-        let self_ = imp::Node::from_instance(self);
-        self_.name.set_text(name);
-    }
-
-    fn set_description(&self, description: &str) {
-        let self_ = imp::Node::from_instance(self);
-        self_.description.set_text(description);
-        trace!("Node description is {}", description);
-    }
-    pub fn hidden_property(&self, name: &str) -> bool {
-        name.starts_with('_')
-    }
-
-    fn update_description(&self) {
-        let self_ = imp::Node::from_instance(self);
-        let mut description = String::from("");
-        for (name, value) in self_.properties.borrow().iter() {
-            if !self.hidden_property(name) {
-                description.push_str(&format!("{}:{}", name, value));
-                description.push('\n');
-            }
-        }
-        self.set_description(&description);
-    }
-
+    /// Add a new port to the node
+    ///
     pub fn add_port(
         &mut self,
         id: u32,
@@ -234,11 +213,15 @@ impl Node {
         private.ports.borrow_mut().insert(id, port);
     }
 
+    /// Retrieves all ports as an hashmap
+    ///
     pub fn ports(&self) -> Ref<HashMap<u32, Port>> {
         let private = imp::Node::from_instance(self);
         private.ports.borrow()
     }
 
+    /// Retrieves all ports with given direction
+    ///
     pub fn all_ports(&self, direction: PortDirection) -> Vec<Port> {
         let ports_list: Vec<_> = self
             .ports()
@@ -249,11 +232,15 @@ impl Node {
         ports_list
     }
 
+    /// Retrieves the port with id
+    ///
     pub fn port(&self, id: &u32) -> Option<super::port::Port> {
         let private = imp::Node::from_instance(self);
         private.ports.borrow().get(id).cloned()
     }
 
+    /// Check if we can remove a port dependending on PortPrensence attribute
+    ///
     pub fn can_remove_port(&self, id: u32) -> bool {
         let private = imp::Node::from_instance(self);
         if let Some(port) = private.ports.borrow().get(&id) {
@@ -264,6 +251,8 @@ impl Node {
         false
     }
 
+    /// Removes a port id from the given node
+    ///
     pub fn remove_port(&self, id: u32) {
         let private = imp::Node::from_instance(self);
         if let Some(port) = private.ports.borrow_mut().remove(&id) {
@@ -276,16 +265,22 @@ impl Node {
         }
     }
 
+    /// Retrieves the node id
+    ///
     pub fn id(&self) -> u32 {
         let private = imp::Node::from_instance(self);
         private.id.get().copied().expect("Node id is not set")
     }
 
+    /// Retrieves the node name
+    ///
     pub fn name(&self) -> String {
         let private = imp::Node::from_instance(self);
         private.name.text().to_string()
     }
 
+    /// Retrieves the unique name composed with the node name and its id
+    ///
     pub fn unique_name(&self) -> String {
         let private = imp::Node::from_instance(self);
         let mut unique_name = private.name.text().to_string();
@@ -293,11 +288,21 @@ impl Node {
         unique_name
     }
 
+    /// Retrieves the NodeType
+    ///
     pub fn node_type(&self) -> Option<&NodeType> {
         let private = imp::Node::from_instance(self);
         private.node_type.get()
     }
 
+    /// Check if the name is an hidden property
+    ///
+    pub fn hidden_property(&self, name: &str) -> bool {
+        name.starts_with('_')
+    }
+
+    /// Add a node property with a name and a value.
+    ///
     pub fn add_property(&self, name: String, value: String) {
         let private = imp::Node::from_instance(self);
         trace!("property name={} updated with value={}", name, value);
@@ -305,17 +310,23 @@ impl Node {
         self.update_description();
     }
 
+    /// Update the node property.
+    ///
     pub fn update_properties(&self, new_node_properties: &HashMap<String, String>) {
         for (key, value) in new_node_properties {
             self.add_property(key.clone(), value.clone());
         }
     }
 
+    /// Retrieves node properties.
+    ///
     pub fn properties(&self) -> Ref<HashMap<String, String>> {
         let private = imp::Node::from_instance(self);
         private.properties.borrow()
     }
 
+    /// Retrieves node property with the name.
+    ///
     pub fn property(&self, name: &str) -> Option<String> {
         let private = imp::Node::from_instance(self);
         if let Some(property) = private.properties.borrow().get(name) {
@@ -324,11 +335,61 @@ impl Node {
         None
     }
 
-    pub fn toggle_selected(&self) {
+    /// Unselect all the ports of the given node.
+    ///
+    pub fn unselect_all_ports(&self) {
+        let private = imp::Node::from_instance(self);
+        for port in private.ports.borrow_mut().values() {
+            port.set_selected(false);
+        }
+    }
+
+    /// Set coordinates for the drawn node.
+    ///
+    pub fn set_position(&self, x: f32, y: f32) {
+        imp::Node::from_instance(self).position.set((x, y));
+    }
+
+    /// Get coordinates for the drawn node.
+    ///
+    /// # Returns
+    /// `(x, y)`
+    pub fn position(&self) -> (f32, f32) {
+        imp::Node::from_instance(self).position.get()
+    }
+
+    //Private
+
+    fn set_name(&self, name: &str) {
+        let self_ = imp::Node::from_instance(self);
+        self_.name.set_text(name);
+    }
+
+    fn set_description(&self, description: &str) {
+        let self_ = imp::Node::from_instance(self);
+        self_.description.set_text(description);
+        trace!("Node description is {}", description);
+    }
+
+    fn update_description(&self) {
+        let self_ = imp::Node::from_instance(self);
+        let mut description = String::from("");
+        for (name, value) in self_.properties.borrow().iter() {
+            if !self.hidden_property(name) {
+                description.push_str(&format!("{}:{}", name, value));
+                description.push('\n');
+            }
+        }
+        self.set_description(&description);
+    }
+}
+
+impl SelectionExt for Node {
+    fn toggle_selected(&self) {
         self.set_selected(!self.selected());
     }
 
-    pub fn set_selected(&self, selected: bool) {
+    fn set_selected(&self, selected: bool) {
         let private = imp::Node::from_instance(self);
         private.selected.set(selected);
         if selected {
@@ -338,27 +399,8 @@ impl Node {
         }
     }
 
-    pub fn selected(&self) -> bool {
+    fn selected(&self) -> bool {
         let private = imp::Node::from_instance(self);
         private.selected.get()
-    }
-
-    pub fn unselect_all_ports(&self) {
-        let private = imp::Node::from_instance(self);
-        for port in private.ports.borrow_mut().values() {
-            port.set_selected(false);
-        }
-    }
-    /// Set coordinates for the drawn node.
-    ///
-    pub fn set_position(&self, x: f32, y: f32) {
-        imp::Node::from_instance(self).position.set((x, y));
-    }
-    /// Get coordinates for the drawn node.
-    ///
-    /// # Returns
-    /// `(x, y)`
-    pub fn position(&self) -> (f32, f32) {
-        imp::Node::from_instance(self).position.get()
     }
 }

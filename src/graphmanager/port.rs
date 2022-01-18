@@ -25,6 +25,8 @@ use gtk::{
 use std::cell::Cell;
 use std::{borrow::Borrow, fmt};
 
+use super::SelectionExt;
+
 #[derive(Debug, Clone, PartialOrd, PartialEq, Copy)]
 pub enum PortDirection {
     Input,
@@ -120,6 +122,8 @@ glib::wrapper! {
 }
 
 impl Port {
+    /// Create a new port
+    ///
     pub fn new(id: u32, name: &str, direction: PortDirection, presence: PortPresence) -> Self {
         // Create the widget and initialize needed fields
         let port: Self = glib::Object::new(&[]).expect("Failed to create Port");
@@ -156,32 +160,42 @@ impl Port {
         port
     }
 
+    /// Retrieves the port id
+    ///
     pub fn id(&self) -> u32 {
         let private = imp::Port::from_instance(self);
         private.id.get().copied().expect("Port id is not set")
     }
 
-    pub fn direction(&self) -> PortDirection {
-        let private = imp::Port::from_instance(self);
-        *private.direction.get().expect("Port direction is not set")
-    }
-
-    pub fn presence(&self) -> PortPresence {
-        let private = imp::Port::from_instance(self);
-        *private.presence.get().expect("Port presence is not set")
-    }
-
+    /// Retrieves the port name
+    ///
     pub fn name(&self) -> String {
         let private = imp::Port::from_instance(self);
         let label = private.label.borrow().get().unwrap();
         label.text().to_string()
     }
 
-    pub fn toggle_selected(&self) {
+    /// Retrieves the port direction
+    ///
+    pub fn direction(&self) -> PortDirection {
+        let private = imp::Port::from_instance(self);
+        *private.direction.get().expect("Port direction is not set")
+    }
+
+    /// Retrieves the port presence
+    ///
+    pub fn presence(&self) -> PortPresence {
+        let private = imp::Port::from_instance(self);
+        *private.presence.get().expect("Port presence is not set")
+    }
+}
+
+impl SelectionExt for Port {
+    fn toggle_selected(&self) {
         self.set_selected(!self.selected());
     }
 
-    pub fn set_selected(&self, selected: bool) {
+    fn set_selected(&self, selected: bool) {
         let private = imp::Port::from_instance(self);
         private.selected.set(selected);
         if selected {
@@ -191,7 +205,7 @@ impl Port {
         }
     }
 
-    pub fn selected(&self) -> bool {
+    fn selected(&self) -> bool {
         let private = imp::Port::from_instance(self);
         private.selected.get()
     }

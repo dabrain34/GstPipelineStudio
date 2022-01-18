@@ -18,6 +18,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+use super::SelectionExt;
 use std::cell::Cell;
 
 #[derive(Debug, Clone)]
@@ -32,8 +33,22 @@ pub struct Link {
     pub thickness: u32,
 }
 
-impl Link {
-    pub fn new(
+pub trait LinkExt {
+    /// Create a new link
+    ///
+    fn new(
+        id: u32,
+        node_from: u32,
+        node_to: u32,
+        port_from: u32,
+        port_to: u32,
+        active: bool,
+        selected: bool,
+    ) -> Self;
+}
+
+impl LinkExt for Link {
+    fn new(
         id: u32,
         node_from: u32,
         node_to: u32,
@@ -53,16 +68,17 @@ impl Link {
             thickness: 4,
         }
     }
-
-    pub fn toggle_selected(&self) {
+}
+impl SelectionExt for Link {
+    fn toggle_selected(&self) {
         self.set_selected(!self.selected.get());
     }
 
-    pub fn set_selected(&self, selected: bool) {
+    fn set_selected(&self, selected: bool) {
         self.selected.set(selected);
     }
 
-    pub fn selected(&self) -> bool {
+    fn selected(&self) -> bool {
         self.selected.get()
     }
 }

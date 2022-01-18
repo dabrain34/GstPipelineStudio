@@ -25,10 +25,12 @@ use xml::writer::EmitterConfig;
 use xml::writer::XmlEvent as XMLWEvent;
 
 use super::{
-    link::Link,
+    link::*,
     node::{Node, NodeType},
     port::{Port, PortDirection, PortPresence},
+    selection::SelectionExt,
 };
+
 use once_cell::sync::Lazy;
 use std::fs::File;
 use std::io::BufReader;
@@ -329,7 +331,7 @@ mod imp {
     }
 
     impl GraphView {
-        /// Get coordinates for the drawn link to start at and to end at.
+        /// Retrieves coordinates for the drawn link to start at and to end at.
         ///
         /// # Returns
         /// `Some((from_x, from_y, to_x, to_y))` if all objects the links refers to exist as widgets.
@@ -379,6 +381,10 @@ glib::wrapper! {
 }
 
 impl GraphView {
+    /// Create a new graphview
+    ///
+    /// # Returns
+    /// Graphview object
     pub fn new() -> Self {
         // Load CSS from the STYLE variable.
         let provider = gtk::CssProvider::new();
@@ -390,17 +396,17 @@ impl GraphView {
         );
         glib::Object::new(&[]).expect("Failed to create GraphView")
     }
+
+    /// Set graphview id
+    ///
     pub fn set_id(&self, id: u32) {
         let private = imp::GraphView::from_instance(self);
         private.id.set(id)
     }
 
-    fn graph_updated(&self) {
-        let private = imp::GraphView::from_instance(self);
-        self.emit_by_name::<()>("graph-updated", &[&private.id.get()]);
-    }
-
-    pub fn add_node_with_port(&self, id: u32, node: Node, input: u32, output: u32) {
+    /// Add node to the graphview without port
+    ///
+    pub fn add_node(&self, node: Node) {
         let private = imp::GraphView::from_instance(self);
         node.set_parent(self);
 
@@ -436,7 +442,22 @@ impl GraphView {
 
         self.move_node(&node.clone().upcast(), x, y);
 
-        private.nodes.borrow_mut().insert(id, node);
+        private.nodes.borrow_mut().insert(node.id(), node);
+        self.graph_updated();
+    }
+
+    /// Create a new node and add it to the graphview with input/output port number.
+    ///
+    pub fn create_node_with_port(
+        &self,
+        id: u32,
+        name: &str,
+        node_type: NodeType,
+        input: u32,
+        output: u32,
+    ) {
+        let node = Node::new(id, name, node_type);
+        self.add_node(node);
         let _i = 0;
         for _i in 0..input {
             let port_id = self.next_port_id();
@@ -448,7 +469,6 @@ impl GraphView {
                 PortPresence::Always,
             );
         }
-
         let _i = 0;
         for _i in 0..output {
             let port_id = self.next_port_id();
@@ -460,13 +480,10 @@ impl GraphView {
                 PortPresence::Always,
             );
         }
-        self.graph_updated();
     }
 
-    pub fn add_node(&self, id: u32, node: Node) {
-        self.add_node_with_port(id, node, 0, 0);
-    }
-
+    /// Remove node from the graphview
+    ///
     pub fn remove_node(&self, id: u32) {
         let private = imp::GraphView::from_instance(self);
         let mut nodes = private.nodes.borrow_mut();
@@ -481,6 +498,10 @@ impl GraphView {
         }
         self.queue_draw();
     }
+
+    /// Select all nodes according to the NodeType
+    ///
+    /// Returns a vector of nodes
     pub fn all_nodes(&self, node_type: NodeType) -> Vec<Node> {
         let private = imp::GraphView::from_instance(self);
         let nodes = private.nodes.borrow();
@@ -493,6 +514,7 @@ impl GraphView {
             .collect();
         nodes_list
     }
+
     /// Get the node with the specified node id inside the graphview.
     ///
     /// Returns `None` if the node is not in the graphview.
@@ -501,6 +523,8 @@ impl GraphView {
         private.nodes.borrow().get(&id).cloned()
     }
 
+    /// Remove all the nodes from the graphview
+    ///
     pub fn remove_all_nodes(&self) {
         let private = imp::GraphView::from_instance(self);
         let nodes_list = self.all_nodes(NodeType::All);
@@ -513,6 +537,9 @@ impl GraphView {
         self.queue_draw();
     }
 
+    /// Check if the node is linked
+    ///
+    /// Returns Some(link id) or `None` if the node is not linked.
     pub fn node_is_linked(&self, node_id: u32) -> Option<u32> {
         let private = imp::GraphView::from_instance(self);
         for (key, link) in private.links.borrow().iter() {
@@ -523,15 +550,8 @@ impl GraphView {
         None
     }
 
-    pub fn unselect_nodes(&self) {
-        let private = imp::GraphView::from_instance(self);
-        for node in private.nodes.borrow_mut().values() {
-            node.set_selected(false);
-            node.unselect_all_ports();
-        }
-    }
+    // Port
 
-    // Port related methods
     /// Add the port with id from node with id.
     ///
     pub fn add_port(
@@ -557,6 +577,9 @@ impl GraphView {
         }
     }
 
+    /// Check if the port with id from node with id can be removed.
+    ///
+    /// Return true if the port presence is not always.
     pub fn can_remove_port(&self, node_id: u32, port_id: u32) -> bool {
         let private = imp::GraphView::from_instance(self);
         let nodes = private.nodes.borrow();
@@ -579,6 +602,7 @@ impl GraphView {
             node.remove_port(port_id);
         }
     }
+
     /// Check if the port is linked
     ///
     /// Returns Some(link id) or `None` if the port is not linked.
@@ -592,23 +616,19 @@ impl GraphView {
         None
     }
 
-    // Link related methods
-    pub fn all_links(&self) -> Vec<Link> {
-        let private = imp::GraphView::from_instance(self);
-        let links = private.links.borrow();
-        let links_list: Vec<_> = links.iter().map(|(_, link)| link.clone()).collect();
-        links_list
-    }
+    // Link
 
+    /// Add a link to the graphView
+    ///
     pub fn add_link(&self, link: Link) {
         let private = imp::GraphView::from_instance(self);
         if !self.link_exists(&link) {
             private.links.borrow_mut().insert(link.id, link);
             self.graph_updated();
-            self.queue_draw();
         }
     }
-
+    /// Set the link state with ink id and link state (boolean)
+    ///
     pub fn set_link_state(&self, link_id: u32, active: bool) {
         let private = imp::GraphView::from_instance(self);
         if let Some(link) = private.links.borrow_mut().get_mut(&link_id) {
@@ -617,43 +637,6 @@ impl GraphView {
         } else {
             warn!("Link state changed on unknown link (id={})", link_id);
         }
-    }
-
-    pub fn remove_link(&self, id: u32) {
-        let private = imp::GraphView::from_instance(self);
-        let mut links = private.links.borrow_mut();
-        links.remove(&id);
-
-        self.queue_draw();
-    }
-
-    pub fn unselect_links(&self) {
-        let private = imp::GraphView::from_instance(self);
-        for link in private.links.borrow_mut().values() {
-            link.set_selected(false);
-        }
-    }
-
-    pub fn point_on_link(&self, point: &graphene::Point) -> Option<Link> {
-        let private = imp::GraphView::from_instance(self);
-        self.unselect_all();
-        for link in private.links.borrow_mut().values() {
-            if let Some((from_x, from_y, to_x, to_y)) = private.link_coordinates(link) {
-                let quad = graphene::Quad::new(
-                    &graphene::Point::new(from_x as f32, from_y as f32 - link.thickness as f32),
-                    &graphene::Point::new(to_x as f32, to_y as f32 - link.thickness as f32),
-                    &graphene::Point::new(to_x as f32, to_y as f32 + link.thickness as f32),
-                    &graphene::Point::new(from_x as f32, from_y as f32 + link.thickness as f32),
-                );
-                if quad.contains(point) {
-                    link.toggle_selected();
-                    self.queue_draw();
-                    return Some(link.clone());
-                }
-            }
-        }
-        self.queue_draw();
-        None
     }
 
     /// Get the position of the specified node inside the graphview.
@@ -676,72 +659,8 @@ impl GraphView {
         Some(transform.to_translate())
     }
 
-    pub(super) fn move_node(&self, widget: &gtk::Widget, x: f32, y: f32) {
-        let node = widget
-            .clone()
-            .dynamic_cast::<Node>()
-            .expect("Unable to convert to Node");
-        node.set_position(x, y);
-        let layout_manager = self
-            .layout_manager()
-            .expect("Failed to get layout manager")
-            .dynamic_cast::<gtk::FixedLayout>()
-            .expect("Failed to cast to FixedLayout");
-
-        let transform = gsk::Transform::new()
-            // Nodes should not be able to be dragged out of the view, so we use `max(coordinate, 0.0)` to prevent that.
-            .translate(&graphene::Point::new(f32::max(x, 0.0), f32::max(y, 0.0)))
-            .unwrap();
-
-        layout_manager
-            .layout_child(widget)
-            .dynamic_cast::<gtk::FixedLayoutChild>()
-            .expect("Could not cast to FixedLayoutChild")
-            .set_transform(&transform);
-
-        // FIXME: If links become proper widgets,
-        // we don't need to redraw the full graph everytime.
-        self.queue_draw();
-    }
-
-    pub(super) fn link_exists(&self, new_link: &Link) -> bool {
-        let private = imp::GraphView::from_instance(self);
-
-        for link in private.links.borrow().values() {
-            if (new_link.port_from == link.port_from && new_link.port_to == link.port_to)
-                || (new_link.port_to == link.port_from && new_link.port_from == link.port_to)
-            {
-                warn!("link already existing");
-                return true;
-            }
-        }
-        false
-    }
-
-    pub(super) fn ports_compatible(&self, to_port: &Port) -> bool {
-        let current_port = self.selected_port().to_owned();
-        if let Some(from_port) = current_port {
-            let from_node = from_port
-                .ancestor(Node::static_type())
-                .expect("Unable to reach parent")
-                .dynamic_cast::<Node>()
-                .expect("Unable to cast to Node");
-            let to_node = to_port
-                .ancestor(Node::static_type())
-                .expect("Unable to reach parent")
-                .dynamic_cast::<Node>()
-                .expect("Unable to cast to Node");
-            let res = from_port.id() != to_port.id()
-                && from_port.direction() != to_port.direction()
-                && from_node.id() != to_node.id();
-            if !res {
-                warn!("Unable add the following link");
-            }
-            return res;
-        }
-        false
-    }
-
+    /// Retrieves the next node unique id.
+    ///
     pub fn next_node_id(&self) -> u32 {
         let private = imp::GraphView::from_instance(self);
         private
@@ -750,13 +669,8 @@ impl GraphView {
         private.current_node_id.get()
     }
 
-    pub fn update_current_node_id(&self, node_id: u32) {
-        let private = imp::GraphView::from_instance(self);
-        if node_id > private.current_node_id.get() {
-            private.current_node_id.set(node_id);
-        }
-    }
-
+    /// Retrieves the next port unique id.
+    ///
     pub fn next_port_id(&self) -> u32 {
         let private = imp::GraphView::from_instance(self);
         private
@@ -765,41 +679,11 @@ impl GraphView {
         private.current_port_id.get()
     }
 
-    pub fn update_current_port_id(&self, port_id: u32) {
-        let private = imp::GraphView::from_instance(self);
-        if port_id > private.current_port_id.get() {
-            private.current_port_id.set(port_id);
-        }
-    }
-
-    fn next_link_id(&self) -> u32 {
-        let private = imp::GraphView::from_instance(self);
-        private
-            .current_link_id
-            .set(private.current_link_id.get() + 1);
-        private.current_link_id.get()
-    }
-
-    pub fn update_current_link_id(&self, link_id: u32) {
-        let private = imp::GraphView::from_instance(self);
-        if link_id > private.current_link_id.get() {
-            private.current_link_id.set(link_id);
-        }
-    }
-
-    fn set_selected_port(&self, port: Option<&Port>) {
-        self.unselect_all();
-        let private = imp::GraphView::from_instance(self);
-        *private.port_selected.borrow_mut() = port.cloned();
-    }
-
-    fn selected_port(&self) -> RefMut<Option<Port>> {
-        let private = imp::GraphView::from_instance(self);
-        private.port_selected.borrow_mut()
-    }
-
+    /// Retrieves the node/port id connected to the input port id
+    ///
     pub fn port_connected_to(&self, port_id: u32) -> Option<(u32, u32)> {
-        for link in self.all_links() {
+        let private = imp::GraphView::from_instance(self);
+        for (_id, link) in private.links.borrow().iter() {
             if port_id == link.port_from {
                 return Some((link.port_to, link.node_to));
             }
@@ -807,12 +691,8 @@ impl GraphView {
         None
     }
 
-    pub fn unselect_all(&self) {
-        self.unselect_nodes();
-        self.unselect_links();
-        self.queue_draw();
-    }
-
+    /// Delete the selected element (link, node, port)
+    ///
     pub fn delete_selected(&self) {
         let private = imp::GraphView::from_instance(self);
         let mut link_id = None;
@@ -833,9 +713,12 @@ impl GraphView {
         if let Some(id) = node_id {
             self.remove_node(id);
         }
-        self.queue_draw();
+
+        self.graph_updated();
     }
 
+    /// Render the graph in a file with XML format
+    ///
     pub fn render_xml(&self, filename: &str) -> anyhow::Result<()> {
         let private = imp::GraphView::from_instance(self);
         let mut file = File::create(filename).unwrap();
@@ -879,7 +762,7 @@ impl GraphView {
             writer.write(XMLWEvent::end_element())?;
         }
         //Get the link and write it.
-        for link in self.all_links() {
+        for (_id, link) in private.links.borrow().iter() {
             writer.write(
                 XMLWEvent::start_element("Link")
                     .attr("id", &link.id.to_string())
@@ -895,6 +778,8 @@ impl GraphView {
         Ok(())
     }
 
+    /// Load the graph from a file with XML format
+    ///
     pub fn load_xml(&self, filename: &str) -> anyhow::Result<()> {
         let file = File::open(filename)?;
         let file = BufReader::new(file);
@@ -1025,7 +910,7 @@ impl GraphView {
                             if let Some(node) = current_node {
                                 let id = node.id();
                                 let position = node.position();
-                                self.add_node(id, node);
+                                self.add_node(node);
                                 if let Some(node) = self.node(id) {
                                     self.move_node(&node.upcast(), position.0, position.1);
                                 }
@@ -1067,6 +952,171 @@ impl GraphView {
             }
         }
         Ok(())
+    }
+
+    //Private
+
+    fn remove_link(&self, id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        let mut links = private.links.borrow_mut();
+        links.remove(&id);
+
+        self.queue_draw();
+    }
+
+    fn update_current_link_id(&self, link_id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        if link_id > private.current_link_id.get() {
+            private.current_link_id.set(link_id);
+        }
+    }
+
+    fn link_exists(&self, new_link: &Link) -> bool {
+        let private = imp::GraphView::from_instance(self);
+
+        for link in private.links.borrow().values() {
+            if (new_link.port_from == link.port_from && new_link.port_to == link.port_to)
+                || (new_link.port_to == link.port_from && new_link.port_from == link.port_to)
+            {
+                warn!("link already existing");
+                return true;
+            }
+        }
+        false
+    }
+
+    fn move_node(&self, widget: &gtk::Widget, x: f32, y: f32) {
+        let node = widget
+            .clone()
+            .dynamic_cast::<Node>()
+            .expect("Unable to convert to Node");
+        node.set_position(x, y);
+        let layout_manager = self
+            .layout_manager()
+            .expect("Failed to get layout manager")
+            .dynamic_cast::<gtk::FixedLayout>()
+            .expect("Failed to cast to FixedLayout");
+
+        let transform = gsk::Transform::new()
+            // Nodes should not be able to be dragged out of the view, so we use `max(coordinate, 0.0)` to prevent that.
+            .translate(&graphene::Point::new(f32::max(x, 0.0), f32::max(y, 0.0)))
+            .unwrap();
+
+        layout_manager
+            .layout_child(widget)
+            .dynamic_cast::<gtk::FixedLayoutChild>()
+            .expect("Could not cast to FixedLayoutChild")
+            .set_transform(&transform);
+
+        // FIXME: If links become proper widgets,
+        // we don't need to redraw the full graph everytime.
+        self.queue_draw();
+    }
+
+    fn unselect_nodes(&self) {
+        let private = imp::GraphView::from_instance(self);
+        for node in private.nodes.borrow_mut().values() {
+            node.set_selected(false);
+            node.unselect_all_ports();
+        }
+    }
+
+    fn update_current_node_id(&self, node_id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        if node_id > private.current_node_id.get() {
+            private.current_node_id.set(node_id);
+        }
+    }
+
+    fn unselect_links(&self) {
+        let private = imp::GraphView::from_instance(self);
+        for link in private.links.borrow_mut().values() {
+            link.set_selected(false);
+        }
+    }
+
+    fn unselect_all(&self) {
+        self.unselect_nodes();
+        self.unselect_links();
+        self.queue_draw();
+    }
+
+    fn point_on_link(&self, point: &graphene::Point) -> Option<Link> {
+        let private = imp::GraphView::from_instance(self);
+        self.unselect_all();
+        for link in private.links.borrow_mut().values() {
+            if let Some((from_x, from_y, to_x, to_y)) = private.link_coordinates(link) {
+                let quad = graphene::Quad::new(
+                    &graphene::Point::new(from_x as f32, from_y as f32 - link.thickness as f32),
+                    &graphene::Point::new(to_x as f32, to_y as f32 - link.thickness as f32),
+                    &graphene::Point::new(to_x as f32, to_y as f32 + link.thickness as f32),
+                    &graphene::Point::new(from_x as f32, from_y as f32 + link.thickness as f32),
+                );
+                if quad.contains(point) {
+                    link.toggle_selected();
+                    self.queue_draw();
+                    return Some(link.clone());
+                }
+            }
+        }
+        self.queue_draw();
+        None
+    }
+
+    fn graph_updated(&self) {
+        let private = imp::GraphView::from_instance(self);
+        self.queue_draw();
+        self.emit_by_name::<()>("graph-updated", &[&private.id.get()]);
+    }
+
+    fn next_link_id(&self) -> u32 {
+        let private = imp::GraphView::from_instance(self);
+        private
+            .current_link_id
+            .set(private.current_link_id.get() + 1);
+        private.current_link_id.get()
+    }
+
+    fn set_selected_port(&self, port: Option<&Port>) {
+        self.unselect_all();
+        let private = imp::GraphView::from_instance(self);
+        *private.port_selected.borrow_mut() = port.cloned();
+    }
+
+    fn selected_port(&self) -> RefMut<Option<Port>> {
+        let private = imp::GraphView::from_instance(self);
+        private.port_selected.borrow_mut()
+    }
+
+    fn ports_compatible(&self, to_port: &Port) -> bool {
+        let current_port = self.selected_port().to_owned();
+        if let Some(from_port) = current_port {
+            let from_node = from_port
+                .ancestor(Node::static_type())
+                .expect("Unable to reach parent")
+                .dynamic_cast::<Node>()
+                .expect("Unable to cast to Node");
+            let to_node = to_port
+                .ancestor(Node::static_type())
+                .expect("Unable to reach parent")
+                .dynamic_cast::<Node>()
+                .expect("Unable to cast to Node");
+            let res = from_port.id() != to_port.id()
+                && from_port.direction() != to_port.direction()
+                && from_node.id() != to_node.id();
+            if !res {
+                warn!("Unable add the following link");
+            }
+            return res;
+        }
+        false
+    }
+
+    fn update_current_port_id(&self, port_id: u32) {
+        let private = imp::GraphView::from_instance(self);
+        if port_id > private.current_port_id.get() {
+            private.current_port_id.set(port_id);
+        }
     }
 }
 
