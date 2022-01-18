@@ -35,13 +35,13 @@ use std::ops;
 use std::rc::{Rc, Weak};
 
 use crate::about;
+use crate::gps::{ElementInfo, PadInfo, Pipeline, PipelineState};
 use crate::logger;
-use crate::pipeline::{Pipeline, PipelineState};
 use crate::plugindialogs;
 use crate::settings::Settings;
 use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 
-use crate::graphmanager::{GraphView, Node, PortDirection};
+use crate::graphmanager::{GraphView, Node, PortDirection, PortPresence};
 
 #[derive(Debug)]
 pub struct GPSAppInner {
@@ -192,7 +192,7 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("graph.add-plugin", None));
 
-        application.add_action(&gio::SimpleAction::new("port.delete-link", None));
+        application.add_action(&gio::SimpleAction::new("port.delete", None));
 
         application.add_action(&gio::SimpleAction::new("node.add-to-favorite", None));
         application.add_action(&gio::SimpleAction::new("node.delete", None));
@@ -224,6 +224,28 @@ impl GPSApp {
         pop_menu
     }
 
+    fn app_menu_action(&self, action_name: &str) -> SimpleAction {
+        let application = gio::Application::default()
+            .expect("No default application")
+            .downcast::<gtk::Application>()
+            .expect("Unable to downcast default application");
+
+        application
+            .lookup_action(action_name)
+            .unwrap_or_else(|| panic!("Unable to find action {}", action_name))
+            .dynamic_cast::<SimpleAction>()
+            .expect("Unable to dynamic cast to SimpleAction")
+    }
+
+    fn disconnect_app_menu_action(&self, action_name: &str) {
+        let action = self.app_menu_action(action_name);
+
+        if let Some(signal_handler_id) = self.menu_signal_handlers.borrow_mut().remove(action_name)
+        {
+            action.disconnect(signal_handler_id);
+        }
+    }
+
     fn connect_app_menu_action<
         F: Fn(&SimpleAction, std::option::Option<&glib::Variant>) + 'static,
     >(
@@ -231,20 +253,8 @@ impl GPSApp {
         action_name: &str,
         f: F,
     ) {
-        let application = gio::Application::default()
-            .expect("No default application")
-            .downcast::<gtk::Application>()
-            .expect("Unable to downcast default application");
-        let action = application
-            .lookup_action(action_name)
-            .unwrap_or_else(|| panic!("Unable to find action {}", action_name))
-            .dynamic_cast::<SimpleAction>()
-            .expect("Unable to dynamic cast to SimpleAction");
-
-        if let Some(signal_handler_id) = self.menu_signal_handlers.borrow_mut().remove(action_name)
-        {
-            action.disconnect(signal_handler_id);
-        }
+        let action = self.app_menu_action(action_name);
+        self.disconnect_app_menu_action(action_name);
         let signal_handler_id = action.connect_activate(f);
         self.menu_signal_handlers
             .borrow_mut()
@@ -459,7 +469,7 @@ impl GPSApp {
     }
 
     pub fn display_plugin_list(app: &GPSApp) {
-        let elements = Pipeline::elements_list().expect("Unable to obtain element's list");
+        let elements = ElementInfo::elements_list().expect("Unable to obtain element's list");
         plugindialogs::display_plugin_list(app, &elements);
     }
 
@@ -660,9 +670,18 @@ impl GPSApp {
                     .object("port_menu")
                     .expect("Couldn't get menu model for port");
                 pop_menu.set_menu_model(Some(&menu));
-                app.connect_app_menu_action("port.delete-link", move |_, _| {
-                    GPS_DEBUG!("port.delete-link port {} node {}", port_id, node_id);
-                });
+
+                if app.graphview.borrow().can_remove_port(node_id, port_id) {
+                    let app_weak = app.downgrade();
+                    app.connect_app_menu_action("port.delete", move |_, _| {
+                        let app = upgrade_weak!(app_weak);
+                        GPS_DEBUG!("port.delete-link port {} node {}", port_id, node_id);
+                        app.graphview.borrow().remove_port(node_id, port_id);
+                    });
+                } else {
+                    app.disconnect_app_menu_action("port.delete");
+                }
+
                 pop_menu.show();
                 None
             },
@@ -679,6 +698,7 @@ impl GPSApp {
                     let app = upgrade_weak!(app_weak, None);
 
                     let node_id = values[1].get::<u32>().expect("node id args[1]");
+                    let node = app.graphview.borrow().node(node_id).expect("Unable to find node with this ID");
                     let point = values[2].get::<graphene::Point>().expect("point in args[2]");
 
                     let pop_menu = app.app_pop_menu_at_position(&*app.graphview.borrow(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
@@ -708,28 +728,33 @@ impl GPSApp {
                         }
                     );
 
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.request-pad-input",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.request-pad-input {}", node_id);
-                            let mut node = app.graphview.borrow().node(node_id).unwrap();
-                            let port_id = app.graphview.borrow().next_port_id();
-                            node.add_port(port_id, "in", PortDirection::Input);
-                        }
-                    );
-
+                    if ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Input) {
+                        let app_weak = app.downgrade();
+                        app.connect_app_menu_action("node.request-pad-input",
+                            move |_,_| {
+                                let app = upgrade_weak!(app_weak);
+                                GPS_DEBUG!("node.request-pad-input {}", node_id);
+                                let port_id = app.graphview.borrow().next_port_id();
+                                app.graphview.borrow().add_port(node_id, port_id, "in", PortDirection::Input, PortPresence::Sometimes);
+                            }
+                        );
+                    } else {
+                        app.disconnect_app_menu_action("node.request-pad-input");
+                    }
+                    if ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Output) {
                     let app_weak = app.downgrade();
                     app.connect_app_menu_action("node.request-pad-output",
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.request-pad-output {}", node_id);
-                            let mut node = app.graphview.borrow_mut().node(node_id).unwrap();
                             let port_id = app.graphview.borrow_mut().next_port_id();
-                            node.add_port(port_id, "out", PortDirection::Output);
+                            app.graphview.borrow().add_port(node_id, port_id, "out", PortDirection::Output, PortPresence::Sometimes);
 
                         }
                     );
+                    } else {
+                        app.disconnect_app_menu_action("node.request-pad-output");
+                    }
 
                     let app_weak = app.downgrade();
                     app.connect_app_menu_action("node.properties",
@@ -771,8 +796,8 @@ impl GPSApp {
     pub fn add_new_element(&self, element_name: &str) {
         let graph_view = self.graphview.borrow();
         let node_id = graph_view.next_node_id();
-        let pads = Pipeline::pads(element_name, false);
-        if Pipeline::element_is_uri_src_handler(element_name) {
+        let (inputs, outputs) = PadInfo::pads(element_name, false);
+        if ElementInfo::element_is_uri_src_handler(element_name) {
             GPSApp::get_file_from_dialog(self, false, move |app, filename| {
                 GPS_DEBUG!("Open file {}", filename);
                 let node = app.graphview.borrow().node(node_id).unwrap();
@@ -783,9 +808,13 @@ impl GPSApp {
         }
         graph_view.add_node_with_port(
             node_id,
-            Node::new(node_id, element_name, Pipeline::element_type(element_name)),
-            pads.0,
-            pads.1,
+            Node::new(
+                node_id,
+                element_name,
+                ElementInfo::element_type(element_name),
+            ),
+            inputs.len() as u32,
+            outputs.len() as u32,
         );
     }
 

@@ -26,7 +26,7 @@ mod config;
 mod graphmanager;
 #[macro_use]
 mod logger;
-mod pipeline;
+mod gps;
 mod plugindialogs;
 mod settings;
 use gtk::prelude::*;

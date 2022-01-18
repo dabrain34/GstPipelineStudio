@@ -28,7 +28,10 @@ rust_sources = files(
   'logger.rs',
   'macros.rs',
   'main.rs',
-  'pipeline.rs',
+  'gps/pipeline.rs',
+  'gps/element.rs',
+  'gps/pad.rs',
+  'gps/mod.rs',
   'plugindialogs.rs',
   'settings.rs',
 

@@ -17,9 +17,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::app::GPSApp;
+use crate::gps::ElementInfo;
 use crate::logger;
-use crate::pipeline::ElementInfo;
-use crate::pipeline::Pipeline;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::TextBuffer;
@@ -93,7 +92,7 @@ pub fn display_plugin_list(app: &GPSApp, elements: &[ElementInfo]) {
             if let Some((model, iter)) = selection.selected() {
                 let element_name = model
                 .get::<String>(&iter, 1);
-                let description = Pipeline::element_description(&element_name).expect("Unable to get element description from GStreamer");
+                let description = ElementInfo::element_description(&element_name).expect("Unable to get element description from GStreamer");
                 text_buffer.set_text("");
                 text_buffer.insert_markup(&mut text_buffer.end_iter(), &description);
             }
@@ -133,7 +132,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
         .expect("Couldn't get box-plugin-properties");
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
-    let properties = Pipeline::element_properties(element_name).unwrap();
+    let properties = ElementInfo::element_properties(element_name).unwrap();
     for (name, value) in properties {
         let entry_box = Box::new(gtk::Orientation::Horizontal, 6);
         let label = Label::new(Some(&name));

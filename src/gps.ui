@@ -31,8 +31,8 @@
   <menu id="port_menu">
     <section>
       <item>
-        <attribute name="label" translatable="yes" comments="port menu entry delete the link">_Delete link</attribute>
-        <attribute name="action">app.port.delete-link</attribute>
+        <attribute name="label" translatable="yes" comments="port menu entry delete the link">_Delete</attribute>
+        <attribute name="action">app.port.delete</attribute>
       </item>
     </section>
   </menu>

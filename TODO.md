@@ -27,12 +27,13 @@
 ### Graphview
 
 - [ ] create a crate for graphview/node/port
-- [ ] Remove a port from a node
+- [x] Remove a port from a node if possible
 - [ ] Implement graphview unit test
+- [x] add a css class for pad (presence always or sometimes)
 
 ### app
 
-- [ ] check that a node accept to create a port on request (input/output)
+- [x] check that a node accept to create a port on request (input/output)
 - [ ] Control the connection between element
   - [x] unable to connect in and in out and out
   - [ ] unable to connect element with incompatible caps.
@@ -45,7 +46,7 @@
 - [ ] Implement a command line parser to graph
 - [ ] Render the parse launch line in a message box
 - [ ] Prevent to create a pad in an element without the template
-- [ ] Check the pîpeline live
+- [ ] Check the pipeline validity
 - [ ] Implement pipeline unit test
 - [x] Save node position in XML
 - [x] Autosave the graph
