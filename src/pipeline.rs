@@ -405,7 +405,7 @@ impl Pipeline {
                 } else {
                     description.push_str("! ");
                 }
-                if let Some(node) = graphview.node(&node_to) {
+                if let Some(node) = graphview.node(node_to) {
                     if elements.contains_key(&node.unique_name()) {
                         description.push_str(&format!("{}. ", node.unique_name()));
                     } else {

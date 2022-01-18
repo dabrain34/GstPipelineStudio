@@ -693,7 +693,7 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.add-to-favorite {}", node_id);
-                            if let Some(node) = app.graphview.borrow().node(&node_id) {
+                            if let Some(node) = app.graphview.borrow().node(node_id) {
                                 app.add_to_favorite_list(node.name());
                             };
                         }
@@ -713,7 +713,7 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.request-pad-input {}", node_id);
-                            let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
+                            let mut node = app.graphview.borrow().node(node_id).unwrap();
                             let port_id = app.graphview.borrow().next_port_id();
                             node.add_port(port_id, "in", PortDirection::Input);
                         }
@@ -724,7 +724,7 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.request-pad-output {}", node_id);
-                            let mut node = app.graphview.borrow_mut().node(&node_id).unwrap();
+                            let mut node = app.graphview.borrow_mut().node(node_id).unwrap();
                             let port_id = app.graphview.borrow_mut().next_port_id();
                             node.add_port(port_id, "out", PortDirection::Output);
 
@@ -736,7 +736,7 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.properties {}", node_id);
-                            let node = app.graphview.borrow().node(&node_id).unwrap();
+                            let node = app.graphview.borrow().node(node_id).unwrap();
                             plugindialogs::display_plugin_properties(&app, &node.name(), node_id);
                         }
                     );
@@ -775,7 +775,7 @@ impl GPSApp {
         if Pipeline::element_is_uri_src_handler(element_name) {
             GPSApp::get_file_from_dialog(self, false, move |app, filename| {
                 GPS_DEBUG!("Open file {}", filename);
-                let node = app.graphview.borrow().node(&node_id).unwrap();
+                let node = app.graphview.borrow().node(node_id).unwrap();
                 let mut properties: HashMap<String, String> = HashMap::new();
                 properties.insert(String::from("location"), filename);
                 node.update_properties(&properties);
@@ -790,7 +790,7 @@ impl GPSApp {
     }
 
     pub fn update_element_properties(&self, node_id: u32, properties: &HashMap<String, String>) {
-        let node = self.graphview.borrow().node(&node_id).unwrap();
+        let node = self.graphview.borrow().node(node_id).unwrap();
         node.update_properties(properties);
     }
 
