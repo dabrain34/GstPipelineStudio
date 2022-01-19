@@ -47,10 +47,10 @@ impl ElementInfo {
     pub fn elements_list() -> anyhow::Result<Vec<ElementInfo>> {
         let registry = gst::Registry::get();
         let mut elements: Vec<ElementInfo> = Vec::new();
-        let plugins = gst::Registry::plugin_list(&registry);
+        let plugins = gst::Registry::plugins(&registry);
         for plugin in plugins {
             let plugin_name = gst::Plugin::plugin_name(&plugin);
-            let features = gst::Registry::feature_list_by_plugin(&registry, &plugin_name);
+            let features = gst::Registry::features_by_plugin(&registry, &plugin_name);
             for feature in features {
                 let mut element = ElementInfo::default();
                 if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
@@ -90,7 +90,7 @@ impl ElementInfo {
                     desc.push_str("<b>");
                     desc.push_str(&key);
                     desc.push_str("</b>:");
-                    desc.push_str(&gtk::glib::markup_escape_text(&val).to_string());
+                    desc.push_str(&gtk::glib::markup_escape_text(val).to_string());
                     desc.push('\n');
                 }
             }
@@ -168,13 +168,12 @@ impl ElementInfo {
         let element = factory.create(None)?;
         let params = element.class().list_properties();
 
-        for param in params {
+        for param in params.iter() {
             GPS_INFO!("Property_name {}", param.name());
             if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
-                let value = ElementInfo::value_as_str(&element.property(param.name()).unwrap())
-                    .unwrap_or_else(|| String::from(""));
+                let value = element.property::<String>(param.name());
                 properties_list.insert(String::from(param.name()), value);
             } else if let Some(value) = ElementInfo::value_as_str(param.default_value()) {
                 properties_list.insert(String::from(param.name()), value);
