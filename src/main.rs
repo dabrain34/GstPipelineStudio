@@ -1,6 +1,5 @@
 // main.rs
 //
-// Copyright 2021 Tom A. Wagner <tom.a.wagner@protonmail.com>
 // Copyright 2021 Stéphane Cerveau <scerveau@collabora.com>
 //
 // This program is free software: you can redistribute it and/or modify
