@@ -41,7 +41,7 @@ use crate::plugindialogs;
 use crate::settings::Settings;
 use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 
-use crate::graphmanager::{GraphView, Node, PortDirection, PortPresence};
+use crate::graphmanager::{GraphView, PortDirection, PortPresence};
 
 #[derive(Debug)]
 pub struct GPSAppInner {
@@ -806,13 +806,10 @@ impl GPSApp {
                 node.update_properties(&properties);
             });
         }
-        graph_view.add_node_with_port(
+        graph_view.create_node_with_port(
             node_id,
-            Node::new(
-                node_id,
-                element_name,
-                ElementInfo::element_type(element_name),
-            ),
+            element_name,
+            ElementInfo::element_type(element_name),
             inputs.len() as u32,
             outputs.len() as u32,
         );
