@@ -13,8 +13,10 @@ pub struct Settings {
     pub app_maximized: bool,
     pub app_width: i32,
     pub app_height: i32,
+    pub app_graph_dashboard_paned_pos: i32,
     pub app_graph_logs_paned_pos: i32,
-    pub app_graph_favorites_paned_pos: i32,
+    pub app_elements_preview_paned_pos: i32,
+    pub app_elements_properties_paned_pos: i32,
 }
 
 impl Settings {
@@ -102,8 +104,10 @@ impl Settings {
             Settings {
                 app_width: 800,
                 app_height: 600,
+                app_graph_dashboard_paned_pos: 600,
                 app_graph_logs_paned_pos: 400,
-                app_graph_favorites_paned_pos: 600,
+                app_elements_preview_paned_pos: 300,
+                app_elements_properties_paned_pos: 150,
                 ..Default::default()
             }
         }

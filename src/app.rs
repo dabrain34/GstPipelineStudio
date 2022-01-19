@@ -92,13 +92,22 @@ impl GPSApp {
         let settings = Settings::load_settings();
         window.set_size_request(settings.app_width, settings.app_height);
         let paned: Paned = builder
+            .object("graph_dashboard-paned")
+            .expect("Couldn't get graph_dashboard-paned");
+        paned.set_position(settings.app_graph_dashboard_paned_pos);
+        let paned: Paned = builder
             .object("graph_logs-paned")
             .expect("Couldn't get graph_logs-paned");
         paned.set_position(settings.app_graph_logs_paned_pos);
         let paned: Paned = builder
-            .object("graph_favorites-paned")
-            .expect("Couldn't get graph_favorites-paned");
-        paned.set_position(settings.app_graph_favorites_paned_pos);
+            .object("elements_preview-paned")
+            .expect("Couldn't get elements_preview-paned");
+        paned.set_position(settings.app_elements_preview_paned_pos);
+        let paned: Paned = builder
+            .object("elements_properties-paned")
+            .expect("Couldn't get elements_properties-paned");
+        paned.set_position(settings.app_elements_properties_paned_pos);
+
         if settings.app_maximized {
             window.maximize();
         }
@@ -149,14 +158,24 @@ impl GPSApp {
             settings.app_height = window.height();
             let paned: Paned = app
                 .builder
+                .object("graph_dashboard-paned")
+                .expect("Couldn't get graph_dashboard-paned");
+            settings.app_graph_dashboard_paned_pos = paned.position();
+            let paned: Paned = app
+                .builder
                 .object("graph_logs-paned")
                 .expect("Couldn't get graph_logs-paned");
             settings.app_graph_logs_paned_pos = paned.position();
             let paned: Paned = app
                 .builder
-                .object("graph_favorites-paned")
-                .expect("Couldn't get graph_favorites-paned");
-            settings.app_graph_favorites_paned_pos = paned.position();
+                .object("elements_preview-paned")
+                .expect("Couldn't get elements_preview-paned");
+            settings.app_elements_preview_paned_pos = paned.position();
+            let paned: Paned = app
+                .builder
+                .object("elements_properties-paned")
+                .expect("Couldn't get elements_properties-paned");
+            settings.app_elements_properties_paned_pos = paned.position();
             Settings::save_settings(&settings);
 
             let pop_menu: PopoverMenu = app

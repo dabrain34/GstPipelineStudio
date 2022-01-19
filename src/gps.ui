@@ -42,7 +42,7 @@
         <attribute name="label" translatable="yes" comments="graph menu entry add plugin">_Add plugin</attribute>
         <attribute name="action">app.graph.add-plugin</attribute>
       </item>
-      </section>
+    </section>
   </menu>
   <menu id="fav_menu">
     <section>
@@ -50,7 +50,7 @@
         <attribute name="label" translatable="yes" comments="favorite menu entry delete the favorite">_Remove favorite</attribute>
         <attribute name="action">app.favorite.remove</attribute>
       </item>
-      </section>
+    </section>
   </menu>
   <menu id="node_menu">
     <section>
@@ -77,9 +77,9 @@
         <attribute name="accel">&lt;primary&gt;n</attribute>
       </item>
       <item>
-          <attribute name="label" translatable="yes" comments="Node menu entry add to favorite">_Add to favorite</attribute>
-          <attribute name="action">app.node.add-to-favorite</attribute>
-          <attribute name="accel">&lt;primary&gt;A</attribute>
+        <attribute name="label" translatable="yes" comments="Node menu entry add to favorite">_Add to favorite</attribute>
+        <attribute name="action">app.node.add-to-favorite</attribute>
+        <attribute name="accel">&lt;primary&gt;A</attribute>
       </item>
     </section>
   </menu>
@@ -91,7 +91,7 @@
     <property name="page-increment">10</property>
   </object>
   <object class="GtkDialog" id="dialog-plugin-list">
-  <property name="transient-for">mainwindow</property>
+    <property name="transient-for">mainwindow</property>
     <property name="default-width">320</property>
     <property name="default-height">260</property>
     <property name="hide-on-close">True</property>
@@ -120,7 +120,7 @@
     </child>
   </object>
   <object class="GtkDialog" id="dialog-plugin-properties">
-  <property name="transient-for">mainwindow</property>
+    <property name="transient-for">mainwindow</property>
     <property name="default-width">320</property>
     <property name="default-height">260</property>
     <property name="hide-on-close">True</property>
@@ -154,20 +154,20 @@
     <property name="default-width">800</property>
     <property name="default-height">600</property>
     <child type="titlebar">
-          <object class="GtkHeaderBar" id="header-bar">
-            <child type="start">
-              <object class="GtkMenuButton" id="gear_menu_button">
-                <property name="valign">3</property>
-                <property name="focus-on-click">0</property>
-                <property name="popover">
-                  <object class="GtkPopoverMenu" id="gear_menu">
-                    <property name="menu-model">primary_menu</property>
-                  </object>
-                </property>
-                <property name="icon-name">open-menu-symbolic</property>
+      <object class="GtkHeaderBar" id="header-bar">
+        <child type="start">
+          <object class="GtkMenuButton" id="gear_menu_button">
+            <property name="valign">3</property>
+            <property name="focus-on-click">0</property>
+            <property name="popover">
+              <object class="GtkPopoverMenu" id="gear_menu">
+                <property name="menu-model">primary_menu</property>
               </object>
-            </child>
+            </property>
+            <property name="icon-name">open-menu-symbolic</property>
           </object>
+        </child>
+      </object>
     </child>
     <child>
       <object class="GtkBox">
@@ -226,55 +226,91 @@
             <property name="round-digits">1</property>
           </object>
         </child>
+        <!--Graph and DashBoard paned-->
         <child>
-          <object class="GtkPaned" id="graph_logs-paned">
-          <property name="orientation">vertical</property>
-          <property name="position">400</property>
-          <child>
-            <object class="GtkPaned" id="graph_favorites-paned">
-              <property name="position">600</property>
-              <property name="position-set">True</property>
-              <property name="hexpand">True</property>
-              <property name="vexpand">True</property>
-              <child>
-                <object class="GtkScrolledWindow" id="drawing_area-window">
-                  <property name="hexpand">True</property>
-                  <property name="vexpand">True</property>
-                  <property name="child">
-                    <object class="GtkViewport" id="drawing_area">
-                      <child>
-                        <placeholder/>
-                      </child>
+          <object class="GtkPaned" id="graph_dashboard-paned">
+            <property name="position">600</property>
+            <property name="position-set">True</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+            <child>
+              <!--Graph and Logs paned-->
+              <object class="GtkPaned" id="graph_logs-paned">
+                <property name="orientation">vertical</property>
+                <property name="position">400</property>
+                <child>
+                  <object class="GtkScrolledWindow" id="drawing_area-window">
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <property name="child">
+                      <object class="GtkViewport" id="drawing_area">
+                        <child>
+                          <placeholder/>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="child">
+                      <object class="GtkTreeView" id="treeview-logger"/>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!--Elements and Preview paned-->
+            <child>
+              <object class="GtkPaned" id="elements_preview-paned">
+                <property name="orientation">vertical</property>
+                <property name="position">400</property>
+                <child>
+                  <!--Elements and property paned-->
+                  <object class="GtkPaned" id="elements_properties-paned">
+                  <property name="orientation">vertical</property>
+                  <property name="position">400</property>
+                  <child>
+                    <object class="GtkScrolledWindow">
+                      <property name="hexpand">True</property>
+                      <property name="vexpand">True</property>
+                      <property name="child">
+                        <object class="GtkTreeView" id="treeview-favorites">
+                        </object>
+                      </property>
                     </object>
-                  </property>
-                </object>
-              </child>
-              <child>
-                <object class="GtkScrolledWindow">
-                  <property name="hexpand">True</property>
-                  <property name="vexpand">True</property>
-                  <property name="child">
-                    <object class="GtkTreeView" id="treeview-favorites">
+                  </child>
+                  <child>
+                    <object class="GtkScrolledWindow">
+                      <property name="hexpand">True</property>
+                      <property name="vexpand">True</property>
+                      <property name="child">
+                        <object class="GtkBox" id="box-property">
+                        </object>
+                      </property>
                     </object>
-                  </property>
-                </object>
+                  </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <property name="child">
+                      <object class="GtkBox" id="box-preview">
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
               </child>
-            </object>
-          </child>
-          <child>
-            <object class="GtkScrolledWindow">
-              <property name="child">
-                <object class="GtkTreeView" id="treeview-logger"/>
-              </property>
-            </object>
-          </child>
           </object>
         </child>
-    <child>
-      <object class="GtkStatusbar" id="status_bar">
-      </object>
-    </child>
-    </object>
-    </child>
+        <child>
+          <object class="GtkStatusbar" id="status_bar">
+          </object>
+        </child>
+        </object>
+        </child>
   </object>
 </interface>
