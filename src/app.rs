@@ -22,9 +22,9 @@ use glib::Value;
 use gtk::gdk::Rectangle;
 use gtk::prelude::*;
 use gtk::{
-    gdk::BUTTON_SECONDARY, Application, ApplicationWindow, Builder, Button, CellRendererText,
+    gdk::BUTTON_SECONDARY, Application, ApplicationWindow, Box, Builder, Button, CellRendererText,
     FileChooserAction, FileChooserDialog, ListStore, Paned, PopoverMenu, ResponseType, Statusbar,
-    TreeView, TreeViewColumn, Viewport, Widget,
+    TextView, TreeView, TreeViewColumn, Viewport, Widget,
 };
 use gtk::{gio, gio::SimpleAction, glib, graphene};
 use log::error;
@@ -415,19 +415,19 @@ impl GPSApp {
         }
     }
 
-    fn setup_favorite_list(&self, application: &Application) {
+    fn setup_favorite_list(&self) {
         let favorite_list: TreeView = self
             .builder
             .object("treeview-favorites")
             .expect("Couldn't get treeview-favorites");
-        self.add_column_to_treeview("treeview-favorites", "Element", 0);
+        self.add_column_to_treeview("treeview-favorites", "Name", 0);
         self.reset_favorite_list(&favorite_list);
         let app_weak = self.downgrade();
         favorite_list.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
             let app = upgrade_weak!(app_weak);
             let selection = tree_view.selection();
             if let Some((model, iter)) = selection.selected() {
-                let element_name = model.get::<String>(&iter, 1);
+                let element_name = model.get::<String>(&iter, 0);
                 GPS_DEBUG!("{} selected", element_name);
                 app.add_new_element(&element_name);
             }
@@ -436,13 +436,13 @@ impl GPSApp {
         gesture.set_button(0);
         let app_weak = self.downgrade();
         gesture.connect_pressed(
-            glib::clone!(@weak favorite_list, @weak application => move |gesture, _n_press, x, y| {
+            glib::clone!(@weak favorite_list => move |gesture, _n_press, x, y| {
                 let app = upgrade_weak!(app_weak);
                 if gesture.current_button() == BUTTON_SECONDARY {
                     let selection = favorite_list.selection();
                     if let Some((model, iter)) = selection.selected() {
                         let element_name = model
-                        .get::<String>(&iter, 1);
+                        .get::<String>(&iter, 0);
                         GPS_DEBUG!("Element {} selected", element_name);
 
                         let pop_menu = app.app_pop_menu_at_position(&favorite_list, x, y);
@@ -485,6 +485,53 @@ impl GPSApp {
                 Settings::add_favorite(&element_name);
             }
         }
+    }
+
+    fn reset_elements_list(&self, elements_list: &TreeView) {
+        let model = ListStore::new(&[String::static_type()]);
+        elements_list.set_model(Some(&model));
+        let elements = ElementInfo::elements_list().expect("Unable to obtain element's list");
+        for element in elements {
+            model.insert_with_values(None, &[(0, &element.name)]);
+        }
+    }
+
+    fn setup_elements_list(&self) {
+        let tree: TreeView = self
+            .builder
+            .object("treeview-elements")
+            .expect("Couldn't get treeview-elements");
+        self.add_column_to_treeview("treeview-elements", "Name", 0);
+        self.reset_elements_list(&tree);
+        let app_weak = self.downgrade();
+        tree.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
+            let app = upgrade_weak!(app_weak);
+            let selection = tree_view.selection();
+            if let Some((model, iter)) = selection.selected() {
+                let element_name = model.get::<String>(&iter, 0);
+                GPS_DEBUG!("{} selected", element_name);
+                app.add_new_element(&element_name);
+            }
+        });
+        let app_weak = self.downgrade();
+        tree.connect_cursor_changed(move |tree_view| {
+            let selection = tree_view.selection();
+            if let Some((model, iter)) = selection.selected() {
+                let element_name = model.get::<String>(&iter, 0);
+                let description = ElementInfo::element_description(&element_name)
+                    .expect("Unable to get element description from GStreamer");
+                let app = upgrade_weak!(app_weak);
+                let box_property: Box = app
+                    .builder
+                    .object("box-property")
+                    .expect("Couldn't get treeview-elements");
+                let text_view = TextView::new();
+                let text_buffer = text_view.buffer();
+                text_buffer.set_text("");
+                text_buffer.insert_markup(&mut text_buffer.end_iter(), &description);
+                box_property.append(&text_view);
+            }
+        });
     }
 
     pub fn display_plugin_list(app: &GPSApp) {
@@ -791,7 +838,9 @@ impl GPSApp {
             );
 
         // Setup the favorite list
-        self.setup_favorite_list(application);
+        self.setup_favorite_list();
+        // Setup the favorite list
+        self.setup_elements_list();
 
         let _ = self
             .load_graph(

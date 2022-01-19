@@ -271,13 +271,45 @@
                   <property name="orientation">vertical</property>
                   <property name="position">400</property>
                   <child>
-                    <object class="GtkScrolledWindow">
-                      <property name="hexpand">True</property>
-                      <property name="vexpand">True</property>
+                  <object class="GtkNotebook" id="notebook-elements">
+                    <child>
+                    <object class="GtkNotebookPage">
                       <property name="child">
-                        <object class="GtkTreeView" id="treeview-favorites">
+                        <object class="GtkScrolledWindow">
+                          <property name="hexpand">True</property>
+                          <property name="vexpand">True</property>
+                          <property name="child">
+                            <object class="GtkTreeView" id="treeview-elements">
+                            </object>
+                          </property>
                         </object>
                       </property>
+                      <property name="tab">
+                        <object class="GtkLabel" id="label-page-elements">
+                          <property name="label" translatable="1">Elements</property>
+                        </object>
+                      </property>
+                    </object>
+                    </child>
+                    <child>
+                    <object class="GtkNotebookPage">
+                      <property name="child">
+                        <object class="GtkScrolledWindow">
+                          <property name="hexpand">True</property>
+                          <property name="vexpand">True</property>
+                          <property name="child">
+                            <object class="GtkTreeView" id="treeview-favorites">
+                            </object>
+                          </property>
+                        </object>
+                      </property>
+                      <property name="tab">
+                        <object class="GtkLabel" id="label-page-favorites">
+                          <property name="label" translatable="1">Favorites</property>
+                        </object>
+                      </property>
+                    </object>
+                    </child>
                     </object>
                   </child>
                   <child>

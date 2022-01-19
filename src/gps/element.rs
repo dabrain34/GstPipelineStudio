@@ -27,22 +27,13 @@ use gst::prelude::*;
 use gstreamer as gst;
 use std::collections::HashMap;
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ElementInfo {
-    pub name: Option<String>,
-    plugin_name: Option<String>,
+    pub name: String,
+    plugin_name: String,
     rank: i32,
 }
 
-impl Default for ElementInfo {
-    fn default() -> ElementInfo {
-        ElementInfo {
-            name: None,
-            plugin_name: None,
-            rank: -1,
-        }
-    }
-}
 impl ElementInfo {
     pub fn elements_list() -> anyhow::Result<Vec<ElementInfo>> {
         let registry = gst::Registry::get();
@@ -56,9 +47,8 @@ impl ElementInfo {
                 if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
                     let feature = factory.upcast::<gst::PluginFeature>();
 
-                    element.name = Some(gst::PluginFeature::name(&feature).as_str().to_owned());
-                    element.plugin_name =
-                        Some(gst::Plugin::plugin_name(&plugin).as_str().to_owned());
+                    element.name = gst::PluginFeature::name(&feature).as_str().to_owned();
+                    element.plugin_name = gst::Plugin::plugin_name(&plugin).as_str().to_owned();
                     elements.push(element);
                 }
             }

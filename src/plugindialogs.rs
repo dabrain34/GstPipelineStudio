@@ -37,10 +37,7 @@ fn create_and_fill_model(elements: &[ElementInfo]) -> ListStore {
 
     // Filling up the tree view.
     for (i, entry) in elements.iter().enumerate() {
-        model.insert_with_values(
-            None,
-            &[(0, &(i as u32 + 1)), (1, &entry.name.as_ref().unwrap())],
-        );
+        model.insert_with_values(None, &[(0, &(i as u32 + 1)), (1, &entry.name)]);
     }
 
     model
