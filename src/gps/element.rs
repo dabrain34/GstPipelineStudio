@@ -159,11 +159,13 @@ impl ElementInfo {
         let params = element.class().list_properties();
 
         for param in params.iter() {
-            GPS_INFO!("Property_name {}", param.name());
             if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
-                let value = element.property::<String>(param.name());
+                let value = element
+                    .try_property::<String>(param.name())
+                    .unwrap_or_else(|_| String::from(""));
+                GPS_INFO!("Property_name {}={}", param.name(), value);
                 properties_list.insert(String::from(param.name()), value);
             } else if let Some(value) = ElementInfo::value_as_str(param.default_value()) {
                 properties_list.insert(String::from(param.name()), value);

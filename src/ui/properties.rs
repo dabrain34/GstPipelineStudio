@@ -46,17 +46,25 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
     let properties = GPS::ElementInfo::element_properties(element_name).unwrap();
+    while let Some(child) = properties_box.first_child() {
+        properties_box.remove(&child);
+    }
+
     for (name, value) in properties {
-        let entry_box = Box::new(gtk::Orientation::Horizontal, 6);
+        let entry_box = Box::new(gtk::Orientation::Horizontal, 1);
+        let name_box = Box::new(gtk::Orientation::Vertical, 6);
+        let value_box = Box::new(gtk::Orientation::Vertical, 6);
+        //Label
         let label = Label::new(Some(&name));
         label.set_hexpand(true);
         label.set_halign(gtk::Align::Start);
         label.set_margin_start(4);
-        entry_box.append(&label);
+        name_box.append(&label);
+        //Entry
         let entry: Entry = Entry::new();
         entry.set_text(&value);
         entry.set_hexpand(true);
-        entry.set_halign(gtk::Align::Start);
+        entry.set_halign(gtk::Align::End);
         entry.set_widget_name(&name);
         entry.connect_changed(
             glib::clone!(@weak entry, @strong update_properties => move |_| {
@@ -64,7 +72,10 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
                 update_properties.borrow_mut().insert(entry.widget_name().to_string(), entry.text().to_string());
             }),
         );
-        entry_box.append(&entry);
+        value_box.append(&entry);
+
+        entry_box.append(&name_box);
+        entry_box.append(&value_box);
         properties_box.append(&entry_box);
     }
     let properties_apply_btn: Button = app
