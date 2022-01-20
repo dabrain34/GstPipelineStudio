@@ -273,6 +273,13 @@ mod imp {
                         <()>::static_type().into(),
                     )
                     .build(),
+                    Signal::builder(
+                        "node-added",
+                        // returns graph ID and Node ID
+                        &[u32::static_type().into(), u32::static_type().into()],
+                        <()>::static_type().into(),
+                    )
+                    .build(),
                 ]
             });
             SIGNALS.as_ref()
@@ -441,8 +448,9 @@ impl GraphView {
             .map_or(20_f32, |(_x, y)| y + 100.0);
 
         self.move_node(&node.clone().upcast(), x, y);
-
+        let node_id = node.id();
         private.nodes.borrow_mut().insert(node.id(), node);
+        self.emit_by_name::<()>("node-added", &[&private.id.get(), &node_id]);
         self.graph_updated();
     }
 
