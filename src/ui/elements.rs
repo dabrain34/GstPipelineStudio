@@ -18,7 +18,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::app::GPSApp;
-use crate::gps::ElementInfo;
+use crate::gps as GPS;
 use crate::logger;
 use crate::settings::Settings;
 use crate::ui::treeview;
@@ -109,7 +109,7 @@ pub fn add_to_favorite_list(app: &GPSApp, element_name: String) {
 fn reset_elements_list(elements_list: &TreeView) {
     let model = ListStore::new(&[String::static_type()]);
     elements_list.set_model(Some(&model));
-    let elements = ElementInfo::elements_list().expect("Unable to obtain element's list");
+    let elements = GPS::ElementInfo::elements_list().expect("Unable to obtain element's list");
     for element in elements {
         model.insert_with_values(None, &[(0, &element.name)]);
     }
@@ -138,7 +138,7 @@ pub fn setup_elements_list(app: &GPSApp) {
         let selection = tree_view.selection();
         if let Some((model, iter)) = selection.selected() {
             let element_name = model.get::<String>(&iter, 0);
-            let description = ElementInfo::element_description(&element_name)
+            let description = GPS::ElementInfo::element_description(&element_name)
                 .expect("Unable to get element description from GStreamer");
             let box_property: Box = app
                 .builder

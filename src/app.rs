@@ -33,7 +33,7 @@ use std::collections::HashMap;
 use std::ops;
 use std::rc::{Rc, Weak};
 
-use crate::gps::{ElementInfo, PadInfo, Pipeline, PipelineState};
+use crate::gps as GPS;
 use crate::logger;
 use crate::settings::Settings;
 use crate::ui as GPSUI;
@@ -47,7 +47,7 @@ pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
     pub graphview: RefCell<GraphView>,
     pub builder: Builder,
-    pub pipeline: RefCell<Pipeline>,
+    pub pipeline: RefCell<GPS::Pipeline>,
     pub plugin_list_initialized: OnceCell<bool>,
     pub menu_signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
 }
@@ -110,7 +110,7 @@ impl GPSApp {
         if settings.app_maximized {
             window.maximize();
         }
-        let pipeline = Pipeline::new().expect("Unable to initialize GStreamer subsystem");
+        let pipeline = GPS::Pipeline::new().expect("Unable to initialize GStreamer subsystem");
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
             graphview: RefCell::new(GraphView::new()),
@@ -428,7 +428,7 @@ impl GPSApp {
             let _ = app
                 .pipeline
                 .borrow()
-                .start_pipeline(&graph_view, PipelineState::Playing);
+                .start_pipeline(&graph_view, GPS::PipelineState::Playing);
         });
 
         let app_weak = self.downgrade();
@@ -438,14 +438,14 @@ impl GPSApp {
             let _ = app
                 .pipeline
                 .borrow()
-                .start_pipeline(&graph_view, PipelineState::Paused);
+                .start_pipeline(&graph_view, GPS::PipelineState::Paused);
         });
 
         let app_weak = self.downgrade();
         self.connect_button_action("button-stop", move |_| {
             let app = upgrade_weak!(app_weak);
             let pipeline = app.pipeline.borrow();
-            let _ = pipeline.set_state(PipelineState::Stopped);
+            let _ = pipeline.set_state(GPS::PipelineState::Stopped);
         });
 
         let app_weak = self.downgrade();
@@ -463,7 +463,7 @@ impl GPSApp {
                 let node_id = values[2].get::<u32>().expect("node id in args[2]");
                 GPS_INFO!("Node added node id={} in graph id={}", node_id, graph_id);
                 if let Some(node) = app.graphview.borrow().node(node_id) {
-                    let description = ElementInfo::element_description(&node.name()).ok();
+                    let description = GPS::ElementInfo::element_description(&node.name()).ok();
                     node.set_tooltip_markup(description.as_deref());
                 }
                 None
@@ -600,7 +600,7 @@ impl GPSApp {
                         }
                     );
 
-                    if ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Input) {
+                    if GPS::ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Input) {
                         let app_weak = app.downgrade();
                         app.connect_app_menu_action("node.request-pad-input",
                             move |_,_| {
@@ -613,7 +613,7 @@ impl GPSApp {
                     } else {
                         app.disconnect_app_menu_action("node.request-pad-input");
                     }
-                    if ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Output) {
+                    if GPS::ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Output) {
                     let app_weak = app.downgrade();
                     app.connect_app_menu_action("node.request-pad-output",
                         move |_,_| {
@@ -670,8 +670,8 @@ impl GPSApp {
     pub fn add_new_element(&self, element_name: &str) {
         let graph_view = self.graphview.borrow();
         let node_id = graph_view.next_node_id();
-        let (inputs, outputs) = PadInfo::pads(element_name, false);
-        if ElementInfo::element_is_uri_src_handler(element_name) {
+        let (inputs, outputs) = GPS::PadInfo::pads(element_name, false);
+        if GPS::ElementInfo::element_is_uri_src_handler(element_name) {
             GPSApp::get_file_from_dialog(self, false, move |app, filename| {
                 GPS_DEBUG!("Open file {}", filename);
                 let node = app.graphview.borrow().node(node_id).unwrap();
@@ -683,7 +683,7 @@ impl GPSApp {
         graph_view.create_node_with_port(
             node_id,
             element_name,
-            ElementInfo::element_type(element_name),
+            GPS::ElementInfo::element_type(element_name),
             inputs.len() as u32,
             outputs.len() as u32,
         );

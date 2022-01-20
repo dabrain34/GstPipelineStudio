@@ -17,7 +17,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::app::GPSApp;
-use crate::gps::ElementInfo;
+use crate::gps as GPS;
 use crate::logger;
 use crate::GPS_TRACE;
 use gtk::glib;
@@ -45,7 +45,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
         .expect("Couldn't get box-plugin-properties");
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
-    let properties = ElementInfo::element_properties(element_name).unwrap();
+    let properties = GPS::ElementInfo::element_properties(element_name).unwrap();
     for (name, value) in properties {
         let entry_box = Box::new(gtk::Orientation::Horizontal, 6);
         let label = Label::new(Some(&name));
