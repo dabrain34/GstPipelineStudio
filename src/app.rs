@@ -694,6 +694,11 @@ impl GPSApp {
         node.update_properties(properties);
     }
 
+    pub fn element_property(&self, node_id: u32, property_name: &str) -> Option<String> {
+        let node = self.graphview.borrow().node(node_id).unwrap();
+        node.property(property_name)
+    }
+
     fn clear_graph(&self) {
         let graph_view = self.graphview.borrow_mut();
         graph_view.remove_all_nodes();

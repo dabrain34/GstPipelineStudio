@@ -131,24 +131,22 @@ impl ElementInfo {
 
         element_type
     }
+    pub fn element_property(element_name: &str, property_name: &str) -> anyhow::Result<String> {
+        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
 
-    fn value_as_str(v: &glib::Value) -> Option<String> {
-        match v.type_() {
-            glib::Type::I8 => Some(str_some_value!(v, i8).to_string()),
-            glib::Type::U8 => Some(str_some_value!(v, u8).to_string()),
-            glib::Type::BOOL => Some(str_some_value!(v, bool).to_string()),
-            glib::Type::I32 => Some(str_some_value!(v, i32).to_string()),
-            glib::Type::U32 => Some(str_some_value!(v, u32).to_string()),
-            glib::Type::I64 => Some(str_some_value!(v, i64).to_string()),
-            glib::Type::U64 => Some(str_some_value!(v, u64).to_string()),
-            glib::Type::F32 => Some(str_some_value!(v, f32).to_string()),
-            glib::Type::F64 => Some(str_some_value!(v, f64).to_string()),
-            glib::Type::STRING => str_opt_value!(v, String),
-            _ => None,
-        }
+        let factory = feature
+            .downcast::<gst::ElementFactory>()
+            .expect("Unable to get the factory from the feature");
+        let element = factory.create(None)?;
+        let value = element
+            .try_property::<String>(property_name)
+            .unwrap_or_default();
+        Ok(value)
     }
 
-    pub fn element_properties(element_name: &str) -> anyhow::Result<HashMap<String, String>> {
+    pub fn element_properties(
+        element_name: &str,
+    ) -> anyhow::Result<HashMap<String, glib::ParamSpec>> {
         let mut properties_list = HashMap::new();
         let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
 
@@ -159,19 +157,16 @@ impl ElementInfo {
         let params = element.class().list_properties();
 
         for param in params.iter() {
-            if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
-                || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
-            {
-                let value = element
-                    .try_property::<String>(param.name())
-                    .unwrap_or_else(|_| String::from(""));
-                GPS_INFO!("Property_name {}={}", param.name(), value);
-                properties_list.insert(String::from(param.name()), value);
-            } else if let Some(value) = ElementInfo::value_as_str(param.default_value()) {
-                properties_list.insert(String::from(param.name()), value);
-            } else {
-                GPS_INFO!("Unable to add property_name {}", param.name());
-            }
+            let value = element
+                .try_property::<String>(param.name())
+                .unwrap_or_default();
+            GPS_INFO!(
+                "Property_name {}={} type={:?}",
+                param.name(),
+                value,
+                param.type_()
+            );
+            properties_list.insert(String::from(param.name()), param.clone());
         }
         Ok(properties_list)
     }

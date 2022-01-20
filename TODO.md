@@ -30,6 +30,7 @@
 - [x] Remove a port from a node if possible
 - [ ] Implement graphview unit test
 - [x] add a css class for pad (presence always or sometimes)
+- [ ] Add property to port to store some specific value(Caps)
 
 ### app
 

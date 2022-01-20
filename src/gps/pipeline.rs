@@ -193,8 +193,10 @@ impl Pipeline {
         description.push_str(&format!("{} name={} ", node.name(), unique_name));
         elements.insert(unique_name.clone(), unique_name.clone());
         for (name, value) in node.properties().iter() {
+            //This allow to have an index in front of a property such as an enum.
+            let value = value.split_once(':').unwrap_or((value, value));
             if !node.hidden_property(name) {
-                description.push_str(&format!("{}={} ", name, value));
+                description.push_str(&format!("{}={} ", name, value.1));
             }
         }
 
