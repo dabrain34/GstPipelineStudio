@@ -17,24 +17,29 @@ run_command(
 )
 
 rust_sources = files(
+  'gps/pipeline.rs',
+  'gps/element.rs',
+  'gps/pad.rs',
+  'gps/mod.rs',
   'graphmanager/graphview.rs',
   'graphmanager/link.rs',
   'graphmanager/mod.rs',
   'graphmanager/node.rs',
   'graphmanager/port.rs',
-  'about.rs',
+  'ui/about.rs',
+  'ui/elements.rs',
+  'ui/logger.rs',
+  'ui/message.rs',
+  'ui/mod.rs',
+  'ui/properties.rs',
+  'ui/treeview.rs',
   'app.rs',
   'common.rs',
   'logger.rs',
   'macros.rs',
   'main.rs',
-  'gps/pipeline.rs',
-  'gps/element.rs',
-  'gps/pad.rs',
-  'gps/mod.rs',
-  'plugindialogs.rs',
-  'settings.rs',
 
+  'settings.rs',
 )
 
 sources = [cargo_sources, rust_sources]

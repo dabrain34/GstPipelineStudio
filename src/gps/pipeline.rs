@@ -16,9 +16,10 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
-use crate::app::GPSApp;
+
 use crate::graphmanager::{GraphView, Node, NodeType, PortDirection};
 use crate::logger;
+use crate::ui::message as GPSMessage;
 use crate::GPS_INFO;
 
 use gst::glib;
@@ -156,7 +157,7 @@ impl Pipeline {
                     err.error(),
                     err.debug()
                 );
-                GPSApp::show_error_dialog(
+                GPSMessage::display_error_dialog(
                     false,
                     format!(
                         "Error from {:?}: {} ({:?})",

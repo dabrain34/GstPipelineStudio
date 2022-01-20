@@ -1,6 +1,6 @@
-// main.rs
+// treeview.rs
 //
-// Copyright 2021 Stéphane Cerveau <scerveau@collabora.com>
+// Copyright 2022 Stéphane Cerveau <scerveau@collabora.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -16,29 +16,20 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
-#[macro_use]
-mod macros;
-mod app;
-mod common;
-mod config;
-mod graphmanager;
-mod ui;
-#[macro_use]
-mod logger;
-mod gps;
-mod settings;
-use gtk::prelude::*;
-
 use crate::app::GPSApp;
-use crate::common::init;
+use gtk::prelude::TreeViewExt;
+use gtk::{CellRendererText, TreeView, TreeViewColumn};
 
-fn main() {
-    //    gio::resources_register_include!("compiled.gresource").unwrap();
-    init().expect("Unable to init app");
-    let application = gtk::Application::new(Some(config::APP_ID), Default::default());
-    application.connect_startup(|application| {
-        GPSApp::on_startup(application);
-    });
-
-    application.run();
+pub fn add_column_to_treeview(app: &GPSApp, tree_name: &str, column_name: &str, column_n: i32) {
+    let treeview: TreeView = app
+        .builder
+        .object(tree_name)
+        .expect("Couldn't get tree_name");
+    let column = TreeViewColumn::new();
+    let cell = CellRendererText::new();
+    column.pack_start(&cell, true);
+    // Association of the view's column with the model's `id` column.
+    column.add_attribute(&cell, "text", column_n);
+    column.set_title(column_name);
+    treeview.append_column(&column);
 }

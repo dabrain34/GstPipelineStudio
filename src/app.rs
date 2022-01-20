@@ -21,12 +21,11 @@ use glib::SignalHandlerId;
 use glib::Value;
 use gtk::gdk::Rectangle;
 use gtk::prelude::*;
-use gtk::{
-    gdk::BUTTON_SECONDARY, Application, ApplicationWindow, Box, Builder, Button, CellRendererText,
-    FileChooserAction, FileChooserDialog, Label, ListStore, Paned, PopoverMenu, ResponseType,
-    Statusbar, TreeView, TreeViewColumn, Viewport, Widget,
-};
 use gtk::{gio, gio::SimpleAction, glib, graphene};
+use gtk::{
+    Application, ApplicationWindow, Builder, Button, FileChooserAction, FileChooserDialog, Paned,
+    PopoverMenu, ResponseType, Statusbar, Viewport, Widget,
+};
 use log::error;
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
@@ -34,11 +33,11 @@ use std::collections::HashMap;
 use std::ops;
 use std::rc::{Rc, Weak};
 
-use crate::about;
 use crate::gps::{ElementInfo, PadInfo, Pipeline, PipelineState};
 use crate::logger;
-use crate::plugindialogs;
 use crate::settings::Settings;
+use crate::ui as GPSUI;
+
 use crate::{GPS_DEBUG, GPS_ERROR, GPS_INFO, GPS_TRACE, GPS_WARN};
 
 use crate::graphmanager::{GraphView, PortDirection, PortPresence};
@@ -209,7 +208,7 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("favorite.remove", None));
 
-        application.add_action(&gio::SimpleAction::new("graph.add-plugin", None));
+        application.add_action(&gio::SimpleAction::new("graph.check", None));
 
         application.add_action(&gio::SimpleAction::new("port.delete", None));
 
@@ -220,7 +219,12 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("node.properties", None));
     }
 
-    fn app_pop_menu_at_position(&self, widget: &impl IsA<Widget>, x: f64, y: f64) -> PopoverMenu {
+    pub fn app_pop_menu_at_position(
+        &self,
+        widget: &impl IsA<Widget>,
+        x: f64,
+        y: f64,
+    ) -> PopoverMenu {
         let mainwindow: ApplicationWindow = self
             .builder
             .object("mainwindow")
@@ -265,7 +269,7 @@ impl GPSApp {
         }
     }
 
-    fn connect_app_menu_action<
+    pub fn connect_app_menu_action<
         F: Fn(&SimpleAction, std::option::Option<&glib::Variant>) + 'static,
     >(
         &self,
@@ -331,219 +335,6 @@ impl GPSApp {
         file_chooser.show();
     }
 
-    pub fn show_error_dialog(fatal: bool, message: &str) {
-        let app = gio::Application::default()
-            .expect("No default application")
-            .downcast::<gtk::Application>()
-            .expect("Default application has wrong type");
-
-        let dialog = gtk::MessageDialog::new(
-            app.active_window().as_ref(),
-            gtk::DialogFlags::MODAL,
-            gtk::MessageType::Error,
-            gtk::ButtonsType::Ok,
-            message,
-        );
-
-        dialog.connect_response(move |dialog, _| {
-            let app = gio::Application::default().expect("No default application");
-
-            dialog.destroy();
-
-            if fatal {
-                app.quit();
-            }
-        });
-
-        dialog.set_resizable(false);
-        dialog.show();
-    }
-    fn add_column_to_treeview(&self, tree_name: &str, column_name: &str, column_n: i32) {
-        let treeview: TreeView = self
-            .builder
-            .object(tree_name)
-            .expect("Couldn't get tree_name");
-        let column = TreeViewColumn::new();
-        let cell = CellRendererText::new();
-        column.pack_start(&cell, true);
-        // Association of the view's column with the model's `id` column.
-        column.add_attribute(&cell, "text", column_n);
-        column.set_title(column_name);
-        treeview.append_column(&column);
-    }
-
-    fn reset_logger_list(&self, logger_list: &TreeView) {
-        let model = ListStore::new(&[
-            String::static_type(),
-            String::static_type(),
-            String::static_type(),
-        ]);
-        logger_list.set_model(Some(&model));
-    }
-
-    fn setup_logger_list(&self) {
-        self.add_column_to_treeview("treeview-logger", "TIME", 0);
-        self.add_column_to_treeview("treeview-logger", "LEVEL", 1);
-        self.add_column_to_treeview("treeview-logger", "LOG", 2);
-        let logger_list: TreeView = self
-            .builder
-            .object("treeview-logger")
-            .expect("Couldn't get treeview-logger");
-        self.reset_logger_list(&logger_list);
-    }
-
-    fn add_to_logger_list(&self, log_entry: &str) {
-        let logger_list: TreeView = self
-            .builder
-            .object("treeview-logger")
-            .expect("Couldn't get treeview-logger");
-        if let Some(model) = logger_list.model() {
-            let list_store = model
-                .dynamic_cast::<ListStore>()
-                .expect("Could not cast to ListStore");
-            let log: Vec<&str> = log_entry.splitn(3, ' ').collect();
-            list_store.insert_with_values(None, &[(0, &log[0]), (1, &log[1]), (2, &log[2])]);
-        }
-    }
-
-    fn reset_favorite_list(&self, favorite_list: &TreeView) {
-        let model = ListStore::new(&[String::static_type()]);
-        favorite_list.set_model(Some(&model));
-        let favorites = Settings::get_favorites_list();
-        for favorite in favorites {
-            model.insert_with_values(None, &[(0, &favorite)]);
-        }
-    }
-
-    fn setup_favorite_list(&self) {
-        let favorite_list: TreeView = self
-            .builder
-            .object("treeview-favorites")
-            .expect("Couldn't get treeview-favorites");
-        self.add_column_to_treeview("treeview-favorites", "Name", 0);
-        self.reset_favorite_list(&favorite_list);
-        let app_weak = self.downgrade();
-        favorite_list.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
-            let app = upgrade_weak!(app_weak);
-            let selection = tree_view.selection();
-            if let Some((model, iter)) = selection.selected() {
-                let element_name = model.get::<String>(&iter, 0);
-                GPS_DEBUG!("{} selected", element_name);
-                app.add_new_element(&element_name);
-            }
-        });
-        let gesture = gtk::GestureClick::new();
-        gesture.set_button(0);
-        let app_weak = self.downgrade();
-        gesture.connect_pressed(
-            glib::clone!(@weak favorite_list => move |gesture, _n_press, x, y| {
-                let app = upgrade_weak!(app_weak);
-                if gesture.current_button() == BUTTON_SECONDARY {
-                    let selection = favorite_list.selection();
-                    if let Some((model, iter)) = selection.selected() {
-                        let element_name = model
-                        .get::<String>(&iter, 0);
-                        GPS_DEBUG!("Element {} selected", element_name);
-
-                        let pop_menu = app.app_pop_menu_at_position(&favorite_list, x, y);
-                        let menu: gio::MenuModel = app
-                        .builder
-                        .object("fav_menu")
-                        .expect("Couldn't get fav_menu model");
-                        pop_menu.set_menu_model(Some(&menu));
-
-                        let app_weak = app.downgrade();
-                        app.connect_app_menu_action("favorite.remove",
-                            move |_,_| {
-                                let app = upgrade_weak!(app_weak);
-                                Settings::remove_favorite(&element_name);
-                                app.reset_favorite_list(&favorite_list);
-                            }
-                        );
-
-                        pop_menu.show();
-                    }
-
-                }
-            }),
-        );
-        favorite_list.add_controller(&gesture);
-    }
-
-    fn add_to_favorite_list(&self, element_name: String) {
-        let favorites = Settings::get_favorites_list();
-        if !favorites.contains(&element_name) {
-            let favorite_list: TreeView = self
-                .builder
-                .object("treeview-favorites")
-                .expect("Couldn't get treeview-favorites");
-            if let Some(model) = favorite_list.model() {
-                let list_store = model
-                    .dynamic_cast::<ListStore>()
-                    .expect("Could not cast to ListStore");
-                list_store.insert_with_values(None, &[(0, &element_name)]);
-                Settings::add_favorite(&element_name);
-            }
-        }
-    }
-
-    fn reset_elements_list(&self, elements_list: &TreeView) {
-        let model = ListStore::new(&[String::static_type()]);
-        elements_list.set_model(Some(&model));
-        let elements = ElementInfo::elements_list().expect("Unable to obtain element's list");
-        for element in elements {
-            model.insert_with_values(None, &[(0, &element.name)]);
-        }
-    }
-
-    fn setup_elements_list(&self) {
-        let tree: TreeView = self
-            .builder
-            .object("treeview-elements")
-            .expect("Couldn't get treeview-elements");
-        self.add_column_to_treeview("treeview-elements", "Name", 0);
-        self.reset_elements_list(&tree);
-        let app_weak = self.downgrade();
-        tree.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
-            let app = upgrade_weak!(app_weak);
-            let selection = tree_view.selection();
-            if let Some((model, iter)) = selection.selected() {
-                let element_name = model.get::<String>(&iter, 0);
-                GPS_DEBUG!("{} selected", element_name);
-                app.add_new_element(&element_name);
-            }
-        });
-        let app_weak = self.downgrade();
-        tree.connect_cursor_changed(move |tree_view| {
-            let app = upgrade_weak!(app_weak);
-            let selection = tree_view.selection();
-            if let Some((model, iter)) = selection.selected() {
-                let element_name = model.get::<String>(&iter, 0);
-                let description = ElementInfo::element_description(&element_name)
-                    .expect("Unable to get element description from GStreamer");
-                let box_property: Box = app
-                    .builder
-                    .object("box-property")
-                    .expect("Couldn't get treeview-elements");
-
-                while let Some(child) = box_property.first_child() {
-                    box_property.remove(&child);
-                }
-                let label = Label::new(Some(""));
-                label.set_hexpand(true);
-                label.set_halign(gtk::Align::Start);
-                label.set_margin_start(4);
-                label.set_markup(&description);
-                box_property.append(&label);
-            }
-        });
-    }
-
-    pub fn display_plugin_list(app: &GPSApp) {
-        let elements = ElementInfo::elements_list().expect("Unable to obtain element's list");
-        plugindialogs::display_plugin_list(app, &elements);
-    }
-
     pub fn build_ui(&self, application: &Application) {
         let drawing_area_window: Viewport = self
             .builder
@@ -561,10 +352,10 @@ impl GPSApp {
                 .to_str()
                 .expect("Unable to convert log file path to a string"),
         );
-        self.setup_logger_list();
+        GPSUI::logger::setup_logger_list(self);
         let _ = ready_rx.attach(None, move |msg: String| {
             let app = upgrade_weak!(app_weak, glib::Continue(false));
-            app.add_to_logger_list(&msg);
+            GPSUI::logger::add_to_logger_list(&app, &msg);
             glib::Continue(true)
         });
 
@@ -627,13 +418,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("about", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            about::display_about_dialog(&app);
-        });
-
-        let app_weak = self.downgrade();
-        self.connect_button_action("button-add-plugin", move |_| {
-            let app = upgrade_weak!(app_weak);
-            GPSApp::display_plugin_list(&app);
+            GPSUI::about::display_about_dialog(&app);
         });
 
         let app_weak = self.downgrade();
@@ -721,10 +506,11 @@ impl GPSApp {
                     pop_menu.set_menu_model(Some(&menu));
 
                     let app_weak = app.downgrade();
-                    app.connect_app_menu_action("graph.add-plugin",
+                    app.connect_app_menu_action("graph.check",
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
-                            GPSApp::display_plugin_list(&app);
+                            let render_parse_launch = app.pipeline.borrow().render_gst_launch(&app.graphview.borrow());
+                            GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
                         }
                     );
                     pop_menu.show();
@@ -800,7 +586,7 @@ impl GPSApp {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.add-to-favorite {}", node_id);
                             if let Some(node) = app.graphview.borrow().node(node_id) {
-                                app.add_to_favorite_list(node.name());
+                                GPSUI::elements::add_to_favorite_list(&app, node.name());
                             };
                         }
                     );
@@ -848,7 +634,7 @@ impl GPSApp {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.properties {}", node_id);
                             let node = app.graphview.borrow().node(node_id).unwrap();
-                            plugindialogs::display_plugin_properties(&app, &node.name(), node_id);
+                            GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
                         }
                     );
 
@@ -858,9 +644,9 @@ impl GPSApp {
             );
 
         // Setup the favorite list
-        self.setup_favorite_list();
+        GPSUI::elements::setup_favorite_list(self);
         // Setup the favorite list
-        self.setup_elements_list();
+        GPSUI::elements::setup_elements_list(self);
 
         let _ = self
             .load_graph(

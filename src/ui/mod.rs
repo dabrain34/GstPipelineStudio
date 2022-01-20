@@ -1,6 +1,6 @@
-// main.rs
+// ui/mod.rs
 //
-// Copyright 2021 Stéphane Cerveau <scerveau@collabora.com>
+// Copyright 2022 Stéphane Cerveau <scerveau@collabora.com>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -16,29 +16,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
-#[macro_use]
-mod macros;
-mod app;
-mod common;
-mod config;
-mod graphmanager;
-mod ui;
-#[macro_use]
-mod logger;
-mod gps;
-mod settings;
-use gtk::prelude::*;
-
-use crate::app::GPSApp;
-use crate::common::init;
-
-fn main() {
-    //    gio::resources_register_include!("compiled.gresource").unwrap();
-    init().expect("Unable to init app");
-    let application = gtk::Application::new(Some(config::APP_ID), Default::default());
-    application.connect_startup(|application| {
-        GPSApp::on_startup(application);
-    });
-
-    application.run();
-}
+pub mod about;
+pub mod elements;
+pub mod logger;
+pub mod message;
+pub mod properties;
+pub mod treeview;

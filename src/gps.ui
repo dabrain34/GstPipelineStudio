@@ -39,8 +39,8 @@
   <menu id="graph_menu">
     <section>
       <item>
-        <attribute name="label" translatable="yes" comments="graph menu entry add plugin">_Add plugin</attribute>
-        <attribute name="action">app.graph.add-plugin</attribute>
+        <attribute name="label" translatable="yes" comments="graph menu entry check graph">_Check graph</attribute>
+        <attribute name="action">app.graph.check</attribute>
       </item>
     </section>
   </menu>
@@ -89,35 +89,6 @@
     <property name="upper">100</property>
     <property name="step-increment">1</property>
     <property name="page-increment">10</property>
-  </object>
-  <object class="GtkDialog" id="dialog-plugin-list">
-    <property name="transient-for">mainwindow</property>
-    <property name="default-width">320</property>
-    <property name="default-height">260</property>
-    <property name="hide-on-close">True</property>
-    <child>
-      <object class="GtkPaned">
-        <property name="position">200</property>s
-        <child>
-          <object class="GtkScrolledWindow" id="scrolled_window">
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <child>
-              <object class="GtkTreeView" id="treeview-plugin-list"/>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkScrolledWindow">
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <child>
-              <object class="GtkTextView" id="textview-plugin-list"/>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
   </object>
   <object class="GtkDialog" id="dialog-plugin-properties">
     <property name="transient-for">mainwindow</property>
@@ -178,14 +149,6 @@
             <property name="vexpand">0</property>
             <child>
               <object class="GtkBox">
-                <child>
-                  <object class="GtkButton" id="button-add-plugin">
-                    <property name="hexpand">1</property>
-                    <property name="label">gtk-add</property>
-                    <property name="receives-default">1</property>
-                    <property name="icon-name">list-add</property>
-                  </object>
-                </child>
                 <child>
                   <object class="GtkButton" id="button-play">
                     <property name="hexpand">1</property>
