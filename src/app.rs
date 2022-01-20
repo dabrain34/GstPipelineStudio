@@ -23,8 +23,8 @@ use gtk::gdk::Rectangle;
 use gtk::prelude::*;
 use gtk::{
     gdk::BUTTON_SECONDARY, Application, ApplicationWindow, Box, Builder, Button, CellRendererText,
-    FileChooserAction, FileChooserDialog, ListStore, Paned, PopoverMenu, ResponseType, Statusbar,
-    TextView, TreeView, TreeViewColumn, Viewport, Widget,
+    FileChooserAction, FileChooserDialog, Label, ListStore, Paned, PopoverMenu, ResponseType,
+    Statusbar, TreeView, TreeViewColumn, Viewport, Widget,
 };
 use gtk::{gio, gio::SimpleAction, glib, graphene};
 use log::error;
@@ -515,21 +515,26 @@ impl GPSApp {
         });
         let app_weak = self.downgrade();
         tree.connect_cursor_changed(move |tree_view| {
+            let app = upgrade_weak!(app_weak);
             let selection = tree_view.selection();
             if let Some((model, iter)) = selection.selected() {
                 let element_name = model.get::<String>(&iter, 0);
                 let description = ElementInfo::element_description(&element_name)
                     .expect("Unable to get element description from GStreamer");
-                let app = upgrade_weak!(app_weak);
                 let box_property: Box = app
                     .builder
                     .object("box-property")
                     .expect("Couldn't get treeview-elements");
-                let text_view = TextView::new();
-                let text_buffer = text_view.buffer();
-                text_buffer.set_text("");
-                text_buffer.insert_markup(&mut text_buffer.end_iter(), &description);
-                box_property.append(&text_view);
+
+                while let Some(child) = box_property.first_child() {
+                    box_property.remove(&child);
+                }
+                let label = Label::new(Some(""));
+                label.set_hexpand(true);
+                label.set_halign(gtk::Align::Start);
+                label.set_margin_start(4);
+                label.set_markup(&description);
+                box_property.append(&label);
             }
         });
     }
