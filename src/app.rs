@@ -39,7 +39,7 @@ use crate::gps::{ElementInfo, PadInfo, Pipeline, PipelineState};
 use crate::logger;
 use crate::plugindialogs;
 use crate::settings::Settings;
-use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
+use crate::{GPS_DEBUG, GPS_ERROR, GPS_INFO, GPS_TRACE, GPS_WARN};
 
 use crate::graphmanager::{GraphView, PortDirection, PortPresence};
 
@@ -668,7 +668,22 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             app.clear_graph();
         });
-
+        let app_weak = self.downgrade();
+        self.graphview.borrow().connect_local(
+            "node-added",
+            false,
+            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                let app = upgrade_weak!(app_weak, None);
+                let graph_id = values[1].get::<u32>().expect("graph id in args[1]");
+                let node_id = values[2].get::<u32>().expect("node id in args[2]");
+                GPS_INFO!("Node added node id={} in graph id={}", node_id, graph_id);
+                if let Some(node) = app.graphview.borrow().node(node_id) {
+                    let description = ElementInfo::element_description(&node.name()).ok();
+                    node.set_tooltip_markup(description.as_deref());
+                }
+                None
+            }),
+        );
         let app_weak = self.downgrade();
         self.graphview.borrow().connect_local(
             "graph-updated",
