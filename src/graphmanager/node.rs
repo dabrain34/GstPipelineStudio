@@ -22,10 +22,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use log::trace;
 
-use super::Port;
-use super::PropertyExt;
-use super::SelectionExt;
-use super::{PortDirection, PortPresence};
+use super::{Port, PortDirection, PortPresence, PropertyExt, SelectionExt};
 
 use std::cell::{Cell, Ref, RefCell};
 use std::collections::HashMap;
@@ -162,15 +159,8 @@ impl Node {
 
     /// Add a new port to the node
     ///
-    pub fn add_port(
-        &mut self,
-        id: u32,
-        name: &str,
-        direction: PortDirection,
-        presence: PortPresence,
-    ) {
+    pub fn add_port(&mut self, port: Port) {
         let private = imp::Node::from_instance(self);
-        let port = Port::new(id, name, direction, presence);
         match port.direction() {
             PortDirection::Input => {
                 private
@@ -186,8 +176,7 @@ impl Node {
             }
             _ => panic!("Port without direction"),
         }
-
-        private.ports.borrow_mut().insert(id, port);
+        private.ports.borrow_mut().insert(port.id(), port);
     }
 
     /// Retrieves all ports as an hashmap
@@ -211,9 +200,9 @@ impl Node {
 
     /// Retrieves the port with id
     ///
-    pub fn port(&self, id: &u32) -> Option<super::port::Port> {
+    pub fn port(&self, id: u32) -> Option<super::port::Port> {
         let private = imp::Node::from_instance(self);
-        private.ports.borrow().get(id).cloned()
+        private.ports.borrow().get(&id).cloned()
     }
 
     /// Check if we can remove a port dependending on PortPrensence attribute

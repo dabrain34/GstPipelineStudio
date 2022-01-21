@@ -281,6 +281,17 @@ mod imp {
                         <()>::static_type().into(),
                     )
                     .build(),
+                    Signal::builder(
+                        "port-added",
+                        // returns graph ID, Node ID, Port ID
+                        &[
+                            u32::static_type().into(),
+                            u32::static_type().into(),
+                            u32::static_type().into(),
+                        ],
+                        <()>::static_type().into(),
+                    )
+                    .build(),
                 ]
             });
             SIGNALS.as_ref()
@@ -347,7 +358,8 @@ mod imp {
             let nodes = self.nodes.borrow();
 
             let from_node = nodes.get(&link.node_from)?;
-            let from_port = from_node.port(&link.port_from)?;
+
+            let from_port = from_node.port(link.port_from)?;
 
             let (mut fx, mut fy, fw, fh) = (
                 from_port.allocation().x(),
@@ -363,7 +375,7 @@ mod imp {
             }
 
             let to_node = nodes.get(&link.node_to)?;
-            let to_port = to_node.port(&link.port_to)?;
+            let to_port = to_node.port(link.port_to)?;
 
             let (mut tx, mut ty, th) = (
                 to_port.allocation().x(),
@@ -454,41 +466,39 @@ impl GraphView {
         self.emit_by_name::<()>("node-added", &[&private.id.get(), &node_id]);
         self.graph_updated();
     }
-
+    /// Create a new node with id
+    ///
+    pub fn create_node_with_id(&self, id: u32, name: &str, node_type: NodeType) -> Node {
+        Node::new(id, name, node_type)
+    }
+    /// Create a new node with id
+    ///
+    pub fn create_node(&self, name: &str, node_type: NodeType) -> Node {
+        let id = self.next_node_id();
+        self.create_node_with_id(id, name, node_type)
+    }
     /// Create a new node and add it to the graphview with input/output port number.
     ///
     pub fn create_node_with_port(
         &self,
-        id: u32,
         name: &str,
         node_type: NodeType,
         input: u32,
         output: u32,
-    ) {
-        let node = Node::new(id, name, node_type);
-        self.add_node(node);
+    ) -> Node {
+        let mut node = self.create_node(name, node_type);
+
         let _i = 0;
         for _i in 0..input {
-            let port_id = self.next_port_id();
-            self.add_port(
-                id,
-                port_id,
-                "in",
-                PortDirection::Input,
-                PortPresence::Always,
-            );
+            let port = self.create_port("in", PortDirection::Input, PortPresence::Always);
+            self.add_port_to_node(&mut node, port);
         }
         let _i = 0;
         for _i in 0..output {
-            let port_id = self.next_port_id();
-            self.add_port(
-                id,
-                port_id,
-                "out",
-                PortDirection::Output,
-                PortPresence::Always,
-            );
+            let port = self.create_port("out", PortDirection::Output, PortPresence::Always);
+            self.add_port_to_node(&mut node, port);
         }
+        node
     }
 
     /// Remove node from the graphview
@@ -560,30 +570,37 @@ impl GraphView {
     }
 
     // Port
+    pub fn create_port_with_id(
+        &self,
+        id: u32,
+        name: &str,
+        direction: PortDirection,
+        presence: PortPresence,
+    ) -> Port {
+        Port::new(id, name, direction, presence)
+    }
+    /// Add the port with id from node with id.
+    ///
+    pub fn create_port(
+        &self,
+        name: &str,
+        direction: PortDirection,
+        presence: PortPresence,
+    ) -> Port {
+        let id = self.next_port_id();
+        info!("Create a port with port id {}", id);
+
+        self.create_port_with_id(id, name, direction, presence)
+    }
 
     /// Add the port with id from node with id.
     ///
-    pub fn add_port(
-        &self,
-        node_id: u32,
-        port_id: u32,
-        port_name: &str,
-        port_direction: PortDirection,
-        port_nature: PortPresence,
-    ) {
+    pub fn add_port_to_node(&self, node: &mut Node, port: Port) {
         let private = imp::GraphView::from_instance(self);
-        info!(
-            "adding a port with port id {} to node id {}",
-            port_id, node_id
-        );
-        if let Some(node) = private.nodes.borrow_mut().get_mut(&node_id) {
-            node.add_port(port_id, port_name, port_direction, port_nature);
-        } else {
-            error!(
-                "Node with id {} not found when trying to add port with id {} to graph",
-                node_id, port_id
-            );
-        }
+        let port_id = port.id();
+        node.add_port(port);
+
+        self.emit_by_name::<()>("port-added", &[&private.id.get(), &node.id(), &port_id]);
     }
 
     /// Check if the port with id from node with id can be removed.
@@ -804,7 +821,9 @@ impl GraphView {
         let parser = EventReader::new(file);
 
         let mut current_node: Option<Node> = None;
+        let mut current_node_properties: HashMap<String, String> = HashMap::new();
         let mut current_port: Option<Port> = None;
+        let mut current_port_properties: HashMap<String, String> = HashMap::new();
         let mut current_link: Option<Link> = None;
         for e in parser {
             match e {
@@ -842,7 +861,7 @@ impl GraphView {
                             let pos_y: &String = attrs
                                 .get::<String>(&String::from("pos_y"))
                                 .unwrap_or(&default_value);
-                            let node = Node::new(
+                            let node = self.create_node_with_id(
                                 id.parse::<u32>().unwrap(),
                                 name,
                                 NodeType::from_str(node_type.as_str()),
@@ -860,10 +879,11 @@ impl GraphView {
                             let value: &String = attrs
                                 .get::<String>(&String::from("value"))
                                 .expect("Unable to find property value");
-                            if let Some(port) = current_port.clone() {
-                                port.add_property(name.clone(), value.clone());
-                            } else if let Some(node) = current_node.clone() {
-                                node.add_property(name.clone(), value.clone());
+                            if current_port.is_some() {
+                                current_port_properties.insert(name.to_string(), value.to_string());
+                            } else if current_node.is_some() {
+                                info!("add property to node {}={}", name, value);
+                                current_node_properties.insert(name.to_string(), value.to_string());
                             }
                         }
                         "Port" => {
@@ -880,7 +900,7 @@ impl GraphView {
                             let presence: &String = attrs
                                 .get::<String>(&String::from("presence"))
                                 .unwrap_or(&default_value);
-                            current_port = Some(Port::new(
+                            current_port = Some(self.create_port_with_id(
                                 id.parse::<u32>().unwrap(),
                                 name,
                                 PortDirection::from_str(direction),
@@ -929,10 +949,13 @@ impl GraphView {
                             if let Some(node) = current_node {
                                 let id = node.id();
                                 let position = node.position();
+                                node.update_properties(&current_node_properties);
+                                current_node_properties.clear();
                                 self.add_node(node);
                                 if let Some(node) = self.node(id) {
                                     self.move_node(&node.upcast(), position.0, position.1);
                                 }
+
                                 self.update_current_node_id(id);
                             }
                             current_node = None;
@@ -940,16 +963,15 @@ impl GraphView {
                         "Property" => {}
                         "Port" => {
                             if let Some(port) = current_port {
-                                let node = current_node.clone();
-                                let id = port.id();
-                                node.expect("No current node, error...").add_port(
-                                    id,
-                                    &port.name(),
-                                    port.direction(),
-                                    port.presence(),
-                                );
-                                self.update_current_port_id(id);
+                                if let Some(mut node) = current_node.clone() {
+                                    let id = port.id();
+                                    port.update_properties(&current_port_properties);
+                                    self.add_port_to_node(&mut node, port);
+                                    current_port_properties.clear();
+                                    self.update_current_port_id(id);
+                                }
                             }
+
                             current_port = None;
                         }
                         "Link" => {

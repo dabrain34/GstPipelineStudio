@@ -22,7 +22,7 @@ use gtk::{
     prelude::*,
     subclass::prelude::*,
 };
-use log::trace;
+use log::info;
 use std::cell::RefCell;
 use std::cell::{Cell, Ref};
 use std::collections::HashMap;
@@ -227,7 +227,7 @@ impl PropertyExt for Port {
     ///
     fn add_property(&self, name: &str, value: &str) {
         let private = imp::Port::from_instance(self);
-        trace!("property name={} updated with value={}", name, value);
+        info!("property name={} updated with value={}", name, value);
         private
             .properties
             .borrow_mut()
