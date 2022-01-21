@@ -357,7 +357,7 @@ mod imp {
             let (fnx, fny) = (from_node.allocation().x(), from_node.allocation().y());
 
             if let Some((port_x, port_y)) = from_port.translate_coordinates(from_node, 0.0, 0.0) {
-                fx += fnx + fw + port_x as i32;
+                fx = fnx + fw + port_x as i32;
                 fy = fny + (fh / 2) + port_y as i32;
             }
 

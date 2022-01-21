@@ -60,12 +60,9 @@ impl NodeType {
 
 mod imp {
     use super::*;
-    use gtk::Orientation;
     use once_cell::unsync::OnceCell;
     pub struct Node {
-        pub(super) layoutbox: gtk::Box,
-        pub(super) inputs: gtk::Box,
-        pub(super) outputs: gtk::Box,
+        pub(super) layoutgrid: gtk::Grid,
         pub(super) name: gtk::Label,
         pub(super) description: gtk::Label,
         pub(super) id: OnceCell<u32>,
@@ -73,7 +70,7 @@ mod imp {
         pub(super) ports: RefCell<HashMap<u32, Port>>,
         pub(super) num_ports_in: Cell<i32>,
         pub(super) num_ports_out: Cell<i32>,
-        // Properties are differnet from GObject properties
+        // Properties are different from GObject properties
         pub(super) properties: RefCell<HashMap<String, String>>,
         pub(super) selected: Cell<bool>,
         pub(super) position: Cell<(f32, f32)>,
@@ -91,53 +88,28 @@ mod imp {
         }
 
         fn new() -> Self {
-            let layoutbox = gtk::Box::new(Orientation::Vertical, 6);
-            let name_desc = gtk::Box::new(Orientation::Vertical, 6);
-            layoutbox.append(&name_desc);
-            let ports = gtk::Box::builder()
-                .orientation(Orientation::Horizontal)
-                .halign(gtk::Align::Start)
-                .spacing(10)
-                .margin_bottom(10)
-                .margin_top(10)
-                .build();
-
-            layoutbox.append(&ports);
-            let inputs = gtk::Box::builder()
-                .orientation(Orientation::Vertical)
-                .halign(gtk::Align::Start)
-                .spacing(10)
-                .build();
-
-            ports.append(&inputs);
-            let center = gtk::Box::builder()
-                .orientation(Orientation::Vertical)
+            let layoutgrid = gtk::Grid::builder()
+                .margin_start(6)
+                .margin_end(6)
+                .margin_top(6)
+                .margin_bottom(6)
                 .halign(gtk::Align::Center)
-                .hexpand(true)
-                .margin_start(20)
-                .margin_end(20)
+                .valign(gtk::Align::Center)
+                .row_spacing(6)
+                .column_spacing(6)
                 .build();
-            ports.append(&center);
-            let outputs = gtk::Box::builder()
-                .orientation(Orientation::Vertical)
-                .halign(gtk::Align::End)
-                .spacing(10)
-                .build();
-            ports.append(&outputs);
 
             let name = gtk::Label::new(None);
-            name_desc.append(&name);
+            layoutgrid.attach(&name, 1, 0, 1, 1);
 
             let description = gtk::Label::new(None);
-            name_desc.append(&description);
+            layoutgrid.attach(&description, 1, 1, 1, 1);
 
             // Display a grab cursor when the mouse is over the name so the user knows the node can be dragged.
             name.set_cursor(gtk::gdk::Cursor::from_name("grab", None).as_ref());
 
             Self {
-                layoutbox,
-                inputs,
-                outputs,
+                layoutgrid,
                 name,
                 description,
                 id: OnceCell::new(),
@@ -155,11 +127,11 @@ mod imp {
     impl ObjectImpl for Node {
         fn constructed(&self, obj: &Self::Type) {
             self.parent_constructed(obj);
-            self.layoutbox.set_parent(obj);
+            self.layoutgrid.set_parent(obj);
         }
 
         fn dispose(&self, _obj: &Self::Type) {
-            self.layoutbox.unparent();
+            self.layoutgrid.unparent();
         }
     }
 
@@ -200,11 +172,15 @@ impl Node {
         let port = Port::new(id, name, direction, presence);
         match port.direction() {
             PortDirection::Input => {
-                private.inputs.append(&port);
+                private
+                    .layoutgrid
+                    .attach(&port, 0, private.num_ports_in.get(), 1, 1);
                 private.num_ports_in.set(private.num_ports_in.get() + 1);
             }
             PortDirection::Output => {
-                private.outputs.append(&port);
+                private
+                    .layoutgrid
+                    .attach(&port, 2, private.num_ports_out.get(), 1, 1);
                 private.num_ports_out.set(private.num_ports_out.get() + 1);
             }
             _ => panic!("Port without direction"),
