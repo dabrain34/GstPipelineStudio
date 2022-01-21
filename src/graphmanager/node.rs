@@ -23,6 +23,7 @@ use gtk::subclass::prelude::*;
 use log::trace;
 
 use super::Port;
+use super::PropertyExt;
 use super::SelectionExt;
 use super::{PortDirection, PortPresence};
 
@@ -271,46 +272,6 @@ impl Node {
         private.node_type.get()
     }
 
-    /// Check if the name is an hidden property
-    ///
-    pub fn hidden_property(&self, name: &str) -> bool {
-        name.starts_with('_')
-    }
-
-    /// Add a node property with a name and a value.
-    ///
-    pub fn add_property(&self, name: String, value: String) {
-        let private = imp::Node::from_instance(self);
-        trace!("property name={} updated with value={}", name, value);
-        private.properties.borrow_mut().insert(name, value);
-        self.update_description();
-    }
-
-    /// Update the node property.
-    ///
-    pub fn update_properties(&self, new_node_properties: &HashMap<String, String>) {
-        for (key, value) in new_node_properties {
-            self.add_property(key.clone(), value.clone());
-        }
-    }
-
-    /// Retrieves node properties.
-    ///
-    pub fn properties(&self) -> Ref<HashMap<String, String>> {
-        let private = imp::Node::from_instance(self);
-        private.properties.borrow()
-    }
-
-    /// Retrieves node property with the name.
-    ///
-    pub fn property(&self, name: &str) -> Option<String> {
-        let private = imp::Node::from_instance(self);
-        if let Some(property) = private.properties.borrow().get(name) {
-            return Some(property.clone());
-        }
-        None
-    }
-
     /// Unselect all the ports of the given node.
     ///
     pub fn unselect_all_ports(&self) {
@@ -378,5 +339,26 @@ impl SelectionExt for Node {
     fn selected(&self) -> bool {
         let private = imp::Node::from_instance(self);
         private.selected.get()
+    }
+}
+
+impl PropertyExt for Node {
+    /// Add a node property with a name and a value.
+    ///
+    fn add_property(&self, name: &str, value: &str) {
+        let private = imp::Node::from_instance(self);
+        trace!("property name={} updated with value={}", name, value);
+        private
+            .properties
+            .borrow_mut()
+            .insert(name.to_string(), value.to_string());
+        self.update_description();
+    }
+
+    /// Retrieves node properties.
+    ///
+    fn properties(&self) -> Ref<HashMap<String, String>> {
+        let private = imp::Node::from_instance(self);
+        private.properties.borrow()
     }
 }

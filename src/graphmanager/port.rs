@@ -22,10 +22,13 @@ use gtk::{
     prelude::*,
     subclass::prelude::*,
 };
-use std::cell::Cell;
-use std::{borrow::Borrow, fmt};
+use log::trace;
+use std::cell::RefCell;
+use std::cell::{Cell, Ref};
+use std::collections::HashMap;
+use std::fmt;
 
-use super::SelectionExt;
+use super::{PropertyExt, SelectionExt};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq, Copy)]
 pub enum PortDirection {
@@ -85,11 +88,12 @@ mod imp {
     /// Graphical representation of a port.
     #[derive(Default, Clone)]
     pub struct Port {
-        pub(super) label: OnceCell<gtk::Label>,
+        pub(super) label: gtk::Label,
         pub(super) id: OnceCell<u32>,
         pub(super) direction: OnceCell<PortDirection>,
         pub(super) selected: Cell<bool>,
         pub(super) presence: OnceCell<PortPresence>,
+        pub(super) properties: RefCell<HashMap<String, String>>,
     }
 
     #[glib::object_subclass]
@@ -104,13 +108,27 @@ mod imp {
             // Make it look like a GTK button.
             klass.set_css_name("button");
         }
+
+        fn new() -> Self {
+            let label = gtk::Label::new(None);
+            Self {
+                label,
+                id: OnceCell::new(),
+                direction: OnceCell::new(),
+                selected: Cell::new(false),
+                presence: OnceCell::new(),
+                properties: RefCell::new(HashMap::new()),
+            }
+        }
     }
 
     impl ObjectImpl for Port {
+        fn constructed(&self, obj: &Self::Type) {
+            self.parent_constructed(obj);
+            self.label.set_parent(obj);
+        }
         fn dispose(&self, _obj: &Self::Type) {
-            if let Some(label) = self.label.get() {
-                label.unparent()
-            }
+            self.label.unparent()
         }
     }
     impl WidgetImpl for Port {}
@@ -149,13 +167,7 @@ impl Port {
         } else {
             port.add_css_class("port-sometimes");
         }
-
-        let label = gtk::Label::new(Some(name));
-        label.set_parent(&port);
-        private
-            .label
-            .set(label)
-            .expect("Port label was already set");
+        private.label.set_text(name);
 
         port
     }
@@ -171,8 +183,7 @@ impl Port {
     ///
     pub fn name(&self) -> String {
         let private = imp::Port::from_instance(self);
-        let label = private.label.borrow().get().unwrap();
-        label.text().to_string()
+        private.label.text().to_string()
     }
 
     /// Retrieves the port direction
@@ -208,5 +219,25 @@ impl SelectionExt for Port {
     fn selected(&self) -> bool {
         let private = imp::Port::from_instance(self);
         private.selected.get()
+    }
+}
+
+impl PropertyExt for Port {
+    /// Add a node property with a name and a value.
+    ///
+    fn add_property(&self, name: &str, value: &str) {
+        let private = imp::Port::from_instance(self);
+        trace!("property name={} updated with value={}", name, value);
+        private
+            .properties
+            .borrow_mut()
+            .insert(name.to_string(), value.to_string());
+    }
+
+    /// Retrieves node properties.
+    ///
+    fn properties(&self) -> Ref<HashMap<String, String>> {
+        let private = imp::Port::from_instance(self);
+        private.properties.borrow()
     }
 }

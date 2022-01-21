@@ -28,6 +28,7 @@ use super::{
     link::*,
     node::{Node, NodeType},
     port::{Port, PortDirection, PortPresence},
+    property::PropertyExt,
     selection::SelectionExt,
 };
 
@@ -756,6 +757,14 @@ impl GraphView {
                         .attr("direction", &port.direction().to_string())
                         .attr("presence", &port.presence().to_string()),
                 )?;
+                for (name, value) in port.properties().iter() {
+                    writer.write(
+                        XMLWEvent::start_element("Property")
+                            .attr("name", name)
+                            .attr("value", value),
+                    )?;
+                    writer.write(XMLWEvent::end_element())?;
+                }
                 writer.write(XMLWEvent::end_element())?;
             }
 
@@ -851,9 +860,11 @@ impl GraphView {
                             let value: &String = attrs
                                 .get::<String>(&String::from("value"))
                                 .expect("Unable to find property value");
-                            let node = current_node.clone();
-                            node.expect("current node does not exist")
-                                .add_property(name.clone(), value.clone());
+                            if let Some(port) = current_port.clone() {
+                                port.add_property(name.clone(), value.clone());
+                            } else if let Some(node) = current_node.clone() {
+                                node.add_property(name.clone(), value.clone());
+                            }
                         }
                         "Port" => {
                             let id = attrs
