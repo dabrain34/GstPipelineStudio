@@ -40,7 +40,7 @@ use crate::ui as GPSUI;
 
 use crate::{GPS_DEBUG, GPS_ERROR, GPS_INFO, GPS_TRACE, GPS_WARN};
 
-use crate::graphmanager::{GraphView, PortDirection, PortPresence};
+use crate::graphmanager::{GraphView, PortDirection, PortPresence, PropertyExt};
 
 #[derive(Debug)]
 pub struct GPSAppInner {
@@ -696,7 +696,7 @@ impl GPSApp {
 
     pub fn element_property(&self, node_id: u32, property_name: &str) -> Option<String> {
         let node = self.graphview.borrow().node(node_id).unwrap();
-        node.property(property_name)
+        PropertyExt::property(&node, property_name)
     }
 
     fn clear_graph(&self) {

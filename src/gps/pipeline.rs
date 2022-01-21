@@ -17,7 +17,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::graphmanager::{GraphView, Node, NodeType, PortDirection};
+use crate::graphmanager::{GraphView, Node, NodeType, PortDirection, PropertyExt};
 use crate::logger;
 use crate::ui::message as GPSMessage;
 use crate::GPS_INFO;
