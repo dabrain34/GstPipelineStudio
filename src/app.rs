@@ -40,12 +40,13 @@ use crate::ui as GPSUI;
 
 use crate::{GPS_DEBUG, GPS_ERROR, GPS_INFO, GPS_TRACE, GPS_WARN};
 
-use crate::graphmanager::{GraphView, PortDirection, PortPresence, PropertyExt};
+use crate::graphmanager as GM;
+use crate::graphmanager::PropertyExt;
 
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
-    pub graphview: RefCell<GraphView>,
+    pub graphview: RefCell<GM::GraphView>,
     pub builder: Builder,
     pub pipeline: RefCell<GPS::Pipeline>,
     pub plugin_list_initialized: OnceCell<bool>,
@@ -113,7 +114,7 @@ impl GPSApp {
         let pipeline = GPS::Pipeline::new().expect("Unable to initialize GStreamer subsystem");
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
-            graphview: RefCell::new(GraphView::new()),
+            graphview: RefCell::new(GM::GraphView::new()),
             builder,
             pipeline: RefCell::new(pipeline),
             plugin_list_initialized: OnceCell::new(),
@@ -465,6 +466,32 @@ impl GPSApp {
                 if let Some(node) = app.graphview.borrow().node(node_id) {
                     let description = GPS::ElementInfo::element_description(&node.name()).ok();
                     node.set_tooltip_markup(description.as_deref());
+                    for port in node.all_ports(GM::PortDirection::All) {
+                        let caps = PropertyExt::property(&port, "caps");
+                        GPS_TRACE!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
+                        port.set_tooltip_markup(caps.as_deref());
+                    }
+                }
+
+                None
+            }),
+        );
+        let app_weak = self.downgrade();
+        self.graphview.borrow().connect_local(
+            "port-added",
+            false,
+            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                let app = upgrade_weak!(app_weak, None);
+                let graph_id = values[1].get::<u32>().expect("graph id in args[1]");
+                let node_id = values[2].get::<u32>().expect("node id in args[2]");
+                let port_id = values[3].get::<u32>().expect("port id in args[3]");
+                GPS_INFO!("Port added port id={} to node id={} in graph id={}", port_id, node_id, graph_id);
+                if let Some(node) = app.graphview.borrow().node(node_id) {
+                    if let Some(port) = node.port(port_id) {
+                        let caps = PropertyExt::property(&port, "caps");
+                        GPS_TRACE!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
+                        port.set_tooltip_markup(caps.as_deref());
+                    }
                 }
                 None
             }),
@@ -600,30 +627,42 @@ impl GPSApp {
                         }
                     );
 
-                    if GPS::ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Input) {
+                    if let Some(input) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Input) {
                         let app_weak = app.downgrade();
                         app.connect_app_menu_action("node.request-pad-input",
                             move |_,_| {
                                 let app = upgrade_weak!(app_weak);
+                                let graphview = app.graphview.borrow();
                                 GPS_DEBUG!("node.request-pad-input {}", node_id);
-                                let port_id = app.graphview.borrow().next_port_id();
-                                app.graphview.borrow().add_port(node_id, port_id, "in", PortDirection::Input, PortPresence::Sometimes);
+                                let properties: HashMap<String, String> = HashMap::from([
+                                    ("caps".to_string(), input.caps().to_string())]);
+                                let port = graphview.create_port("in",  GM::PortDirection::Input,  GM::PortPresence::Sometimes);
+                                port.update_properties(&properties);
+                                if let Some(mut node) = graphview.node(node_id) {
+                                  graphview.add_port_to_node(&mut node, port);
+                                }
                             }
                         );
                     } else {
                         app.disconnect_app_menu_action("node.request-pad-input");
                     }
-                    if GPS::ElementInfo::element_supports_new_pad_request(&node.name(), PortDirection::Output) {
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.request-pad-output",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.request-pad-output {}", node_id);
-                            let port_id = app.graphview.borrow_mut().next_port_id();
-                            app.graphview.borrow().add_port(node_id, port_id, "out", PortDirection::Output, PortPresence::Sometimes);
+                    if let Some(output) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Output) {
+                        let app_weak = app.downgrade();
+                        app.connect_app_menu_action("node.request-pad-output",
+                            move |_,_| {
+                                let app = upgrade_weak!(app_weak);
+                                let graphview = app.graphview.borrow();
+                                GPS_DEBUG!("node.request-pad-output {}", node_id);
+                                let properties: HashMap<String, String> = HashMap::from([
+                                ("caps".to_string(), output.caps().to_string())]);
+                                let port = graphview.create_port("out",  GM::PortDirection::Output,  GM::PortPresence::Sometimes);
+                                port.update_properties(&properties);
+                                if let Some(mut node) = graphview.node(node_id) {
+                                    graphview.add_port_to_node(&mut node, port);
+                                }
 
-                        }
-                    );
+                            }
+                        );
                     } else {
                         app.disconnect_app_menu_action("node.request-pad-output");
                     }
@@ -668,25 +707,40 @@ impl GPSApp {
     fn drop(self) {}
 
     pub fn add_new_element(&self, element_name: &str) {
-        let graph_view = self.graphview.borrow();
-        let node_id = graph_view.next_node_id();
+        let graphview = self.graphview.borrow();
         let (inputs, outputs) = GPS::PadInfo::pads(element_name, false);
+        let mut node =
+            graphview.create_node(element_name, GPS::ElementInfo::element_type(element_name));
+        let node_id = node.id();
         if GPS::ElementInfo::element_is_uri_src_handler(element_name) {
             GPSApp::get_file_from_dialog(self, false, move |app, filename| {
                 GPS_DEBUG!("Open file {}", filename);
-                let node = app.graphview.borrow().node(node_id).unwrap();
+                let graphview = app.graphview.borrow();
                 let mut properties: HashMap<String, String> = HashMap::new();
                 properties.insert(String::from("location"), filename);
-                node.update_properties(&properties);
+                if let Some(node) = graphview.node(node_id) {
+                    node.update_properties(&properties);
+                }
             });
         }
-        graph_view.create_node_with_port(
-            node_id,
-            element_name,
-            GPS::ElementInfo::element_type(element_name),
-            inputs.len() as u32,
-            outputs.len() as u32,
-        );
+
+        for input in inputs {
+            let properties: HashMap<String, String> =
+                HashMap::from([("caps".to_string(), input.caps().to_string())]);
+            let port =
+                graphview.create_port("in", GM::PortDirection::Input, GM::PortPresence::Always);
+            port.update_properties(&properties);
+            graphview.add_port_to_node(&mut node, port);
+        }
+        for output in outputs {
+            let properties: HashMap<String, String> =
+                HashMap::from([("caps".to_string(), output.caps().to_string())]);
+            let port =
+                graphview.create_port("out", GM::PortDirection::Output, GM::PortPresence::Always);
+            port.update_properties(&properties);
+            graphview.add_port_to_node(&mut node, port);
+        }
+        graphview.add_node(node);
     }
 
     pub fn update_element_properties(&self, node_id: u32, properties: &HashMap<String, String>) {

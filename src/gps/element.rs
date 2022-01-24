@@ -186,23 +186,26 @@ impl ElementInfo {
         }
     }
 
-    pub fn element_supports_new_pad_request(element_name: &str, direction: PortDirection) -> bool {
+    pub fn element_supports_new_pad_request(
+        element_name: &str,
+        direction: PortDirection,
+    ) -> Option<PadInfo> {
         let (inputs, outputs) = PadInfo::pads(element_name, true);
         if direction == PortDirection::Input {
             for input in inputs {
                 if input.presence() == PortPresence::Sometimes {
-                    return true;
+                    return Some(input);
                 }
             }
         } else if direction == PortDirection::Output {
             for output in outputs {
                 if output.presence() == PortPresence::Sometimes {
-                    return true;
+                    return Some(output);
                 }
             }
         } else {
             GPS_ERROR!("Port direction unknown");
         }
-        false
+        None
     }
 }

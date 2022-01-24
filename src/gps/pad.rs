@@ -32,6 +32,7 @@ pub struct PadInfo {
     element_name: Option<String>,
     direction: PortDirection,
     presence: PortPresence,
+    caps: Option<String>,
 }
 
 impl Default for PadInfo {
@@ -41,6 +42,7 @@ impl Default for PadInfo {
             element_name: None,
             direction: PortDirection::Unknown,
             presence: PortPresence::Unknown,
+            caps: None,
         }
     }
 }
@@ -56,6 +58,10 @@ impl PadInfo {
             gst::PadPresence::Request => PortPresence::Sometimes,
             _ => PortPresence::Unknown,
         }
+    }
+
+    pub fn caps(&self) -> &str {
+        self.caps.as_ref().unwrap()
     }
 
     pub fn pads(element_name: &str, include_on_request: bool) -> (Vec<PadInfo>, Vec<PadInfo>) {
@@ -79,6 +85,7 @@ impl PadInfo {
                                 element_name: Some(element_name.to_string()),
                                 direction: PortDirection::Output,
                                 presence: PadInfo::pad_to_port_presence(pad.presence()),
+                                caps: Some(pad.caps().to_string()),
                             });
                         } else if pad.direction() == gst::PadDirection::Sink {
                             input.push(PadInfo {
@@ -86,6 +93,7 @@ impl PadInfo {
                                 element_name: Some(element_name.to_string()),
                                 direction: PortDirection::Input,
                                 presence: PadInfo::pad_to_port_presence(pad.presence()),
+                                caps: Some(pad.caps().to_string()),
                             });
                         }
                     }
