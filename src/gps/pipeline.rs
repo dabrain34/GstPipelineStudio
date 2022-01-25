@@ -19,7 +19,6 @@
 
 use crate::graphmanager::{GraphView, Node, NodeType, PortDirection, PropertyExt};
 use crate::logger;
-use crate::ui::message as GPSMessage;
 use crate::GPS_INFO;
 
 use gst::glib;
@@ -157,16 +156,8 @@ impl Pipeline {
                     err.error(),
                     err.debug()
                 );
-                GPSMessage::display_error_dialog(
-                    false,
-                    format!(
-                        "Error from {:?}: {} ({:?})",
-                        err.src().map(|s| s.path_string()),
-                        err.error(),
-                        err.debug()
-                    )
-                    .as_str(),
-                );
+                self.set_state(PipelineState::Stopped)
+                    .expect("Unable to set state to stopped");
             }
             MessageView::Application(msg) => match msg.structure() {
                 // Here we can send ourselves messages from any thread and show them to the user in

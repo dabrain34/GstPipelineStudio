@@ -61,6 +61,7 @@ pub fn display_message_dialog<F: Fn(Application) + 'static>(
     dialog.show();
 }
 
+#[allow(dead_code)]
 pub fn display_error_dialog(fatal: bool, message: &str) {
     display_message_dialog(message, gtk::MessageType::Error, move |app| {
         if fatal {
