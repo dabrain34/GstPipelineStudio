@@ -17,6 +17,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::app::{AppState, GPSApp, GPSAppWeak};
 use crate::graphmanager::{GraphView, Node, NodeType, PortDirection, PropertyExt};
 use crate::logger;
 use crate::GPS_INFO;
@@ -35,6 +36,7 @@ pub enum PipelineState {
     Playing,
     Paused,
     Stopped,
+    Error,
 }
 
 impl fmt::Display for PipelineState {
@@ -66,6 +68,7 @@ impl PipelineWeak {
 
 #[derive(Debug)]
 pub struct PipelineInner {
+    app: RefCell<Option<GPSApp>>,
     pipeline: RefCell<Option<gst::Pipeline>>,
     current_state: Cell<PipelineState>,
 }
@@ -73,11 +76,16 @@ pub struct PipelineInner {
 impl Pipeline {
     pub fn new() -> anyhow::Result<Self> {
         let pipeline = Pipeline(Rc::new(PipelineInner {
+            app: RefCell::new(None),
             pipeline: RefCell::new(None),
             current_state: Cell::new(PipelineState::Stopped),
         }));
 
         Ok(pipeline)
+    }
+
+    pub fn set_app(&self, app: GPSAppWeak) {
+        *self.app.borrow_mut() = Some(app.upgrade().unwrap());
     }
 
     pub fn create_pipeline(&self, description: &str) -> anyhow::Result<gstreamer::Pipeline> {
@@ -101,7 +109,7 @@ impl Pipeline {
         graphview: &GraphView,
         new_state: PipelineState,
     ) -> anyhow::Result<PipelineState> {
-        if self.state() == PipelineState::Stopped {
+        if self.state() == PipelineState::Stopped || self.state() == PipelineState::Error {
             let pipeline = self
                 .create_pipeline(&self.render_gst_launch(graphview))
                 .map_err(|err| {
@@ -132,18 +140,32 @@ impl Pipeline {
             match new_state {
                 PipelineState::Playing => pipeline.set_state(gst::State::Playing)?,
                 PipelineState::Paused => pipeline.set_state(gst::State::Paused)?,
-                PipelineState::Stopped => {
+                PipelineState::Stopped | PipelineState::Error => {
                     pipeline.set_state(gst::State::Null)?;
                     gst::StateChangeSuccess::Success
                 }
             };
             self.current_state.set(new_state);
+            self.app
+                .borrow()
+                .as_ref()
+                .expect("App should be available")
+                .set_app_state(Pipeline::state_to_app_state(new_state));
         }
         Ok(new_state)
     }
 
     pub fn state(&self) -> PipelineState {
         self.current_state.get()
+    }
+
+    fn state_to_app_state(state: PipelineState) -> AppState {
+        match state {
+            PipelineState::Playing => AppState::Playing,
+            PipelineState::Paused => AppState::Paused,
+            PipelineState::Stopped => AppState::Stopped,
+            PipelineState::Error => AppState::Error,
+        }
     }
 
     pub fn downgrade(&self) -> PipelineWeak {
@@ -160,7 +182,7 @@ impl Pipeline {
                     err.error(),
                     err.debug()
                 );
-                self.set_state(PipelineState::Stopped)
+                self.set_state(PipelineState::Error)
                     .expect("Unable to set state to stopped");
             }
             MessageView::Application(msg) => match msg.structure() {

@@ -42,7 +42,7 @@ use crate::{GPS_DEBUG, GPS_ERROR, GPS_INFO, GPS_TRACE, GPS_WARN};
 
 use crate::graphmanager as GM;
 use crate::graphmanager::PropertyExt;
-
+use std::fmt;
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
@@ -51,6 +51,21 @@ pub struct GPSAppInner {
     pub pipeline: RefCell<GPS::Pipeline>,
     pub plugin_list_initialized: OnceCell<bool>,
     pub menu_signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
+}
+
+#[derive(Debug)]
+pub enum AppState {
+    Ready,
+    Playing,
+    Paused,
+    Stopped,
+    Error,
+}
+
+impl fmt::Display for AppState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 // This represents our main application window.
@@ -120,6 +135,8 @@ impl GPSApp {
             plugin_list_initialized: OnceCell::new(),
             menu_signal_handlers: RefCell::new(HashMap::new()),
         }));
+        let app_weak = app.downgrade();
+        app.pipeline.borrow().set_app(app_weak);
         app.graphview.borrow_mut().set_id(0);
         Ok(app)
     }
@@ -336,6 +353,14 @@ impl GPSApp {
         file_chooser.show();
     }
 
+    pub fn set_app_state(&self, state: AppState) {
+        let status_bar: Statusbar = self
+            .builder
+            .object("status_bar")
+            .expect("Couldn't get status_bar");
+        status_bar.push(status_bar.context_id("Description"), &state.to_string());
+    }
+
     pub fn build_ui(&self, application: &Application) {
         let drawing_area_window: Viewport = self
             .builder
@@ -363,12 +388,7 @@ impl GPSApp {
         let window = &self.window;
 
         window.show();
-        let status_bar: Statusbar = self
-            .builder
-            .object("status_bar")
-            .expect("Couldn't get status_bar");
-        status_bar.push(status_bar.context_id("Description"), "GPS is ready");
-
+        self.set_app_state(AppState::Ready);
         self.setup_app_actions(application);
 
         let pop_menu: PopoverMenu = self
