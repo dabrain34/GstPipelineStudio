@@ -537,7 +537,11 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             let render_parse_launch = app.pipeline.borrow().render_gst_launch(&app.graphview.borrow());
-                            GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
+                            if app.pipeline.borrow().create_pipeline(&render_parse_launch).is_ok() {
+                                GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
+                            } else {
+                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{}", render_parse_launch));
+                            }
                         }
                     );
                     pop_menu.show();

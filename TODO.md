@@ -32,6 +32,10 @@
 - [x] add a css class for pad (presence always or sometimes)
 - [ ] Add property to port to store some specific value(Caps)
 
+### GStreamer:
+
+- [ ] Implement pipeline unit test
+
 ### app
 
 - [x] check that a node accept to create a port on request (input/output)
@@ -41,20 +45,19 @@
   - [x] unable to connect a port which is already connected
   - [ ] Create a window for the video output
 - [ ] Add multiple graphviews with tabs.
-- [ ] Property window in the main window
+- [x] Property window in the main window
 - [ ] Connect the GPS status to GST status
 - [ ] Implement graph dot render/load
 - [ ] Implement a command line parser to graph
-- [ ] Render the parse launch line in a message box
-- [ ] Prevent to create a pad in an element without the template
-- [ ] Check the pipeline validity
-- [ ] Implement pipeline unit test
+- [x] Render the parse launch line in a message box
+- [x] Prevent to create a pad in an element without the template
+- [x] Check the pipeline validity
 - [x] Save node position in XML
 - [x] Autosave the graph
 - [x] Logger in file/app all over the app
 - [ ] handle the caps setter element
 - [ ] Add probes on each pad to monitor the pipeline
-- [ ] Display pad properties with tooltip hover
+- [x] Display pad properties with tooltip hover
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
 - [ ] Display tags/meta/message detected

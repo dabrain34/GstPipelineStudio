@@ -80,12 +80,34 @@ impl Pipeline {
         Ok(pipeline)
     }
 
-    pub fn create_pipeline(&self, description: &str) -> anyhow::Result<()> {
+    pub fn create_pipeline(&self, description: &str) -> anyhow::Result<gstreamer::Pipeline> {
         GPS_INFO!("Creating pipeline {}", description);
 
         // Create pipeline from the description
         let pipeline = gst::parse_launch(&description.to_string())?;
-        if let Ok(pipeline) = pipeline.downcast::<gst::Pipeline>() {
+        let pipeline = pipeline.downcast::<gst::Pipeline>();
+        /* start playing */
+        if pipeline.is_err() {
+            GPS_ERROR!("Can not create a proper pipeline from gstreamer parse_launch");
+            return Err(anyhow::anyhow!(
+                "Unable to create a pipeline from the given parse launch {"
+            ));
+        }
+        Ok(pipeline.unwrap())
+    }
+
+    pub fn start_pipeline(
+        &self,
+        graphview: &GraphView,
+        new_state: PipelineState,
+    ) -> anyhow::Result<PipelineState> {
+        if self.state() == PipelineState::Stopped {
+            let pipeline = self
+                .create_pipeline(&self.render_gst_launch(graphview))
+                .map_err(|err| {
+                    GPS_ERROR!("Unable to start a pipeline: {}", err);
+                    err
+                })?;
             let bus = pipeline.bus().expect("Pipeline had no bus");
             let pipeline_weak = self.downgrade();
             bus.add_watch_local(move |_bus, msg| {
@@ -95,24 +117,6 @@ impl Pipeline {
             })?;
 
             *self.pipeline.borrow_mut() = Some(pipeline);
-            /* start playing */
-        } else {
-            GPS_ERROR!("Can not create a proper pipeline from gstreamer parse_launch");
-        }
-        Ok(())
-    }
-
-    pub fn start_pipeline(
-        &self,
-        graphview: &GraphView,
-        new_state: PipelineState,
-    ) -> anyhow::Result<PipelineState> {
-        if self.state() == PipelineState::Stopped {
-            self.create_pipeline(&self.render_gst_launch(graphview))
-                .map_err(|err| {
-                    GPS_ERROR!("Unable to start a pipeline: {}", err);
-                    err
-                })?;
         }
 
         self.set_state(new_state).map_err(|error| {
