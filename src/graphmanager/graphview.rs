@@ -195,15 +195,16 @@ mod imp {
                             .expect("click event is not on the GraphView");
                     if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
                         if let Some(target) = target.ancestor(Port::static_type()) {
-                            let mut port_to = target.dynamic_cast::<Port>().expect("click event is not on the Port");
-                            if widget.port_is_linked(port_to.id()).is_none() {
+                            let port_clicked = target.dynamic_cast::<Port>().expect("click event is not on the Port");
+                            if widget.port_is_linked(port_clicked.id()).is_none() {
                                 let selected_port = widget.selected_port().to_owned();
                                 if let Some(mut port_from) = selected_port {
-                                    debug!("Port {} is clicked at {}:{}", port_to.id(), x, y);
+                                    debug!("Port {} is clicked at {}:{}", port_clicked.id(), x, y);
+                                    let mut port_to = port_clicked;
                                     if widget.ports_compatible(&port_to) {
                                         let mut node_from = port_from.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
                                         let mut node_to = port_to.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                        info!("add link");
+                                        info!("add link from port {} to {} ", port_from.id(), port_to.id());
                                         if port_to.direction() == PortDirection::Output {
                                             debug!("swap ports and nodes to create the link");
                                             std::mem::swap(&mut node_from, &mut node_to);
@@ -221,8 +222,8 @@ mod imp {
                                     }
                                     widget.set_selected_port(None);
                                 } else {
-                                    info!("add selected port id");
-                                    widget.set_selected_port(Some(&port_to));
+                                    info!("add selected port id {}", port_clicked.id());
+                                    widget.set_selected_port(Some(&port_clicked));
                                 }
                             }
                         }
@@ -357,9 +358,20 @@ mod imp {
         pub fn link_coordinates(&self, link: &Link) -> Option<(f64, f64, f64, f64)> {
             let nodes = self.nodes.borrow();
 
-            let from_node = nodes.get(&link.node_from)?;
+            let from_node = nodes
+                .get(&link.node_from)
+                .unwrap_or_else(|| panic!("Unable to get node from {}", link.node_from));
 
-            let from_port = from_node.port(link.port_from)?;
+            let from_port = from_node
+                .port(link.port_from)
+                .unwrap_or_else(|| panic!("Unable to get port from {}", link.port_from));
+
+            let to_node = nodes
+                .get(&link.node_to)
+                .unwrap_or_else(|| panic!("Unable to get node to {}", link.node_to));
+            let to_port = to_node
+                .port(link.port_to)
+                .unwrap_or_else(|| panic!("Unable to get port to {}", link.port_to));
 
             let (mut fx, mut fy, fw, fh) = (
                 from_port.allocation().x(),
@@ -373,9 +385,6 @@ mod imp {
                 fx = fnx + fw + port_x as i32;
                 fy = fny + (fh / 2) + port_y as i32;
             }
-
-            let to_node = nodes.get(&link.node_to)?;
-            let to_port = to_node.port(link.port_to)?;
 
             let (mut tx, mut ty, th) = (
                 to_port.allocation().x(),
@@ -507,9 +516,9 @@ impl GraphView {
         let private = imp::GraphView::from_instance(self);
         let mut nodes = private.nodes.borrow_mut();
         if let Some(node) = nodes.remove(&id) {
-            if let Some(link_id) = self.node_is_linked(node.id()) {
-                let mut links = private.links.borrow_mut();
-                links.remove(&link_id);
+            while let Some(link_id) = self.node_is_linked(node.id()) {
+                info!("Remove link id {}", link_id);
+                private.links.borrow_mut().remove(&link_id);
             }
             node.unparent();
         } else {
