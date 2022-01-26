@@ -69,6 +69,7 @@ mod imp {
         pub(super) current_port_id: Cell<u32>,
         pub(super) current_link_id: Cell<u32>,
         pub(super) port_selected: RefCell<Option<Port>>,
+        pub(super) mouse_position: Cell<(f64, f64)>,
     }
 
     #[glib::object_subclass]
@@ -225,12 +226,29 @@ mod imp {
                                     info!("add selected port id {}", port_clicked.id());
                                     widget.set_selected_port(Some(&port_clicked));
                                 }
+                            } else {
+                                // click to a linked port
+                                widget.set_selected_port(None);
                             }
+                        } else {
+                            // Click to something else than a port
+                            widget.set_selected_port(None);
                         }
                     }
                 }
             }));
             obj.add_controller(&gesture);
+
+            let event_motion = gtk::EventControllerMotion::new();
+            event_motion.connect_motion(glib::clone!(@weak obj => move |_e, x, y| {
+                let graphview = obj;
+                if graphview.selected_port().is_some() {
+                    graphview.set_mouse_position(x,y);
+                    graphview.queue_draw();
+                }
+
+            }));
+            obj.add_controller(&event_motion);
         }
 
         fn dispose(&self, _obj: &Self::Type) {
@@ -300,11 +318,9 @@ mod imp {
     }
 
     impl WidgetImpl for GraphView {
-        fn snapshot(&self, widget: &Self::Type, snapshot: &gtk::Snapshot) {
+        fn snapshot(&self, _widget: &Self::Type, snapshot: &gtk::Snapshot) {
             /* FIXME: A lot of hardcoded values in here.
             Try to use relative units (em) and colours from the theme as much as possible. */
-
-            let alloc = widget.allocation();
 
             // Draw all children
             self.nodes
@@ -312,68 +328,55 @@ mod imp {
                 .values()
                 .for_each(|node| self.instance().snapshot_child(node, snapshot));
 
-            // Draw all links
-            let link_cr = snapshot.append_cairo(&graphene::Rect::new(
-                0.0,
-                0.0,
-                alloc.width() as f32,
-                alloc.height() as f32,
-            ));
-
             for link in self.links.borrow().values() {
                 if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
-                    //trace!("from_x: {} from_y: {} to_x: {} to_y: {}", from_x, from_y, to_x, to_y);
-                    link_cr.set_line_width(link.thickness as f64);
-                    // Use dashed line for inactive links, full line otherwise.
-                    if link.active {
-                        link_cr.set_dash(&[], 0.0);
-                    } else {
-                        link_cr.set_dash(&[10.0, 5.0], 0.0);
-                    }
-                    if link.selected() {
-                        link_cr.set_source_rgb(1.0, 0.18, 0.18);
-                    } else {
-                        link_cr.set_source_rgb(0.0, 0.0, 0.0);
-                    }
-
-                    link_cr.move_to(from_x, from_y);
-                    link_cr.line_to(to_x, to_y);
-                    link_cr.set_line_width(2.0);
-
-                    if let Err(e) = link_cr.stroke() {
-                        warn!("Failed to draw graphview links: {}", e);
-                    };
+                    self.draw_link(
+                        snapshot,
+                        link.active,
+                        link.selected(),
+                        link.thickness as f64,
+                        &graphene::Point::new(from_x as f32, from_y as f32),
+                        &graphene::Point::new(to_x as f32, to_y as f32),
+                    );
                 } else {
-                    warn!("Could not get allocation of ports of link: {:?}", link);
+                    warn!("Could not get link coordinates: {:?}", link);
                 }
+            }
+
+            if self.port_selected.borrow().is_some() {
+                let port = self.port_selected.borrow();
+                let port = port.as_ref().unwrap();
+                let node = port
+                    .ancestor(Node::static_type())
+                    .expect("Unable to reach parent")
+                    .dynamic_cast::<Node>()
+                    .expect("Unable to cast to Node");
+                let (from_x, from_y) = self.link_from_coordinates(node.id(), port.id());
+                let (to_x, to_y) = self.mouse_position.get();
+                self.draw_link(
+                    snapshot,
+                    false,
+                    false,
+                    2.0,
+                    &graphene::Point::new(from_x as f32, from_y as f32),
+                    &graphene::Point::new(to_x as f32, to_y as f32),
+                );
             }
         }
     }
 
     impl GraphView {
-        /// Retrieves coordinates for the drawn link to start at and to end at.
-        ///
-        /// # Returns
-        /// `Some((from_x, from_y, to_x, to_y))` if all objects the links refers to exist as widgets.
-        pub fn link_coordinates(&self, link: &Link) -> Option<(f64, f64, f64, f64)> {
+        fn link_from_coordinates(&self, node_from: u32, port_from: u32) -> (f64, f64) {
             let nodes = self.nodes.borrow();
 
             let from_node = nodes
-                .get(&link.node_from)
-                .unwrap_or_else(|| panic!("Unable to get node from {}", link.node_from));
+                .get(&node_from)
+                .unwrap_or_else(|| panic!("Unable to get node from {}", node_from));
 
             let from_port = from_node
-                .port(link.port_from)
-                .unwrap_or_else(|| panic!("Unable to get port from {}", link.port_from));
-
-            let to_node = nodes
-                .get(&link.node_to)
-                .unwrap_or_else(|| panic!("Unable to get node to {}", link.node_to));
-            let to_port = to_node
-                .port(link.port_to)
-                .unwrap_or_else(|| panic!("Unable to get port to {}", link.port_to));
-
-            let (mut fx, mut fy, fw, fh) = (
+                .port(port_from)
+                .unwrap_or_else(|| panic!("Unable to get port from {}", port_from));
+            let (mut from_x, mut from_y, fw, fh) = (
                 from_port.allocation().x(),
                 from_port.allocation().y(),
                 from_port.allocation().width(),
@@ -382,11 +385,23 @@ mod imp {
             let (fnx, fny) = (from_node.allocation().x(), from_node.allocation().y());
 
             if let Some((port_x, port_y)) = from_port.translate_coordinates(from_node, 0.0, 0.0) {
-                fx = fnx + fw + port_x as i32;
-                fy = fny + (fh / 2) + port_y as i32;
+                from_x = fnx + fw + port_x as i32;
+                from_y = fny + (fh / 2) + port_y as i32;
             }
 
-            let (mut tx, mut ty, th) = (
+            (from_x as f64, from_y as f64)
+        }
+
+        fn link_to_coordinates(&self, node_to: u32, port_to: u32) -> (f64, f64) {
+            let nodes = self.nodes.borrow();
+
+            let to_node = nodes
+                .get(&node_to)
+                .unwrap_or_else(|| panic!("Unable to get node to {}", node_to));
+            let to_port = to_node
+                .port(port_to)
+                .unwrap_or_else(|| panic!("Unable to get port to {}", port_to));
+            let (mut to_x, mut to_y, th) = (
                 to_port.allocation().x(),
                 to_port.allocation().y(),
                 to_port.allocation().height(),
@@ -395,11 +410,59 @@ mod imp {
             let (tnx, tny) = (to_node.allocation().x(), to_node.allocation().y());
 
             if let Some((port_x, port_y)) = to_port.translate_coordinates(to_node, 0.0, 0.0) {
-                tx += tnx + port_x as i32;
-                ty = tny + (th / 2) + port_y as i32;
+                to_x += tnx + port_x as i32;
+                to_y = tny + (th / 2) + port_y as i32;
             }
             //trace!("{} {} -> {} {}", fx, fy, tx, ty);
-            Some((fx.into(), fy.into(), tx.into(), ty.into()))
+            (to_x.into(), to_y.into())
+        }
+        /// Retrieves coordinates for the drawn link to start at and to end at.
+        ///
+        /// # Returns
+        /// `Some((from_x, from_y, to_x, to_y))` if all objects the links refers to exist as widgets.
+        pub fn link_coordinates(&self, link: &Link) -> Option<(f64, f64, f64, f64)> {
+            let (from_x, from_y) = self.link_from_coordinates(link.node_from, link.port_from);
+            let (to_x, to_y) = self.link_to_coordinates(link.node_to, link.port_to);
+            Some((from_x, from_y, to_x, to_y))
+        }
+
+        fn draw_link(
+            &self,
+            snapshot: &gtk::Snapshot,
+            active: bool,
+            selected: bool,
+            thickness: f64,
+            point_from: &graphene::Point,
+            point_to: &graphene::Point,
+        ) {
+            let alloc = self.instance().allocation();
+
+            let link_cr = snapshot.append_cairo(&graphene::Rect::new(
+                0.0,
+                0.0,
+                alloc.width() as f32,
+                alloc.height() as f32,
+            ));
+            link_cr.set_line_width(thickness);
+            // Use dashed line for inactive links, full line otherwise.
+            if active {
+                link_cr.set_dash(&[], 0.0);
+            } else {
+                link_cr.set_dash(&[10.0, 5.0], 0.0);
+            }
+            if selected {
+                link_cr.set_source_rgb(1.0, 0.18, 0.18);
+            } else {
+                link_cr.set_source_rgb(0.0, 0.0, 0.0);
+            }
+
+            link_cr.move_to(point_from.x() as f64, point_from.y() as f64);
+            link_cr.line_to(point_to.x() as f64, point_to.y() as f64);
+            link_cr.set_line_width(2.0);
+
+            if let Err(e) = link_cr.stroke() {
+                warn!("Failed to draw graphview links: {}", e);
+            };
         }
     }
 }
@@ -1128,7 +1191,9 @@ impl GraphView {
     }
 
     fn set_selected_port(&self, port: Option<&Port>) {
-        self.unselect_all();
+        if port.is_some() {
+            self.unselect_all();
+        }
         let private = imp::GraphView::from_instance(self);
         *private.port_selected.borrow_mut() = port.cloned();
     }
@@ -1136,6 +1201,11 @@ impl GraphView {
     fn selected_port(&self) -> RefMut<Option<Port>> {
         let private = imp::GraphView::from_instance(self);
         private.port_selected.borrow_mut()
+    }
+
+    fn set_mouse_position(&self, x: f64, y: f64) {
+        let private = imp::GraphView::from_instance(self);
+        private.mouse_position.set((x, y));
     }
 
     fn ports_compatible(&self, to_port: &Port) -> bool {
