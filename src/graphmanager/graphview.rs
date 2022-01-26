@@ -496,6 +496,11 @@ impl GraphView {
         private.id.set(id)
     }
 
+    pub fn id(&self) -> u32 {
+        let private = imp::GraphView::from_instance(self);
+        private.id.get()
+    }
+
     /// Add node to the graphview without port
     ///
     pub fn add_node(&self, node: Node) {

@@ -4,6 +4,7 @@ mod node;
 mod port;
 mod property;
 mod selection;
+mod tests;
 
 pub use graphview::GraphView;
 pub use link::Link;
