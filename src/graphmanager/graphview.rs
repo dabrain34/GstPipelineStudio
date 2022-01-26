@@ -211,14 +211,12 @@ mod imp {
                                             std::mem::swap(&mut node_from, &mut node_to);
                                             std::mem::swap(&mut port_from, &mut port_to);
                                         }
-                                        widget.add_link(Link::new(
-                                            widget.next_link_id(),
+                                        widget.add_link(widget.create_link(
                                             node_from.id(),
                                             node_to.id(),
                                             port_from.id(),
                                             port_to.id(),
                                             true,
-                                            false,
                                          ));
                                     }
                                     widget.set_selected_port(None);
@@ -548,7 +546,7 @@ impl GraphView {
     pub fn create_node_with_id(&self, id: u32, name: &str, node_type: NodeType) -> Node {
         Node::new(id, name, node_type)
     }
-    /// Create a new node with id
+    /// Create a new node with a new id
     ///
     pub fn create_node(&self, name: &str, node_type: NodeType) -> Node {
         let id = self.next_node_id();
@@ -647,6 +645,9 @@ impl GraphView {
     }
 
     // Port
+
+    /// Create a new port with id
+    ///
     pub fn create_port_with_id(
         &self,
         id: u32,
@@ -656,7 +657,7 @@ impl GraphView {
     ) -> Port {
         Port::new(id, name, direction, presence)
     }
-    /// Add the port with id from node with id.
+    /// Create a new port with a new id
     ///
     pub fn create_port(
         &self,
@@ -720,7 +721,45 @@ impl GraphView {
     }
 
     // Link
-
+    /// Create a new link with id
+    pub fn create_link_with_id(
+        &self,
+        link_id: u32,
+        node_from_id: u32,
+        node_to_id: u32,
+        port_from_id: u32,
+        port_to_id: u32,
+        active: bool,
+    ) -> Link {
+        Link::new(
+            link_id,
+            node_from_id,
+            node_to_id,
+            port_from_id,
+            port_to_id,
+            active,
+            false,
+        )
+    }
+    /// Create a new link with a new id
+    ///
+    pub fn create_link(
+        &self,
+        node_from_id: u32,
+        node_to_id: u32,
+        port_from_id: u32,
+        port_to_id: u32,
+        active: bool,
+    ) -> Link {
+        self.create_link_with_id(
+            self.next_link_id(),
+            node_from_id,
+            node_to_id,
+            port_from_id,
+            port_to_id,
+            active,
+        )
+    }
     /// Add a link to the graphView
     ///
     pub fn add_link(&self, link: Link) {
@@ -730,6 +769,7 @@ impl GraphView {
             self.graph_updated();
         }
     }
+
     /// Set the link state with ink id and link state (boolean)
     ///
     pub fn set_link_state(&self, link_id: u32, active: bool) {
@@ -1003,14 +1043,13 @@ impl GraphView {
                             let active: &String = attrs
                                 .get::<String>(&String::from("active"))
                                 .expect("Unable to find link state");
-                            current_link = Some(Link::new(
+                            current_link = Some(self.create_link_with_id(
                                 id.parse::<u32>().unwrap(),
                                 node_from.parse::<u32>().unwrap(),
                                 node_to.parse::<u32>().unwrap(),
                                 port_from.parse::<u32>().unwrap(),
                                 port_to.parse::<u32>().unwrap(),
                                 active.parse::<bool>().unwrap(),
-                                false,
                             ));
                         }
                         _ => warn!("name unknown: {}", name),
