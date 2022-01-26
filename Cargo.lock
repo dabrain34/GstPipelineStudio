@@ -481,6 +481,8 @@ name = "gst_pipeline_studio"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures-channel",
+ "futures-executor",
  "gettext-rs",
  "gstreamer",
  "gtk4",

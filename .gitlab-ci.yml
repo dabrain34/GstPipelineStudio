@@ -18,7 +18,7 @@ variables:
   variables:
     FDO_DISTRIBUTION_VERSION: "35"
     # Update this to trigger a container rebuild
-    FDO_DISTRIBUTION_TAG: "2022-01-07.2"
+    FDO_DISTRIBUTION_TAG: "2022-01-27.2"
 
 build-fedora-container:
   extends:
@@ -42,6 +42,8 @@ build-fedora-container:
       python3-devel
       python3-pip
       python3-setuptools
+      util-linux
+      xorg-x11-server-Xvfb
     FDO_DISTRIBUTION_EXEC: >-
       pip3 install meson
 
@@ -64,7 +66,9 @@ test-stable:
     - meson build
     - rustc --version
     - cargo build --color=always --all-targets
-    - cargo test --color=always
+    - >
+      xvfb-run -a -s "-screen 0 1024x768x24"
+      cargo test --color=always
 
 rustdoc:
   extends:

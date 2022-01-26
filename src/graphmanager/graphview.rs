@@ -33,8 +33,7 @@ use super::{
 };
 
 use once_cell::sync::Lazy;
-use std::fs::File;
-use std::io::BufReader;
+use std::io::Cursor;
 
 use gtk::{
     gdk::{BUTTON_PRIMARY, BUTTON_SECONDARY},
@@ -494,9 +493,50 @@ impl GraphView {
         private.id.set(id)
     }
 
+    /// Retrives the graphview id
+    ///
     pub fn id(&self) -> u32 {
         let private = imp::GraphView::from_instance(self);
         private.id.get()
+    }
+
+    /// Clear the graphview
+    ///
+    pub fn clear(&self) {
+        self.remove_all_nodes();
+    }
+
+    // Node
+
+    /// Create a new node with a new id
+    ///
+    pub fn create_node(&self, name: &str, node_type: NodeType) -> Node {
+        let id = self.next_node_id();
+        self.create_node_with_id(id, name, node_type)
+    }
+
+    /// Create a new node and add it to the graphview with input/output port number.
+    ///
+    pub fn create_node_with_port(
+        &self,
+        name: &str,
+        node_type: NodeType,
+        input: u32,
+        output: u32,
+    ) -> Node {
+        let mut node = self.create_node(name, node_type);
+
+        let _i = 0;
+        for _i in 0..input {
+            let port = self.create_port("in", PortDirection::Input, PortPresence::Always);
+            self.add_port_to_node(&mut node, port);
+        }
+        let _i = 0;
+        for _i in 0..output {
+            let port = self.create_port("out", PortDirection::Output, PortPresence::Always);
+            self.add_port_to_node(&mut node, port);
+        }
+        node
     }
 
     /// Add node to the graphview without port
@@ -540,40 +580,6 @@ impl GraphView {
         private.nodes.borrow_mut().insert(node.id(), node);
         self.emit_by_name::<()>("node-added", &[&private.id.get(), &node_id]);
         self.graph_updated();
-    }
-    /// Create a new node with id
-    ///
-    pub fn create_node_with_id(&self, id: u32, name: &str, node_type: NodeType) -> Node {
-        Node::new(id, name, node_type)
-    }
-    /// Create a new node with a new id
-    ///
-    pub fn create_node(&self, name: &str, node_type: NodeType) -> Node {
-        let id = self.next_node_id();
-        self.create_node_with_id(id, name, node_type)
-    }
-    /// Create a new node and add it to the graphview with input/output port number.
-    ///
-    pub fn create_node_with_port(
-        &self,
-        name: &str,
-        node_type: NodeType,
-        input: u32,
-        output: u32,
-    ) -> Node {
-        let mut node = self.create_node(name, node_type);
-
-        let _i = 0;
-        for _i in 0..input {
-            let port = self.create_port("in", PortDirection::Input, PortPresence::Always);
-            self.add_port_to_node(&mut node, port);
-        }
-        let _i = 0;
-        for _i in 0..output {
-            let port = self.create_port("out", PortDirection::Output, PortPresence::Always);
-            self.add_port_to_node(&mut node, port);
-        }
-        node
     }
 
     /// Remove node from the graphview
@@ -644,19 +650,28 @@ impl GraphView {
         None
     }
 
+    /// Get the position of the specified node inside the graphview.
+    ///
+    /// Returns `None` if the node is not in the graphview.
+    pub(super) fn node_position(&self, node: &gtk::Widget) -> Option<(f32, f32)> {
+        let layout_manager = self
+            .layout_manager()
+            .expect("Failed to get layout manager")
+            .dynamic_cast::<gtk::FixedLayout>()
+            .expect("Failed to cast to FixedLayout");
+
+        let node = layout_manager
+            .layout_child(node)
+            .dynamic_cast::<gtk::FixedLayoutChild>()
+            .expect("Could not cast to FixedLayoutChild");
+        let transform = node
+            .transform()
+            .expect("Failed to obtain transform from layout child");
+        Some(transform.to_translate())
+    }
+
     // Port
 
-    /// Create a new port with id
-    ///
-    pub fn create_port_with_id(
-        &self,
-        id: u32,
-        name: &str,
-        direction: PortDirection,
-        presence: PortPresence,
-    ) -> Port {
-        Port::new(id, name, direction, presence)
-    }
     /// Create a new port with a new id
     ///
     pub fn create_port(
@@ -721,26 +736,7 @@ impl GraphView {
     }
 
     // Link
-    /// Create a new link with id
-    pub fn create_link_with_id(
-        &self,
-        link_id: u32,
-        node_from_id: u32,
-        node_to_id: u32,
-        port_from_id: u32,
-        port_to_id: u32,
-        active: bool,
-    ) -> Link {
-        Link::new(
-            link_id,
-            node_from_id,
-            node_to_id,
-            port_from_id,
-            port_to_id,
-            active,
-            false,
-        )
-    }
+
     /// Create a new link with a new id
     ///
     pub fn create_link(
@@ -760,6 +756,7 @@ impl GraphView {
             active,
         )
     }
+
     /// Add a link to the graphView
     ///
     pub fn add_link(&self, link: Link) {
@@ -782,44 +779,18 @@ impl GraphView {
         }
     }
 
-    /// Get the position of the specified node inside the graphview.
+    /// Select all nodes according to the NodeType
     ///
-    /// Returns `None` if the node is not in the graphview.
-    pub(super) fn node_position(&self, node: &gtk::Widget) -> Option<(f32, f32)> {
-        let layout_manager = self
-            .layout_manager()
-            .expect("Failed to get layout manager")
-            .dynamic_cast::<gtk::FixedLayout>()
-            .expect("Failed to cast to FixedLayout");
-
-        let node = layout_manager
-            .layout_child(node)
-            .dynamic_cast::<gtk::FixedLayoutChild>()
-            .expect("Could not cast to FixedLayoutChild");
-        let transform = node
-            .transform()
-            .expect("Failed to obtain transform from layout child");
-        Some(transform.to_translate())
-    }
-
-    /// Retrieves the next node unique id.
-    ///
-    pub fn next_node_id(&self) -> u32 {
+    /// Returns a vector of links
+    pub fn all_links(&self, link_state: bool) -> Vec<Link> {
         let private = imp::GraphView::from_instance(self);
-        private
-            .current_node_id
-            .set(private.current_node_id.get() + 1);
-        private.current_node_id.get()
-    }
-
-    /// Retrieves the next port unique id.
-    ///
-    pub fn next_port_id(&self) -> u32 {
-        let private = imp::GraphView::from_instance(self);
-        private
-            .current_port_id
-            .set(private.current_port_id.get() + 1);
-        private.current_port_id.get()
+        let links = private.links.borrow();
+        let links_list: Vec<_> = links
+            .iter()
+            .filter(|(_, link)| link.active == link_state)
+            .map(|(_, node)| node.clone())
+            .collect();
+        links_list
     }
 
     /// Retrieves the node/port id connected to the input port id
@@ -860,14 +831,15 @@ impl GraphView {
         self.graph_updated();
     }
 
-    /// Render the graph in a file with XML format
+    /// Render the graph with XML format in a buffer
     ///
-    pub fn render_xml(&self, filename: &str) -> anyhow::Result<()> {
+    pub fn render_xml(&self) -> anyhow::Result<Vec<u8>> {
         let private = imp::GraphView::from_instance(self);
-        let mut file = File::create(filename).unwrap();
+
+        let mut buffer = Vec::new();
         let mut writer = EmitterConfig::new()
             .perform_indent(true)
-            .create_writer(&mut file);
+            .create_writer(&mut buffer);
 
         writer
             .write(XMLWEvent::start_element("Graph").attr("id", &private.id.get().to_string()))?;
@@ -926,15 +898,14 @@ impl GraphView {
             writer.write(XMLWEvent::end_element())?;
         }
         writer.write(XMLWEvent::end_element())?;
-        Ok(())
+        Ok(buffer)
     }
 
     /// Load the graph from a file with XML format
     ///
-    pub fn load_xml(&self, filename: &str) -> anyhow::Result<()> {
-        let file = File::open(filename)?;
-        let file = BufReader::new(file);
-
+    pub fn load_from_xml(&self, buffer: Vec<u8>) -> anyhow::Result<()> {
+        self.clear();
+        let file = Cursor::new(buffer);
         let parser = EventReader::new(file);
 
         let mut current_node: Option<Node> = None;
@@ -1113,6 +1084,40 @@ impl GraphView {
 
     //Private
 
+    fn create_node_with_id(&self, id: u32, name: &str, node_type: NodeType) -> Node {
+        Node::new(id, name, node_type)
+    }
+
+    fn create_port_with_id(
+        &self,
+        id: u32,
+        name: &str,
+        direction: PortDirection,
+        presence: PortPresence,
+    ) -> Port {
+        Port::new(id, name, direction, presence)
+    }
+
+    fn create_link_with_id(
+        &self,
+        link_id: u32,
+        node_from_id: u32,
+        node_to_id: u32,
+        port_from_id: u32,
+        port_to_id: u32,
+        active: bool,
+    ) -> Link {
+        Link::new(
+            link_id,
+            node_from_id,
+            node_to_id,
+            port_from_id,
+            port_to_id,
+            active,
+            false,
+        )
+    }
+
     fn remove_link(&self, id: u32) {
         let private = imp::GraphView::from_instance(self);
         let mut links = private.links.borrow_mut();
@@ -1224,6 +1229,22 @@ impl GraphView {
         let private = imp::GraphView::from_instance(self);
         self.queue_draw();
         self.emit_by_name::<()>("graph-updated", &[&private.id.get()]);
+    }
+
+    fn next_node_id(&self) -> u32 {
+        let private = imp::GraphView::from_instance(self);
+        private
+            .current_node_id
+            .set(private.current_node_id.get() + 1);
+        private.current_node_id.get()
+    }
+
+    fn next_port_id(&self) -> u32 {
+        let private = imp::GraphView::from_instance(self);
+        private
+            .current_port_id
+            .set(private.current_port_id.get() + 1);
+        private.current_port_id.get()
     }
 
     fn next_link_id(&self) -> u32 {
