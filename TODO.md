@@ -28,9 +28,9 @@
 
 - [ ] create a crate for graphview/node/port
 - [x] Remove a port from a node if possible
-- [ ] Implement graphview unit test
+- [x] Implement graphview unit test
 - [x] add a css class for pad (presence always or sometimes)
-- [ ] Add property to port to store some specific value(Caps)
+- [x] Add property to port to store some specific value(Caps)
 
 ### GStreamer:
 
@@ -46,7 +46,7 @@
   - [ ] Create a window for the video output
 - [ ] Add multiple graphviews with tabs.
 - [x] Property window in the main window
-- [ ] Connect the GPS status to GST status
+- [x] Connect the GPS status to GST status
 - [ ] Implement graph dot render/load
 - [ ] Implement a command line parser to graph
 - [x] Render the parse launch line in a message box
@@ -63,6 +63,7 @@
 - [ ] Display tags/meta/message detected
 - [ ] Seek to position
 - [ ] Use one listbox with name, favorites and rank (sort list)
+- [x] See the link creation with a dashed line
 
 ### CI/Infra
 

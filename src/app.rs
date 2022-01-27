@@ -30,6 +30,8 @@ use log::error;
 use once_cell::unsync::OnceCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::ops;
 use std::rc::{Rc, Weak};
 
@@ -778,20 +780,25 @@ impl GPSApp {
     }
 
     fn clear_graph(&self) {
-        let graph_view = self.graphview.borrow_mut();
-        graph_view.remove_all_nodes();
+        let graph_view = self.graphview.borrow();
+        graph_view.clear();
     }
 
     fn save_graph(&self, filename: &str) -> anyhow::Result<()> {
         let graph_view = self.graphview.borrow();
-        graph_view.render_xml(filename)?;
+        let mut file = File::create(filename)?;
+        let buffer = graph_view.render_xml()?;
+        file.write_all(&buffer)?;
+
         Ok(())
     }
 
     fn load_graph(&self, filename: &str) -> anyhow::Result<()> {
-        self.clear_graph();
         let graph_view = self.graphview.borrow();
-        graph_view.load_xml(filename)?;
+        let mut file = File::open(filename)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).expect("buffer overflow");
+        graph_view.load_from_xml(buffer)?;
         Ok(())
     }
 }
