@@ -53,6 +53,15 @@ pub fn setup_favorite_list(app: &GPSApp) {
             app.add_new_element(&element_name);
         }
     });
+    let app_weak = app.downgrade();
+    favorite_list.connect_cursor_changed(move |tree_view| {
+        let app = upgrade_weak!(app_weak);
+        let selection = tree_view.selection();
+        if let Some((model, iter)) = selection.selected() {
+            let element_name = model.get::<String>(&iter, 0);
+            display_properties(&app, &element_name);
+        }
+    });
     let gesture = gtk::GestureClick::new();
     gesture.set_button(0);
     let app_weak = app.downgrade();
@@ -138,23 +147,27 @@ pub fn setup_elements_list(app: &GPSApp) {
         let selection = tree_view.selection();
         if let Some((model, iter)) = selection.selected() {
             let element_name = model.get::<String>(&iter, 0);
-            let description = GPS::ElementInfo::element_description(&element_name)
-                .expect("Unable to get element description from GStreamer");
-            let box_property: Box = app
-                .builder
-                .object("box-property")
-                .expect("Couldn't get treeview-elements");
-
-            while let Some(child) = box_property.first_child() {
-                box_property.remove(&child);
-            }
-            let label = Label::new(Some(""));
-            label.set_hexpand(true);
-            label.set_halign(gtk::Align::Start);
-            label.set_margin_start(4);
-            label.set_markup(&description);
-            label.set_selectable(true);
-            box_property.append(&label);
+            display_properties(&app, &element_name);
         }
     });
+}
+
+pub fn display_properties(app: &GPSApp, element_name: &str) {
+    let description = GPS::ElementInfo::element_description(element_name)
+        .expect("Unable to get element description from GStreamer");
+    let box_property: Box = app
+        .builder
+        .object("box-property")
+        .expect("Couldn't get treeview-elements");
+
+    while let Some(child) = box_property.first_child() {
+        box_property.remove(&child);
+    }
+    let label = Label::new(Some(""));
+    label.set_hexpand(true);
+    label.set_halign(gtk::Align::Start);
+    label.set_margin_start(4);
+    label.set_markup(&description);
+    label.set_selectable(true);
+    box_property.append(&label);
 }
