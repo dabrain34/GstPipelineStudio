@@ -19,7 +19,7 @@
 
 use glib::SignalHandlerId;
 use glib::Value;
-use gtk::gdk::Rectangle;
+use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{gio, gio::SimpleAction, glib, graphene};
 use gtk::{
@@ -257,7 +257,7 @@ impl GPSApp {
 
         if let Some((x, y)) = widget.translate_coordinates(&mainwindow, x, y) {
             let point = graphene::Point::new(x as f32, y as f32);
-            pop_menu.set_pointing_to(Some(&Rectangle::new(
+            pop_menu.set_pointing_to(Some(&gdk::Rectangle::new(
                 point.to_vec2().x() as i32,
                 point.to_vec2().y() as i32,
                 0,
@@ -361,6 +361,19 @@ impl GPSApp {
             .object("status_bar")
             .expect("Couldn't get status_bar");
         status_bar.push(status_bar.context_id("Description"), &state.to_string());
+    }
+
+    pub fn set_app_preview(&self, paintable: &gdk::Paintable) {
+        let picture = gtk::Picture::new();
+        picture.set_paintable(Some(paintable));
+        let box_preview: gtk::Box = self
+            .builder
+            .object("box-preview")
+            .expect("Couldn't get box_preview");
+        while let Some(child) = box_preview.first_child() {
+            box_preview.remove(&child);
+        }
+        box_preview.append(&picture);
     }
 
     pub fn build_ui(&self, application: &Application) {

@@ -19,12 +19,14 @@
 
 use crate::app::{AppState, GPSApp, GPSAppWeak};
 use crate::graphmanager::{GraphView, Node, NodeType, PortDirection, PropertyExt};
+
+use crate::gps::ElementInfo;
 use crate::logger;
 use crate::GPS_INFO;
 
 use gst::glib;
 use gst::prelude::*;
-use gstreamer as gst;
+use gtk::gdk;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
@@ -80,6 +82,11 @@ impl Pipeline {
             pipeline: RefCell::new(None),
             current_state: Cell::new(PipelineState::Stopped),
         }));
+        #[cfg(feature = "gtk4-plugin")]
+        {
+            gstgtk4::plugin_register_static().expect("Failed to register gstgtk4 plugin");
+            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::Primary);
+        }
 
         Ok(pipeline)
     }
@@ -88,7 +95,7 @@ impl Pipeline {
         *self.app.borrow_mut() = Some(app.upgrade().unwrap());
     }
 
-    pub fn create_pipeline(&self, description: &str) -> anyhow::Result<gstreamer::Pipeline> {
+    pub fn create_pipeline(&self, description: &str) -> anyhow::Result<gst::Pipeline> {
         GPS_INFO!("Creating pipeline {}", description);
 
         // Create pipeline from the description
@@ -104,6 +111,18 @@ impl Pipeline {
         Ok(pipeline.unwrap())
     }
 
+    pub fn check_for_gtk4sink(&self, pipeline: &gst::Pipeline) {
+        let bin = pipeline.clone().dynamic_cast::<gst::Bin>().unwrap();
+        let gtksink = ElementInfo::search_fo_element(&bin, "gtk4paintablesink");
+        if let Some(gtksink) = gtksink {
+            let paintable = gtksink.property::<gdk::Paintable>("paintable");
+            self.app
+                .borrow()
+                .as_ref()
+                .expect("App should be available")
+                .set_app_preview(&paintable);
+        }
+    }
     pub fn start_pipeline(
         &self,
         graphview: &GraphView,
@@ -116,6 +135,7 @@ impl Pipeline {
                     GPS_ERROR!("Unable to start a pipeline: {}", err);
                     err
                 })?;
+
             let bus = pipeline.bus().expect("Pipeline had no bus");
             let pipeline_weak = self.downgrade();
             bus.add_watch_local(move |_bus, msg| {
@@ -123,7 +143,8 @@ impl Pipeline {
                 pipeline.on_pipeline_message(msg);
                 glib::Continue(true)
             })?;
-
+            pipeline.set_state(gst::State::Ready)?;
+            self.check_for_gtk4sink(&pipeline);
             *self.pipeline.borrow_mut() = Some(pipeline);
         }
 

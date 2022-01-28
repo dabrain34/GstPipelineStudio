@@ -24,7 +24,6 @@ use crate::GPS_INFO;
 
 use gst::glib;
 use gst::prelude::*;
-use gstreamer as gst;
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
@@ -60,6 +59,13 @@ impl ElementInfo {
     pub fn element_feature(element_name: &str) -> Option<gst::PluginFeature> {
         let registry = gst::Registry::get();
         gst::Registry::find_feature(&registry, element_name, gst::ElementFactory::static_type())
+    }
+
+    pub fn element_update_rank(element_name: &str, rank: gst::Rank) {
+        let feature: Option<gst::PluginFeature> = ElementInfo::element_feature(element_name);
+        if let Some(feature) = feature {
+            feature.set_rank(rank);
+        }
     }
 
     pub fn element_description(element_name: &str) -> anyhow::Result<String> {
@@ -102,7 +108,12 @@ impl ElementInfo {
                 desc.push_str("</b>");
                 desc.push_str(
                     &gtk::glib::markup_escape_text(
-                        &plugin.filename().unwrap().as_path().display().to_string(),
+                        &plugin
+                            .filename()
+                            .unwrap_or_default()
+                            .as_path()
+                            .display()
+                            .to_string(),
                     )
                     .to_string(),
                 );
@@ -207,5 +218,28 @@ impl ElementInfo {
             GPS_ERROR!("Port direction unknown");
         }
         None
+    }
+
+    pub fn search_fo_element(bin: &gst::Bin, element_name: &str) -> Option<gst::Element> {
+        let mut iter = bin.iterate_elements();
+        let element = loop {
+            match iter.next() {
+                Ok(Some(element)) => {
+                    if element.is::<gst::Bin>() {
+                        let bin = element.dynamic_cast::<gst::Bin>().unwrap();
+                        break ElementInfo::search_fo_element(&bin, element_name);
+                    } else {
+                        GPS_INFO!("Found factory: {}", element.factory().unwrap().name());
+                        if element.factory().unwrap().name() == element_name {
+                            GPS_INFO!("Found {}", element_name);
+                            break Some(element);
+                        }
+                    }
+                }
+                Err(gst::IteratorError::Resync) => iter.resync(),
+                _ => break None,
+            }
+        };
+        element
     }
 }

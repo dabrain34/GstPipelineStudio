@@ -24,7 +24,6 @@ use crate::gps::ElementInfo;
 use crate::graphmanager::{PortDirection, PortPresence};
 
 use gst::prelude::*;
-use gstreamer as gst;
 
 #[derive(Debug, PartialOrd, PartialEq)]
 pub struct PadInfo {
