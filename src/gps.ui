@@ -300,6 +300,12 @@
                     <property name="vexpand">True</property>
                     <property name="child">
                       <object class="GtkBox" id="box-preview">
+                        <child>
+                          <object class="GtkLabel" id="label-preview">
+                            <property name="label" translatable="yes">No preview</property>
+                            <property name="hexpand">1</property>
+                          </object>
+                        </child>
                       </object>
                     </property>
                   </object>
