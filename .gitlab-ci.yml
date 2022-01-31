@@ -47,7 +47,7 @@ build-fedora-container:
     FDO_DISTRIBUTION_EXEC: >-
       pip3 install meson
 
-rustfmt:
+rustfmt-clippy:
   extends:
     - .fedora
     - .fdo.distribution-image@fedora
@@ -56,6 +56,8 @@ rustfmt:
     - meson build
     - cargo fmt --version
     - cargo fmt -- --color=always --check
+    - cargo clippy --version
+    - cargo clippy --color=always --all-targets -- -D warnings
 
 test-stable:
   extends:
@@ -81,16 +83,6 @@ rustdoc:
     - meson build
     - rustdoc --version
     - cargo doc --no-deps
-
-clippy:
-  extends:
-    - .fedora
-    - .fdo.distribution-image@fedora
-  stage: extras
-  script:
-    - meson build
-    - cargo clippy --version
-    - cargo clippy --color=always --all-targets -- -D warnings
 
 flatpak:
   image: "registry.gitlab.gnome.org/gnome/gnome-runtime-images/gnome:41"
