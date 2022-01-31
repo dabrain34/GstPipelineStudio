@@ -98,7 +98,7 @@ impl GPSAppWeak {
 
 impl GPSApp {
     fn new(application: &gtk::Application) -> anyhow::Result<GPSApp> {
-        let glade_src = include_str!("gps.ui");
+        let glade_src = include_str!("ui/gps.ui");
         let builder = Builder::from_string(glade_src);
         let window: ApplicationWindow = builder
             .object("mainwindow")
