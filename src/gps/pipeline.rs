@@ -180,6 +180,46 @@ impl Pipeline {
         self.current_state.get()
     }
 
+    pub fn set_position(&self, position: u64) -> anyhow::Result<()> {
+        if let Some(pipeline) = self.pipeline.borrow().to_owned() {
+            pipeline.seek_simple(
+                gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
+                position * gst::ClockTime::SECOND,
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn position(&self) -> u64 {
+        let mut position = gst::ClockTime::NONE;
+        if let Some(pipeline) = self.pipeline.borrow().to_owned() {
+            position = pipeline.query_position::<gst::ClockTime>();
+        }
+        position.unwrap_or_default().mseconds()
+    }
+
+    pub fn duration(&self) -> u64 {
+        let mut duration = gst::ClockTime::NONE;
+        if let Some(pipeline) = self.pipeline.borrow().to_owned() {
+            duration = pipeline.query_duration::<gst::ClockTime>();
+        }
+        duration.unwrap_or_default().mseconds()
+    }
+
+    pub fn position_description(&self) -> String {
+        let mut position = gst::ClockTime::NONE;
+        let mut duration = gst::ClockTime::NONE;
+        if let Some(pipeline) = self.pipeline.borrow().to_owned() {
+            position = pipeline.query_position::<gst::ClockTime>();
+            duration = pipeline.query_duration::<gst::ClockTime>();
+        }
+        format!(
+            "{:.0}/{:.0}",
+            position.unwrap_or_default().display(),
+            duration.unwrap_or_default().display(),
+        )
+    }
+
     fn state_to_app_state(state: PipelineState) -> AppState {
         match state {
             PipelineState::Playing => AppState::Playing,

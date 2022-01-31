@@ -61,8 +61,9 @@
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
 - [ ] Display tags/meta/message detected
-- [ ] Seek to position
-- [ ] Use one listbox with name, favorites and rank (sort list)
+- [x] Display position and duration
+- [x] Seek to position
+- [x] One listbox with elements and one listbox with favorites in the app dashboard
 - [x] See the link creation with a dashed line
 
 ### CI/Infra

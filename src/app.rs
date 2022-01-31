@@ -52,7 +52,7 @@ pub struct GPSAppInner {
     pub builder: Builder,
     pub pipeline: RefCell<GPS::Pipeline>,
     pub plugin_list_initialized: OnceCell<bool>,
-    pub menu_signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
+    pub signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
 }
 
 #[derive(Debug)]
@@ -135,7 +135,7 @@ impl GPSApp {
             builder,
             pipeline: RefCell::new(pipeline),
             plugin_list_initialized: OnceCell::new(),
-            menu_signal_handlers: RefCell::new(HashMap::new()),
+            signal_handlers: RefCell::new(HashMap::new()),
         }));
         let app_weak = app.downgrade();
         app.pipeline.borrow().set_app(app_weak);
@@ -161,7 +161,52 @@ impl GPSApp {
             app.build_ui(&application);
         }));
 
+        let app_weak = app.downgrade();
+        let slider: gtk::Scale = app
+            .builder
+            .object("scale-position")
+            .expect("Couldn't get status_bar");
+        let slider_update_signal_id = slider.connect_value_changed(move |slider| {
+            let app = upgrade_weak!(app_weak);
+            let pipeline = app.pipeline.borrow();
+            let value = slider.value() as u64;
+            GPS_TRACE!("Seeking to {} s", value);
+            if pipeline.set_position(value).is_err() {
+                GPS_ERROR!("Seeking to {} failed", value);
+            }
+        });
+        let app_weak = app.downgrade();
+        let timeout_id =
+            glib::timeout_add_local(std::time::Duration::from_millis(500), move || {
+                let app = upgrade_weak!(app_weak, glib::Continue(false));
+                let pipeline = app.pipeline.borrow();
+
+                let label: gtk::Label = app
+                    .builder
+                    .object("label-position")
+                    .expect("Couldn't get status_bar");
+                let slider: gtk::Scale = app
+                    .builder
+                    .object("scale-position")
+                    .expect("Couldn't get status_bar");
+                let position = pipeline.position();
+                let duration = pipeline.duration();
+                slider.set_range(0.0, duration as f64 / 1000_f64);
+                slider.block_signal(&slider_update_signal_id);
+                slider.set_value(position as f64 / 1000_f64);
+                slider.unblock_signal(&slider_update_signal_id);
+
+                // Query the current playing position from the underlying pipeline.
+                let position_desc = pipeline.position_description();
+                // Display the playing position in the gui.
+                label.set_text(&position_desc);
+                // Tell the callback to continue calling this closure.
+                glib::Continue(true)
+            });
+
+        let timeout_id = RefCell::new(Some(timeout_id));
         let app_container = RefCell::new(Some(app));
+
         application.connect_shutdown(move |_| {
             let app = app_container
                 .borrow_mut()
@@ -202,6 +247,9 @@ impl GPSApp {
                 .object("app_pop_menu")
                 .expect("Couldn't get app_pop_menu");
             pop_menu.unparent();
+            if let Some(timeout_id) = timeout_id.borrow_mut().take() {
+                timeout_id.remove();
+            }
 
             app.drop();
         });
@@ -283,8 +331,7 @@ impl GPSApp {
     fn disconnect_app_menu_action(&self, action_name: &str) {
         let action = self.app_menu_action(action_name);
 
-        if let Some(signal_handler_id) = self.menu_signal_handlers.borrow_mut().remove(action_name)
-        {
+        if let Some(signal_handler_id) = self.signal_handlers.borrow_mut().remove(action_name) {
             action.disconnect(signal_handler_id);
         }
     }
@@ -299,7 +346,7 @@ impl GPSApp {
         let action = self.app_menu_action(action_name);
         self.disconnect_app_menu_action(action_name);
         let signal_handler_id = action.connect_activate(f);
-        self.menu_signal_handlers
+        self.signal_handlers
             .borrow_mut()
             .insert(String::from(action_name), signal_handler_id);
     }

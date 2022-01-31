@@ -145,7 +145,7 @@
         <property name="orientation">vertical</property>
         <property name="spacing">1</property>
         <child>
-          <object class="GtkBox">
+          <object class="GtkPaned">
             <property name="vexpand">0</property>
             <child>
               <object class="GtkBox">
@@ -177,18 +177,25 @@
                     <property name="icon-name">edit-clear</property>
                   </object>
                 </child>
+                <child>
+                  <object class="GtkLabel" id="label-position">
+                    <property name="label" translatable="yes">xx:xx:xx</property>
+                    <property name="hexpand">1</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkScale" id="scale-position">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="adjustment">scale_adjustment</property>
+                <property name="round-digits">1</property>
               </object>
             </child>
           </object>
         </child>
-        <child>
-          <object class="GtkScale" id="scale-position">
-            <property name="visible">True</property>
-            <property name="can-focus">True</property>
-            <property name="adjustment">scale_adjustment</property>
-            <property name="round-digits">1</property>
-          </object>
-        </child>
+
         <!--Graph and DashBoard paned-->
         <child>
           <object class="GtkPaned" id="graph_dashboard-paned">
