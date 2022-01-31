@@ -72,9 +72,12 @@ impl ElementInfo {
         let mut desc = String::from("");
         let feature = ElementInfo::element_feature(element_name)
             .ok_or_else(|| glib::bool_error!("Failed get element feature"))?;
-
+        let rank = feature.rank();
         if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
             desc.push_str("<b>Factory details:</b>\n");
+            desc.push_str("<b>Rank:</b>");
+            desc.push_str(&format!("{:?}", rank));
+            desc.push('\n');
             desc.push_str("<b>Name:</b>");
             desc.push_str(&factory.name());
             desc.push('\n');
