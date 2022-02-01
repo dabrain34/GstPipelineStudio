@@ -113,16 +113,18 @@ impl Pipeline {
 
     pub fn check_for_gtk4sink(&self, pipeline: &gst::Pipeline) {
         let bin = pipeline.clone().dynamic_cast::<gst::Bin>().unwrap();
-        let gtksink = ElementInfo::search_fo_element(&bin, "gtk4paintablesink");
-        if let Some(gtksink) = gtksink {
+        let gtksinks = ElementInfo::search_fo_element(&bin, "gtk4paintablesink");
+
+        for (first_sink, gtksink) in gtksinks.into_iter().enumerate() {
             let paintable = gtksink.property::<gdk::Paintable>("paintable");
             self.app
                 .borrow()
                 .as_ref()
                 .expect("App should be available")
-                .set_app_preview(&paintable);
+                .set_app_preview(&paintable, first_sink);
         }
     }
+
     pub fn start_pipeline(
         &self,
         graphview: &GraphView,

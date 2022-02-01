@@ -410,17 +410,30 @@ impl GPSApp {
         status_bar.push(status_bar.context_id("Description"), &state.to_string());
     }
 
-    pub fn set_app_preview(&self, paintable: &gdk::Paintable) {
+    pub fn set_app_preview(&self, paintable: &gdk::Paintable, n_sink: usize) {
         let picture = gtk::Picture::new();
         picture.set_paintable(Some(paintable));
-        let box_preview: gtk::Box = self
+        let notebook_preview: gtk::Notebook = self
             .builder
-            .object("box-preview")
+            .object("notebook-preview")
             .expect("Couldn't get box_preview");
-        while let Some(child) = box_preview.first_child() {
-            box_preview.remove(&child);
+        if n_sink == 0 {
+            loop {
+                let i = notebook_preview.n_pages();
+                if i == 0 {
+                    break;
+                }
+                notebook_preview.remove_page(Some(i - 1));
+            }
         }
+        let box_preview = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .halign(gtk::Align::Center)
+            .valign(gtk::Align::Center)
+            .build();
         box_preview.append(&picture);
+        let label = gtk::Label::new(Some(&format!("Preview{}", n_sink)));
+        notebook_preview.insert_page(&box_preview, Some(&label), None);
     }
 
     pub fn build_ui(&self, application: &Application) {

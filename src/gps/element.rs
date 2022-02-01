@@ -223,26 +223,28 @@ impl ElementInfo {
         None
     }
 
-    pub fn search_fo_element(bin: &gst::Bin, element_name: &str) -> Option<gst::Element> {
+    pub fn search_fo_element(bin: &gst::Bin, element_name: &str) -> Vec<gst::Element> {
         let mut iter = bin.iterate_elements();
-        let element = loop {
+        let mut elements: Vec<gst::Element> = Vec::new();
+        let elements = loop {
             match iter.next() {
                 Ok(Some(element)) => {
                     if element.is::<gst::Bin>() {
                         let bin = element.dynamic_cast::<gst::Bin>().unwrap();
-                        break ElementInfo::search_fo_element(&bin, element_name);
+                        let mut bin_elements = ElementInfo::search_fo_element(&bin, element_name);
+                        elements.append(&mut bin_elements);
                     } else {
                         GPS_INFO!("Found factory: {}", element.factory().unwrap().name());
                         if element.factory().unwrap().name() == element_name {
                             GPS_INFO!("Found {}", element_name);
-                            break Some(element);
+                            elements.push(element);
                         }
                     }
                 }
                 Err(gst::IteratorError::Resync) => iter.resync(),
-                _ => break None,
+                _ => break elements,
             }
         };
-        element
+        elements
     }
 }

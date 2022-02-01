@@ -295,6 +295,10 @@
                   </object>
                 </child>
                 <child>
+                 <object class="GtkNotebook" id="notebook-preview">
+                 <child>
+                 <object class="GtkNotebookPage">
+                  <property name="child">
                   <object class="GtkScrolledWindow">
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
@@ -308,6 +312,10 @@
                         </child>
                       </object>
                     </property>
+                  </object>
+                  </property>
+                  </object>
+                  </child>
                   </object>
                 </child>
               </object>
