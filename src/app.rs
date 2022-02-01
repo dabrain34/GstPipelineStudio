@@ -104,7 +104,7 @@ impl GPSApp {
             .object("mainwindow")
             .expect("Couldn't get the main window");
         window.set_application(Some(application));
-        window.set_title(Some("GstPipelineStudio"));
+        window.set_title(Some("GStreamer Pipeline Studio"));
 
         let settings = Settings::load_settings();
         window.set_size_request(settings.app_width, settings.app_height);
