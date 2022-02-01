@@ -10,11 +10,14 @@ use crate::logger;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Settings {
-    pub favorites: Vec<String>,
     pub app_maximized: bool,
     pub app_width: i32,
     pub app_height: i32,
+
+    // values must be emitted before tables
+    pub favorites: Vec<String>,
     pub paned_positions: HashMap<String, i32>,
+    pub preferences: HashMap<String, String>,
 }
 
 impl Settings {

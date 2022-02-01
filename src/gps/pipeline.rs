@@ -22,6 +22,7 @@ use crate::graphmanager::{GraphView, Node, NodeType, PortDirection, PropertyExt}
 
 use crate::gps::ElementInfo;
 use crate::logger;
+use crate::settings;
 use crate::GPS_INFO;
 
 use gst::glib;
@@ -85,7 +86,6 @@ impl Pipeline {
         #[cfg(feature = "gtk4-plugin")]
         {
             gstgtk4::plugin_register_static().expect("Failed to register gstgtk4 plugin");
-            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::Primary);
         }
 
         Ok(pipeline)
@@ -97,6 +97,18 @@ impl Pipeline {
 
     pub fn create_pipeline(&self, description: &str) -> anyhow::Result<gst::Pipeline> {
         GPS_INFO!("Creating pipeline {}", description);
+
+        if settings::Settings::load_settings()
+            .preferences
+            .get("use_gtk4_sink")
+            .unwrap_or(&"true".to_string())
+            .parse::<bool>()
+            .expect("Should a boolean value")
+        {
+            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::Primary);
+        } else {
+            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::Marginal);
+        }
 
         // Create pipeline from the description
         let pipeline = gst::parse_launch(&description.to_string())?;

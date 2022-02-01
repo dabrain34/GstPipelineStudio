@@ -271,6 +271,8 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("delete", None));
         application.set_accels_for_action("app.delete", &["<primary>d", "Delete"]);
+        application.add_action(&gio::SimpleAction::new("preferences", None));
+        application.set_accels_for_action("app.preferences", &["<primary>p"]);
 
         application.add_action(&gio::SimpleAction::new("quit", None));
         application.set_accels_for_action("app.quit", &["<primary>q"]);
@@ -503,6 +505,12 @@ impl GPSApp {
                 app.save_graph(&filename)
                     .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
             });
+        });
+
+        let app_weak = self.downgrade();
+        self.connect_app_menu_action("preferences", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            GPSUI::preferences::display_settings(&app);
         });
 
         let app_weak = self.downgrade();

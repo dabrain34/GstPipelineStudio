@@ -20,5 +20,6 @@ pub mod about;
 pub mod elements;
 pub mod logger;
 pub mod message;
+pub mod preferences;
 pub mod properties;
 pub mod treeview;
