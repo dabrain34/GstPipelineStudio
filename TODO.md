@@ -22,15 +22,51 @@
 - [x] Move render to a specific module
 - [x] Move GST render to a specific module
 
+## 0.2.0
+
+### Graphview
+
+- [x] Remove a port from a node when its possible (Presence support)
+- [x] Implement graphview unit test
+- [x] Add a css class for pad (presence always or sometimes)
+- [x] Add properties to Port to store some specific value (ie Caps)
+- [x] Unable to connect a port which is already connected
+- [x] Unable to connect port with same directions (in/in, out/out)
+
+### GStreamer:
+
+- [x] Add seek support
+- [x] Use of gtk4paintablesink
+
+### app
+
+- [x] Check that a node accepts to create a port on request (input/output)
+- [x] Render the parse launch line in a message box
+- [x] Prevent to create a pad in an element without the template
+- [x] Check the pipeline validity
+- [x] Save node position in XML
+- [x] Auto-save the graph
+- [x] Logger in file/app all over the app
+- [x] Property window in the main window
+- [x] Connect the GPS status to GST status
+- [x] Display position and duration
+- [x] Seek to position with slider
+- [x] One listbox with elements and one listbox with favorites in the app dashboard
+- [x] See the link creation with a dashed line
+- [x] Display pad properties with tooltip hover
+- [x] Add preferences dialog
+- [x] Create a window for the video output
+
+### infra
+
+- [x] Icon install
+- [x] Flatpak infrastructure
+
 ## TODO
 
 ### Graphview
 
 - [ ] create a crate for graphview/node/port
-- [x] Remove a port from a node if possible
-- [x] Implement graphview unit test
-- [x] add a css class for pad (presence always or sometimes)
-- [x] Add property to port to store some specific value(Caps)
 
 ### GStreamer:
 
@@ -38,38 +74,19 @@
 
 ### app
 
-- [x] check that a node accept to create a port on request (input/output)
 - [ ] Control the connection between element
-  - [x] unable to connect in and in out and out
   - [ ] unable to connect element with incompatible caps.
-  - [x] unable to connect a port which is already connected
-  - [ ] Create a window for the video output
 - [ ] Add multiple graphviews with tabs.
-- [x] Property window in the main window
-- [x] Connect the GPS status to GST status
 - [ ] Implement graph dot render/load
 - [ ] Implement a command line parser to graph
-- [x] Render the parse launch line in a message box
-- [x] Prevent to create a pad in an element without the template
-- [x] Check the pipeline validity
-- [x] Save node position in XML
-- [x] Autosave the graph
-- [x] Logger in file/app all over the app
 - [ ] handle the caps setter element
 - [ ] Add probes on each pad to monitor the pipeline
-- [x] Display pad properties with tooltip hover
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
 - [ ] Display tags/meta/message detected
-- [x] Display position and duration
-- [x] Seek to position
-- [x] One listbox with elements and one listbox with favorites in the app dashboard
-- [x] See the link creation with a dashed line
 
 ### CI/Infra
 
-- [x] Icon install
-- [x] Flatpak infrastructure
 - [ ] Create a macos/windows job
 
 ## bugs
