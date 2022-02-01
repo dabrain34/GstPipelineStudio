@@ -1,4 +1,5 @@
 use gtk::glib;
+use std::collections::HashMap;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
 
@@ -13,10 +14,7 @@ pub struct Settings {
     pub app_maximized: bool,
     pub app_width: i32,
     pub app_height: i32,
-    pub app_graph_dashboard_paned_pos: i32,
-    pub app_graph_logs_paned_pos: i32,
-    pub app_elements_preview_paned_pos: i32,
-    pub app_elements_properties_paned_pos: i32,
+    pub paned_positions: HashMap<String, i32>,
 }
 
 impl Settings {
@@ -101,15 +99,27 @@ impl Settings {
                 }
             }
         } else {
-            Settings {
+            let mut settings = Settings {
                 app_width: 800,
                 app_height: 600,
-                app_graph_dashboard_paned_pos: 600,
-                app_graph_logs_paned_pos: 400,
-                app_elements_preview_paned_pos: 300,
-                app_elements_properties_paned_pos: 150,
                 ..Default::default()
-            }
+            };
+            settings
+                .paned_positions
+                .insert(String::from("graph_dashboard-paned"), 600);
+            settings
+                .paned_positions
+                .insert(String::from("graph_logs-paned"), 400);
+            settings
+                .paned_positions
+                .insert(String::from("elements_preview-paned"), 300);
+            settings
+                .paned_positions
+                .insert(String::from("elements_properties-paned"), 150);
+            settings
+                .paned_positions
+                .insert(String::from("playcontrols_position-paned"), 400);
+            settings
         }
     }
 }

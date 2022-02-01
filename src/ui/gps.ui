@@ -145,7 +145,7 @@
         <property name="orientation">vertical</property>
         <property name="spacing">1</property>
         <child>
-          <object class="GtkPaned">
+          <object class="GtkPaned" id="playcontrols_position-paned">
             <property name="vexpand">0</property>
             <child>
               <object class="GtkBox">

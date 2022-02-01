@@ -106,28 +106,6 @@ impl GPSApp {
         window.set_application(Some(application));
         window.set_title(Some("GStreamer Pipeline Studio"));
 
-        let settings = Settings::load_settings();
-        window.set_size_request(settings.app_width, settings.app_height);
-        let paned: Paned = builder
-            .object("graph_dashboard-paned")
-            .expect("Couldn't get graph_dashboard-paned");
-        paned.set_position(settings.app_graph_dashboard_paned_pos);
-        let paned: Paned = builder
-            .object("graph_logs-paned")
-            .expect("Couldn't get graph_logs-paned");
-        paned.set_position(settings.app_graph_logs_paned_pos);
-        let paned: Paned = builder
-            .object("elements_preview-paned")
-            .expect("Couldn't get elements_preview-paned");
-        paned.set_position(settings.app_elements_preview_paned_pos);
-        let paned: Paned = builder
-            .object("elements_properties-paned")
-            .expect("Couldn't get elements_properties-paned");
-        paned.set_position(settings.app_elements_properties_paned_pos);
-
-        if settings.app_maximized {
-            window.maximize();
-        }
         let pipeline = GPS::Pipeline::new().expect("Unable to initialize GStreamer subsystem");
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
@@ -140,7 +118,50 @@ impl GPSApp {
         let app_weak = app.downgrade();
         app.pipeline.borrow().set_app(app_weak);
         app.graphview.borrow_mut().set_id(0);
+
+        let settings = Settings::load_settings();
+
+        if settings.app_maximized {
+            app.window.maximize();
+        } else {
+            app.window
+                .set_size_request(settings.app_width, settings.app_height);
+        }
+        app.set_paned_position(&settings, "graph_dashboard-paned", 100);
+        app.set_paned_position(&settings, "graph_logs-paned", 100);
+        app.set_paned_position(&settings, "elements_preview-paned", 100);
+        app.set_paned_position(&settings, "elements_properties-paned", 100);
+        app.set_paned_position(&settings, "playcontrols_position-paned", 100);
+
         Ok(app)
+    }
+
+    fn set_paned_position(
+        &self,
+        settings: &Settings,
+        paned_name: &str,
+        paned_default_position: i32,
+    ) {
+        let paned: Paned = self
+            .builder
+            .object(paned_name)
+            .unwrap_or_else(|| panic!("Couldn't get {}", paned_name));
+        paned.set_position(
+            *settings
+                .paned_positions
+                .get(paned_name)
+                .unwrap_or(&paned_default_position),
+        );
+    }
+
+    fn save_paned_position(&self, settings: &mut Settings, paned_name: &str) {
+        let paned: Paned = self
+            .builder
+            .object(paned_name)
+            .unwrap_or_else(|| panic!("Couldn't get {}", paned_name));
+        settings
+            .paned_positions
+            .insert(paned_name.to_string(), paned.position());
     }
 
     pub fn on_startup(application: &gtk::Application) {
@@ -220,26 +241,12 @@ impl GPSApp {
             settings.app_maximized = window.is_maximized();
             settings.app_width = window.width();
             settings.app_height = window.height();
-            let paned: Paned = app
-                .builder
-                .object("graph_dashboard-paned")
-                .expect("Couldn't get graph_dashboard-paned");
-            settings.app_graph_dashboard_paned_pos = paned.position();
-            let paned: Paned = app
-                .builder
-                .object("graph_logs-paned")
-                .expect("Couldn't get graph_logs-paned");
-            settings.app_graph_logs_paned_pos = paned.position();
-            let paned: Paned = app
-                .builder
-                .object("elements_preview-paned")
-                .expect("Couldn't get elements_preview-paned");
-            settings.app_elements_preview_paned_pos = paned.position();
-            let paned: Paned = app
-                .builder
-                .object("elements_properties-paned")
-                .expect("Couldn't get elements_properties-paned");
-            settings.app_elements_properties_paned_pos = paned.position();
+            app.save_paned_position(&mut settings, "graph_dashboard-paned");
+            app.save_paned_position(&mut settings, "graph_logs-paned");
+            app.save_paned_position(&mut settings, "elements_preview-paned");
+            app.save_paned_position(&mut settings, "elements_properties-paned");
+            app.save_paned_position(&mut settings, "playcontrols_position-paned");
+
             Settings::save_settings(&settings);
 
             let pop_menu: PopoverMenu = app
