@@ -18,7 +18,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::logger;
-use crate::GPS_INFO;
 
 use crate::gps::ElementInfo;
 use crate::graphmanager::{PortDirection, PortPresence};
@@ -72,7 +71,7 @@ impl PadInfo {
             if factory.num_pad_templates() > 0 {
                 let pads = factory.static_pad_templates();
                 for pad in pads {
-                    GPS_INFO!("Found a pad name {}", pad.name_template());
+                    GPS_TRACE!("Found a pad name {}", pad.name_template());
                     if pad.presence() == gst::PadPresence::Always
                         || (include_on_request
                             && (pad.presence() == gst::PadPresence::Request
