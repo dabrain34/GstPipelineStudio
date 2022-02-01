@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Graph id="0">
+  <Node name="timeoverlay" id="9" type="Transform" pos_x="1023.9133" pos_y="320.11438">
+    <Port name="out" id="17" direction="Output" presence="Always">
+      <Property name="caps" value="video/x-raw, format=(string){ AYUV64, ARGB64, GBRA_12LE, GBRA_12BE, Y412_LE, Y412_BE, A444_10LE, GBRA_10LE, A444_10BE, GBRA_10BE, A422_10LE, A422_10BE, A420_10LE, A420_10BE, RGB10A2_LE, BGR10A2_LE, Y410, GBRA, ABGR, VUYA, BGRA, AYUV, ARGB, RGBA, A420, Y444_16LE, Y444_16BE, v216, P016_LE, P016_BE, Y444_12LE, GBR_12LE, Y444_12BE, GBR_12BE, I422_12LE, I422_12BE, Y212_LE, Y212_BE, I420_12LE, I420_12BE, P012_LE, P012_BE, Y444_10LE, GBR_10LE, Y444_10BE, GBR_10BE, r210, I422_10LE, I422_10BE, NV16_10LE32, Y210, v210, UYVP, I420_10LE, I420_10BE, P010_10LE, NV12_10LE32, NV12_10LE40, P010_10BE, Y444, GBR, NV24, xBGR, BGRx, xRGB, RGBx, BGR, IYU2, v308, RGB, Y42B, NV61, NV16, VYUY, UYVY, YVYU, YUY2, I420, YV12, NV21, NV12, NV12_64Z32, NV12_4L4, NV12_32L32, Y41B, IYU1, YVU9, YUV9, RGB16, BGR16, RGB15, BGR15, RGB8P, GRAY16_LE, GRAY16_BE, GRAY10_LE32, GRAY8 }, width=(int)[ 1, 2147483647 ], height=(int)[ 1, 2147483647 ], framerate=(fraction)[ 0/1, 2147483647/1 ]; video/x-raw(ANY), format=(string){ AYUV64, ARGB64, GBRA_12LE, GBRA_12BE, Y412_LE, Y412_BE, A444_10LE, GBRA_10LE, A444_10BE, GBRA_10BE, A422_10LE, A422_10BE, A420_10LE, A420_10BE, RGB10A2_LE, BGR10A2_LE, Y410, GBRA, ABGR, VUYA, BGRA, AYUV, ARGB, RGBA, A420, Y444_16LE, Y444_16BE, v216, P016_LE, P016_BE, Y444_12LE, GBR_12LE, Y444_12BE, GBR_12BE, I422_12LE, I422_12BE, Y212_LE, Y212_BE, I420_12LE, I420_12BE, P012_LE, P012_BE, Y444_10LE, GBR_10LE, Y444_10BE, GBR_10BE, r210, I422_10LE, I422_10BE, NV16_10LE32, Y210, v210, UYVP, I420_10LE, I420_10BE, P010_10LE, NV12_10LE32, NV12_10LE40, P010_10BE, Y444, GBR, NV24, xBGR, BGRx, xRGB, RGBx, BGR, IYU2, v308, RGB, Y42B, NV61, NV16, VYUY, UYVY, YVYU, YUY2, I420, YV12, NV21, NV12, NV12_64Z32, NV12_4L4, NV12_32L32, Y41B, IYU1, YVU9, YUV9, RGB16, BGR16, RGB15, BGR15, RGB8P, GRAY16_LE, GRAY16_BE, GRAY10_LE32, GRAY8 }, width=(int)[ 1, 2147483647 ], height=(int)[ 1, 2147483647 ], framerate=(fraction)[ 0/1, 2147483647/1 ]" />
+    </Port>
+    <Port name="in" id="16" direction="Input" presence="Always">
+      <Property name="caps" value="video/x-raw, format=(string){ AYUV64, ARGB64, GBRA_12LE, GBRA_12BE, Y412_LE, Y412_BE, A444_10LE, GBRA_10LE, A444_10BE, GBRA_10BE, A422_10LE, A422_10BE, A420_10LE, A420_10BE, RGB10A2_LE, BGR10A2_LE, Y410, GBRA, ABGR, VUYA, BGRA, AYUV, ARGB, RGBA, A420, Y444_16LE, Y444_16BE, v216, P016_LE, P016_BE, Y444_12LE, GBR_12LE, Y444_12BE, GBR_12BE, I422_12LE, I422_12BE, Y212_LE, Y212_BE, I420_12LE, I420_12BE, P012_LE, P012_BE, Y444_10LE, GBR_10LE, Y444_10BE, GBR_10BE, r210, I422_10LE, I422_10BE, NV16_10LE32, Y210, v210, UYVP, I420_10LE, I420_10BE, P010_10LE, NV12_10LE32, NV12_10LE40, P010_10BE, Y444, GBR, NV24, xBGR, BGRx, xRGB, RGBx, BGR, IYU2, v308, RGB, Y42B, NV61, NV16, VYUY, UYVY, YVYU, YUY2, I420, YV12, NV21, NV12, NV12_64Z32, NV12_4L4, NV12_32L32, Y41B, IYU1, YVU9, YUV9, RGB16, BGR16, RGB15, BGR15, RGB8P, GRAY16_LE, GRAY16_BE, GRAY10_LE32, GRAY8 }, width=(int)[ 1, 2147483647 ], height=(int)[ 1, 2147483647 ], framerate=(fraction)[ 0/1, 2147483647/1 ]; video/x-raw(ANY), format=(string){ AYUV64, ARGB64, GBRA_12LE, GBRA_12BE, Y412_LE, Y412_BE, A444_10LE, GBRA_10LE, A444_10BE, GBRA_10BE, A422_10LE, A422_10BE, A420_10LE, A420_10BE, RGB10A2_LE, BGR10A2_LE, Y410, GBRA, ABGR, VUYA, BGRA, AYUV, ARGB, RGBA, A420, Y444_16LE, Y444_16BE, v216, P016_LE, P016_BE, Y444_12LE, GBR_12LE, Y444_12BE, GBR_12BE, I422_12LE, I422_12BE, Y212_LE, Y212_BE, I420_12LE, I420_12BE, P012_LE, P012_BE, Y444_10LE, GBR_10LE, Y444_10BE, GBR_10BE, r210, I422_10LE, I422_10BE, NV16_10LE32, Y210, v210, UYVP, I420_10LE, I420_10BE, P010_10LE, NV12_10LE32, NV12_10LE40, P010_10BE, Y444, GBR, NV24, xBGR, BGRx, xRGB, RGBx, BGR, IYU2, v308, RGB, Y42B, NV61, NV16, VYUY, UYVY, YVYU, YUY2, I420, YV12, NV21, NV12, NV12_64Z32, NV12_4L4, NV12_32L32, Y41B, IYU1, YVU9, YUV9, RGB16, BGR16, RGB15, BGR15, RGB8P, GRAY16_LE, GRAY16_BE, GRAY10_LE32, GRAY8 }, width=(int)[ 1, 2147483647 ], height=(int)[ 1, 2147483647 ], framerate=(fraction)[ 0/1, 2147483647/1 ]" />
+    </Port>
+  </Node>
+  <Node name="queue" id="7" type="Transform" pos_x="914.41705" pos_y="30.562256">
+    <Port name="in" id="12" direction="Input" presence="Always" />
+    <Port name="out" id="13" direction="Output" presence="Always" />
+  </Node>
+  <Node name="autovideosink" id="6" type="Sink" pos_x="1285.3186" pos_y="319.52695">
+    <Port name="in" id="11" direction="Input" presence="Always" />
+  </Node>
+  <Node name="tee" id="5" type="Transform" pos_x="608.34827" pos_y="154.6546">
+    <Port name="in" id="7" direction="Input" presence="Sometimes" />
+    <Port name="out" id="10" direction="Output" presence="Sometimes" />
+    <Port name="in" id="9" direction="Input" presence="Sometimes" />
+    <Port name="out" id="8" direction="Output" presence="Sometimes" />
+  </Node>
+  <Node name="autovideosink" id="4" type="Sink" pos_x="1280.4825" pos_y="49.803894">
+    <Port name="in" id="6" direction="Input" presence="Always" />
+  </Node>
+  <Node name="videotestsrc" id="2" type="Source" pos_x="24.348145" pos_y="316.96716">
+    <Port name="out" id="2" direction="Output" presence="Always" />
+  </Node>
+  <Node name="videotestsrc" id="1" type="Source" pos_x="-13.714172" pos_y="38.73665">
+    <Port name="out" id="1" direction="Output" presence="Always" />
+  </Node>
+  <Node name="compositor" id="3" type="Transform" pos_x="374.61694" pos_y="158.55254">
+    <Port name="in" id="5" direction="Input" presence="Sometimes" />
+    <Port name="out" id="3" direction="Output" presence="Sometimes" />
+    <Port name="in" id="4" direction="Input" presence="Sometimes" />
+  </Node>
+  <Node name="queue" id="8" type="Transform" pos_x="808.4496" pos_y="307.0086">
+    <Port name="in" id="14" direction="Input" presence="Always" />
+    <Port name="out" id="15" direction="Output" presence="Always" />
+  </Node>
+  <Link id="4" node_from="3" node_to="5" port_from="3" port_to="7" active="true" />
+  <Link id="10" node_from="5" node_to="8" port_from="10" port_to="14" active="true" />
+  <Link id="2" node_from="2" node_to="3" port_from="2" port_to="5" active="true" />
+  <Link id="8" node_from="7" node_to="4" port_from="13" port_to="6" active="true" />
+  <Link id="12" node_from="8" node_to="9" port_from="15" port_to="16" active="true" />
+  <Link id="1" node_from="1" node_to="3" port_from="1" port_to="4" active="true" />
+  <Link id="7" node_from="5" node_to="7" port_from="8" port_to="12" active="true" />
+  <Link id="13" node_from="9" node_to="6" port_from="17" port_to="11" active="true" />
+</Graph>
