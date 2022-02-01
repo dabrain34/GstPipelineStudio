@@ -95,36 +95,6 @@
     <property name="step-increment">1</property>
     <property name="page-increment">10</property>
   </object>
-  <object class="GtkDialog" id="dialog-plugin-properties">
-    <property name="transient-for">mainwindow</property>
-    <property name="default-width">320</property>
-    <property name="default-height">260</property>
-    <property name="hide-on-close">True</property>
-    <child>
-      <object class="GtkBox">
-        <property name="orientation">vertical</property>
-        <child>
-          <object class="GtkScrolledWindow">
-            <property name="hexpand">True</property>
-            <property name="vexpand">True</property>
-            <child>
-              <object class="GtkBox" id="box-plugin-properties">
-                <property name="orientation">vertical</property>
-              </object>
-            </child>
-          </object>
-        </child>
-        <child>
-          <object class="GtkButton" id="button-apply-plugin-properties">
-            <property name="halign">end</property>
-            <property name="hexpand">1</property>
-            <property name="receives-default">1</property>
-            <property name="label" translatable="yes">apply</property>
-          </object>
-        </child>
-      </object>
-    </child>
-  </object>
   <object class="GtkApplicationWindow" id="mainwindow">
     <property name="title" translatable="yes">GstPipelineStudio</property>
     <property name="default-width">800</property>

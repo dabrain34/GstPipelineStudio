@@ -27,8 +27,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use gtk::{Box, Button, CheckButton, ComboBoxText, Dialog, Entry, Label, Widget};
-
 fn value_as_str(v: &glib::Value) -> Option<String> {
     match v.type_() {
         glib::Type::I8 => Some(str_some_value!(v, i8).to_string()),
@@ -52,10 +50,10 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
     property_name: &str,
     param: &glib::ParamSpec,
     f: F,
-) -> Option<Widget> {
+) -> Option<gtk::Widget> {
     match param.type_() {
         _t if param.type_() == glib::ParamSpecBoolean::static_type() => {
-            let check_button = CheckButton::new();
+            let check_button = gtk::CheckButton::new();
             check_button.set_widget_name(property_name);
             GPS_TRACE!("add CheckBox property : {}", check_button.widget_name());
             if let Some(value) = app.element_property(node_id, property_name) {
@@ -72,7 +70,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             check_button.connect_toggled(glib::clone!(@weak check_button => move |c| {
                 f(c.widget_name().to_string(), c.is_active().to_string() );
             }));
-            Some(check_button.upcast::<Widget>())
+            Some(check_button.upcast::<gtk::Widget>())
         }
         t if [
             glib::ParamSpecInt::static_type(),
@@ -83,7 +81,8 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
         ]
         .contains(&t) =>
         {
-            let entry = Entry::new();
+            let entry = gtk::Entry::new();
+            entry.set_width_request(350);
             entry.set_widget_name(property_name);
             GPS_TRACE!("Add Edit property : {}", entry.widget_name());
             if let Some(value) = app.element_property(node_id, property_name) {
@@ -101,7 +100,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             entry.connect_changed(glib::clone!(@weak entry=> move |e| {
                 f(e.widget_name().to_string(), e.text().to_string())
             }));
-            Some(entry.upcast::<Widget>())
+            Some(entry.upcast::<gtk::Widget>())
         }
         t if [
             glib::ParamSpecEnum::static_type(),
@@ -109,7 +108,8 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
         ]
         .contains(&t) =>
         {
-            let combo = ComboBoxText::new();
+            let combo = gtk::ComboBoxText::new();
+
             combo.set_widget_name(property_name);
             GPS_TRACE!("add ComboBox property : {}", combo.widget_name());
             if t.is_a(glib::ParamSpecEnum::static_type()) {
@@ -163,7 +163,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                     )
                 }
             });
-            Some(combo.upcast::<Widget>())
+            Some(combo.upcast::<gtk::Widget>())
         }
         _ => {
             GPS_INFO!(
@@ -177,37 +177,24 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
 }
 
 pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32) {
-    let dialog: Dialog = app
-        .builder
-        .object("dialog-plugin-properties")
-        .expect("Couldn't get dialog-plugin-properties");
+    let dialog = gtk::Dialog::with_buttons(
+        Some(&format!("{} properties", element_name)),
+        Some(&app.window),
+        gtk::DialogFlags::MODAL,
+        &[("Close", gtk::ResponseType::Close)],
+    );
 
-    dialog.set_title(Some(&format!("{} properties", element_name)));
     dialog.set_default_size(640, 480);
     dialog.set_modal(true);
 
-    let properties_box: Box = app
-        .builder
-        .object("box-plugin-properties")
-        .expect("Couldn't get box-plugin-properties");
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
     let properties = GPS::ElementInfo::element_properties(element_name).unwrap();
-    while let Some(child) = properties_box.first_child() {
-        properties_box.remove(&child);
-    }
 
-    let grid = gtk::Grid::builder()
-        .margin_start(6)
-        .margin_end(6)
-        .margin_top(6)
-        .margin_bottom(6)
-        .halign(gtk::Align::Start)
-        .valign(gtk::Align::Center)
-        .row_spacing(6)
-        .column_spacing(100)
-        .width_request(100)
-        .build();
+    let grid = gtk::Grid::new();
+    grid.set_column_spacing(4);
+    grid.set_row_spacing(4);
+    grid.set_margin_bottom(12);
 
     let mut properties: Vec<(&String, &glib::ParamSpec)> = properties.iter().collect();
     properties.sort_by(|a, b| a.0.cmp(b.0));
@@ -226,7 +213,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
             }),
         );
         if let Some(widget) = widget {
-            let label = Label::new(Some(name));
+            let label = gtk::Label::new(Some(name));
             label.set_hexpand(true);
             label.set_halign(gtk::Align::Start);
             label.set_margin_start(4);
@@ -235,24 +222,30 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
             i += 1;
         }
     }
-    properties_box.append(&grid);
-
-    let properties_apply_btn: Button = app
-        .builder
-        .object("button-apply-plugin-properties")
-        .expect("Couldn't get button-apply-plugin-properties");
+    let scrolledwindow = gtk::ScrolledWindow::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .build();
+    scrolledwindow.set_child(Some(&grid));
+    let content_area = dialog.content_area();
+    content_area.append(&scrolledwindow);
+    content_area.set_vexpand(true);
+    content_area.set_margin_start(10);
+    content_area.set_margin_end(10);
+    content_area.set_margin_top(10);
+    content_area.set_margin_bottom(10);
 
     let app_weak = app.downgrade();
-    properties_apply_btn.connect_clicked(
-        glib::clone!(@strong update_properties, @weak dialog => move |_| {
+    dialog.connect_response(
+        glib::clone!(@strong update_properties, @weak dialog => move |_,_| {
             let app = upgrade_weak!(app_weak);
+            for p in update_properties.borrow().values() {
+                GPS_INFO!("updated properties {}", p);
+            }
             app.update_element_properties(node_id, &update_properties.borrow());
             dialog.close();
         }),
     );
 
     dialog.show();
-    for p in update_properties.borrow().values() {
-        GPS_INFO!("updated properties {}", p);
-    }
 }
