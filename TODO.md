@@ -84,6 +84,9 @@
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
 - [ ] Display tags/meta/message detected
+- [ ] Change TreeView to ListView
+- [ ] Implement zoom on the view (https://gitlab.gnome.org/World/obfuscate/-/blob/master/src/widgets/drawing_area.rs)
+- [ ] Settings: add a log level selection
 
 ### CI/Infra
 
