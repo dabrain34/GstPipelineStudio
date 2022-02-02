@@ -35,8 +35,9 @@ dnf install gtk4-devel gstreamer1-devel gstreamer1-plugins-base-devel python3-pi
 ## Getting started
 
 ```sh
-meson builddir
-cargo run
+$ meson builddir -Dbuildtype=release
+$ ninja -C builddir
+$ ./builddir/target/release/gst_pipeline_studio
 ```
 
 ## License
