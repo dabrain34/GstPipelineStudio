@@ -11,8 +11,8 @@
   </description>
   <screenshots>
     <screenshot type="default">
-      <image>https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/blob/dab_infra_update/data/screenshots/gps_screenshot.png</image>
-      <caption>Player rendering video</caption>
+      <image>https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/raw/main/data/screenshots/gps_screenshot.png</image>
+      <caption>Composition</caption>
     </screenshot>
   </screenshots>
   <url type="homepage">https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio</url>
