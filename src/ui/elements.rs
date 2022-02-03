@@ -99,7 +99,8 @@ pub fn setup_favorite_list(app: &GPSApp) {
 }
 
 pub fn add_to_favorite_list(app: &GPSApp, element_name: String) {
-    let favorites = Settings::get_favorites_list();
+    let mut favorites = Settings::get_favorites_list();
+    favorites.sort();
     if !favorites.contains(&element_name) {
         let favorite_list: TreeView = app
             .builder
