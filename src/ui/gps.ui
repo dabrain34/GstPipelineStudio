@@ -36,6 +36,10 @@
   <menu id="port_menu">
     <section>
       <item>
+        <attribute name="label" translatable="yes" comments="port menu entry properties">_Properties</attribute>
+        <attribute name="action">app.port.properties</attribute>
+      </item>
+      <item>
         <attribute name="label" translatable="yes" comments="port menu entry delete the link">_Delete</attribute>
         <attribute name="action">app.port.delete</attribute>
       </item>
@@ -77,7 +81,7 @@
         </item>
       </submenu>
       <item>
-        <attribute name="label" translatable="yes" comments="Node menu entry request pad">_Properties</attribute>
+        <attribute name="label" translatable="yes" comments="Node menu entry properties">_Properties</attribute>
         <attribute name="action">app.node.properties</attribute>
         <attribute name="accel">&lt;primary&gt;n</attribute>
       </item>

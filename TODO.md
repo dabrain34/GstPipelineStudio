@@ -62,6 +62,12 @@
 - [x] Icon install
 - [x] Flatpak infrastructure
 
+## 0.2.1
+
+### app
+
+- [x] Can set pad properties to be used during the pipeline generation. See videomixer_alpha.xml
+
 ## TODO
 
 ### Graphview
