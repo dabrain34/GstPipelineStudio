@@ -22,7 +22,7 @@ use gtk::{
     prelude::*,
     subclass::prelude::*,
 };
-use log::info;
+use log::trace;
 use std::cell::RefCell;
 use std::cell::{Cell, Ref};
 use std::collections::HashMap;
@@ -223,15 +223,23 @@ impl SelectionExt for Port {
 }
 
 impl PropertyExt for Port {
-    /// Add a node property with a name and a value.
+    /// Add a port property with a name and a value.
     ///
     fn add_property(&self, name: &str, value: &str) {
         let private = imp::Port::from_instance(self);
-        info!("property name={} updated with value={}", name, value);
+        trace!("property name={} updated with value={}", name, value);
         private
             .properties
             .borrow_mut()
             .insert(name.to_string(), value.to_string());
+    }
+
+    /// Remove a port property with a name.
+    ///
+    fn remove_property(&self, name: &str) {
+        let private = imp::Port::from_instance(self);
+        trace!("property name={} removed", name);
+        private.properties.borrow_mut().remove(name);
     }
 
     /// Retrieves node properties.

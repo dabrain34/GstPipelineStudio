@@ -28,13 +28,21 @@ pub trait PropertyExt {
     ///
     fn add_property(&self, name: &str, value: &str);
 
+    /// Add a node property with a name and a value.
+    ///
+    fn remove_property(&self, name: &str);
+
     /// Update the properties.
     ///
     /// Update the PropertyExt properties.
     ///
     fn update_properties(&self, new_properties: &HashMap<String, String>) {
         for (key, value) in new_properties {
-            self.add_property(key, value);
+            if value.is_empty() {
+                self.remove_property(key);
+            } else {
+                self.add_property(key, value);
+            }
         }
     }
 

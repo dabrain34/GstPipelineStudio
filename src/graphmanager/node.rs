@@ -344,6 +344,14 @@ impl PropertyExt for Node {
         self.update_description();
     }
 
+    /// Remove a port property with a name.
+    ///
+    fn remove_property(&self, name: &str) {
+        let private = imp::Node::from_instance(self);
+        trace!("property name={} removed", name);
+        private.properties.borrow_mut().remove(name);
+    }
+
     /// Retrieves node properties.
     ///
     fn properties(&self) -> Ref<HashMap<String, String>> {
