@@ -17,7 +17,7 @@ run_command(
 )
 
 rust_sources = files(
-  'gps/pipeline.rs',
+  'gps/player.rs',
   'gps/element.rs',
   'gps/pad.rs',
   'gps/mod.rs',

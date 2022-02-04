@@ -1,4 +1,4 @@
-// pipeline.rs
+// player.rs
 //
 // Copyright 2021 Stéphane Cerveau <scerveau@collabora.com>
 //
@@ -49,39 +49,41 @@ impl fmt::Display for PipelineState {
 }
 
 #[derive(Debug, Clone)]
-pub struct Pipeline(Rc<PipelineInner>);
+pub struct Player(Rc<PlayerInner>);
 
 // Deref into the contained struct to make usage a bit more ergonomic
-impl ops::Deref for Pipeline {
-    type Target = PipelineInner;
+impl ops::Deref for Player {
+    type Target = PlayerInner;
 
-    fn deref(&self) -> &PipelineInner {
+    fn deref(&self) -> &PlayerInner {
         &*self.0
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct PipelineWeak(Weak<PipelineInner>);
+pub struct PlayerWeak(Weak<PlayerInner>);
 
-impl PipelineWeak {
-    pub fn upgrade(&self) -> Option<Pipeline> {
-        self.0.upgrade().map(Pipeline)
+impl PlayerWeak {
+    pub fn upgrade(&self) -> Option<Player> {
+        self.0.upgrade().map(Player)
     }
 }
 
 #[derive(Debug)]
-pub struct PipelineInner {
+pub struct PlayerInner {
     app: RefCell<Option<GPSApp>>,
     pipeline: RefCell<Option<gst::Pipeline>>,
     current_state: Cell<PipelineState>,
+    n_video_sink: Cell<usize>,
 }
 
-impl Pipeline {
+impl Player {
     pub fn new() -> anyhow::Result<Self> {
-        let pipeline = Pipeline(Rc::new(PipelineInner {
+        let pipeline = Player(Rc::new(PlayerInner {
             app: RefCell::new(None),
             pipeline: RefCell::new(None),
             current_state: Cell::new(PipelineState::Stopped),
+            n_video_sink: Cell::new(0),
         }));
         #[cfg(feature = "gtk4-plugin")]
         {
@@ -120,6 +122,7 @@ impl Pipeline {
                 "Unable to create a pipeline from the given parse launch {"
             ));
         }
+
         Ok(pipeline.unwrap())
     }
 
@@ -185,7 +188,7 @@ impl Pipeline {
                 .borrow()
                 .as_ref()
                 .expect("App should be available")
-                .set_app_state(Pipeline::state_to_app_state(new_state));
+                .set_app_state(Player::state_to_app_state(new_state));
         }
         Ok(new_state)
     }
@@ -243,8 +246,8 @@ impl Pipeline {
         }
     }
 
-    pub fn downgrade(&self) -> PipelineWeak {
-        PipelineWeak(Rc::downgrade(&self.0))
+    pub fn downgrade(&self) -> PlayerWeak {
+        PlayerWeak(Rc::downgrade(&self.0))
     }
 
     fn on_pipeline_message(&self, msg: &gst::MessageRef) {
@@ -335,7 +338,7 @@ impl Pipeline {
     }
 }
 
-impl Drop for PipelineInner {
+impl Drop for PlayerInner {
     fn drop(&mut self) {
         // TODO: If a recording is currently running we would like to finish that first
         // before quitting the pipeline and shutting down the pipeline.

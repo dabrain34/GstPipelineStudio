@@ -50,7 +50,7 @@ pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
     pub graphview: RefCell<GM::GraphView>,
     pub builder: Builder,
-    pub pipeline: RefCell<GPS::Pipeline>,
+    pub player: RefCell<GPS::Player>,
     pub plugin_list_initialized: OnceCell<bool>,
     pub signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
 }
@@ -106,17 +106,17 @@ impl GPSApp {
         window.set_application(Some(application));
         window.set_title(Some("GStreamer Pipeline Studio"));
 
-        let pipeline = GPS::Pipeline::new().expect("Unable to initialize GStreamer subsystem");
+        let player = GPS::Player::new().expect("Unable to initialize GStreamer subsystem");
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
             graphview: RefCell::new(GM::GraphView::new()),
             builder,
-            pipeline: RefCell::new(pipeline),
+            player: RefCell::new(player),
             plugin_list_initialized: OnceCell::new(),
             signal_handlers: RefCell::new(HashMap::new()),
         }));
         let app_weak = app.downgrade();
-        app.pipeline.borrow().set_app(app_weak);
+        app.player.borrow().set_app(app_weak);
         app.graphview.borrow_mut().set_id(0);
 
         let settings = Settings::load_settings();
@@ -189,10 +189,10 @@ impl GPSApp {
             .expect("Couldn't get status_bar");
         let slider_update_signal_id = slider.connect_value_changed(move |slider| {
             let app = upgrade_weak!(app_weak);
-            let pipeline = app.pipeline.borrow();
+            let player = app.player.borrow();
             let value = slider.value() as u64;
             GPS_TRACE!("Seeking to {} s", value);
-            if pipeline.set_position(value).is_err() {
+            if player.set_position(value).is_err() {
                 GPS_ERROR!("Seeking to {} failed", value);
             }
         });
@@ -200,7 +200,7 @@ impl GPSApp {
         let timeout_id =
             glib::timeout_add_local(std::time::Duration::from_millis(500), move || {
                 let app = upgrade_weak!(app_weak, glib::Continue(false));
-                let pipeline = app.pipeline.borrow();
+                let player = app.player.borrow();
 
                 let label: gtk::Label = app
                     .builder
@@ -210,15 +210,15 @@ impl GPSApp {
                     .builder
                     .object("scale-position")
                     .expect("Couldn't get status_bar");
-                let position = pipeline.position();
-                let duration = pipeline.duration();
+                let position = player.position();
+                let duration = player.duration();
                 slider.set_range(0.0, duration as f64 / 1000_f64);
                 slider.block_signal(&slider_update_signal_id);
                 slider.set_value(position as f64 / 1000_f64);
                 slider.unblock_signal(&slider_update_signal_id);
 
-                // Query the current playing position from the underlying pipeline.
-                let position_desc = pipeline.position_description();
+                // Query the current playing position from the underlying player.
+                let position_desc = player.position_description();
                 // Display the playing position in the gui.
                 label.set_text(&position_desc);
                 // Tell the callback to continue calling this closure.
@@ -538,7 +538,7 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let graph_view = app.graphview.borrow();
             let _ = app
-                .pipeline
+                .player
                 .borrow()
                 .start_pipeline(&graph_view, GPS::PipelineState::Playing);
         });
@@ -548,7 +548,7 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let graph_view = app.graphview.borrow();
             let _ = app
-                .pipeline
+                .player
                 .borrow()
                 .start_pipeline(&graph_view, GPS::PipelineState::Paused);
         });
@@ -556,8 +556,8 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_button_action("button-stop", move |_| {
             let app = upgrade_weak!(app_weak);
-            let pipeline = app.pipeline.borrow();
-            let _ = pipeline.set_state(GPS::PipelineState::Stopped);
+            let player = app.player.borrow();
+            let _ = player.set_state(GPS::PipelineState::Stopped);
         });
 
         let app_weak = self.downgrade();
@@ -647,8 +647,8 @@ impl GPSApp {
                     app.connect_app_menu_action("graph.check",
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
-                            let render_parse_launch = app.pipeline.borrow().render_gst_launch(&app.graphview.borrow());
-                            if app.pipeline.borrow().create_pipeline(&render_parse_launch).is_ok() {
+                            let render_parse_launch = app.player.borrow().render_gst_launch(&app.graphview.borrow());
+                            if app.player.borrow().create_pipeline(&render_parse_launch).is_ok() {
                                 GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
                             } else {
                                 GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{}", render_parse_launch));

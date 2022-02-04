@@ -505,6 +505,7 @@ name = "gst_pipeline_studio"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "fragile",
  "futures-channel",
  "futures-executor",
  "gettext-rs",
