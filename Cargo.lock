@@ -478,9 +478,9 @@ dependencies = [
 
 [[package]]
 name = "gst-plugin-gtk4"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f70501fa85dfdbeebecea35d747791351d04266f5c2c4aa23014d9fe74132290"
+checksum = "e62e047edb1932887c20105c681203d138ebeb61b83b9e0b368cdec1d0fbc0cc"
 dependencies = [
  "fragile",
  "gst-plugin-version-helper",
@@ -502,10 +502,9 @@ dependencies = [
 
 [[package]]
 name = "gst_pipeline_studio"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
- "fragile",
  "futures-channel",
  "futures-executor",
  "gettext-rs",

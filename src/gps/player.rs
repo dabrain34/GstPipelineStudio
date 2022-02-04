@@ -99,7 +99,7 @@ impl Player {
 
     pub fn create_pipeline(&self, description: &str) -> anyhow::Result<gst::Pipeline> {
         GPS_INFO!("Creating pipeline {}", description);
-
+        self.n_video_sink.set(0);
         if settings::Settings::load_settings()
             .preferences
             .get("use_gtk4_sink")
@@ -122,7 +122,36 @@ impl Player {
                 "Unable to create a pipeline from the given parse launch {"
             ));
         }
-
+        self.check_for_gtk4sink(pipeline.as_ref().unwrap());
+        // GPSApp is not Send(trait) ready , so we use a channel to exchange the given data with the main thread and use
+        // GPSApp.
+        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        let player_weak = self.downgrade();
+        let _ = ready_rx.attach(None, move |element: gst::Element| {
+            let player = upgrade_weak!(player_weak, glib::Continue(false));
+            let paintable = element.property::<gdk::Paintable>("paintable");
+            let n_sink = player.n_video_sink.get();
+            player
+                .app
+                .borrow()
+                .as_ref()
+                .expect("App should be available")
+                .set_app_preview(&paintable, n_sink);
+            player.n_video_sink.set(n_sink + 1);
+            glib::Continue(true)
+        });
+        let bin = pipeline.unwrap().dynamic_cast::<gst::Bin>();
+        if let Ok(bin) = bin.as_ref() {
+            bin.connect_deep_element_added(move |_, _, element| {
+                if let Some(factory) = element.factory() {
+                    GPS_INFO!("Received the signal deep element added {}", factory.name());
+                    if factory.name() == "gtk4paintablesink" {
+                        let _ = ready_tx.send(element.clone());
+                    }
+                }
+            });
+        }
+        let pipeline = bin.unwrap().dynamic_cast::<gst::Pipeline>();
         Ok(pipeline.unwrap())
     }
 
@@ -160,8 +189,6 @@ impl Player {
                 pipeline.on_pipeline_message(msg);
                 glib::Continue(true)
             })?;
-            pipeline.set_state(gst::State::Ready)?;
-            self.check_for_gtk4sink(&pipeline);
             *self.pipeline.borrow_mut() = Some(pipeline);
         }
 
