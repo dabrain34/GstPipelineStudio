@@ -51,6 +51,10 @@
         <attribute name="label" translatable="yes" comments="graph menu entry check graph">_Check graph</attribute>
         <attribute name="action">app.graph.check</attribute>
       </item>
+      <item>
+        <attribute name="label" translatable="yes" comments="graph menu entry pipeline details">_Pipeline details</attribute>
+        <attribute name="action">app.graph.pipeline_details</attribute>
+      </item>
     </section>
   </menu>
   <menu id="fav_menu">

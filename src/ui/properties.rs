@@ -170,9 +170,14 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
     }
 }
 
-pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32) {
+fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
+    name: &str,
+    app: &GPSApp,
+    grid: &gtk::Grid,
+    f: F,
+) -> gtk::Dialog {
     let dialog = gtk::Dialog::with_buttons(
-        Some(&format!("{} properties", element_name)),
+        Some(name),
         Some(&app.window),
         gtk::DialogFlags::MODAL,
         &[("Close", gtk::ResponseType::Close)],
@@ -180,7 +185,29 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
 
     dialog.set_default_size(640, 480);
     dialog.set_modal(true);
+    let app_weak = app.downgrade();
+    dialog.connect_response(glib::clone!(@weak dialog => move |_,_| {
+        let app = upgrade_weak!(app_weak);
+        f(app, dialog)
+    }));
 
+    let scrolledwindow = gtk::ScrolledWindow::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .build();
+    scrolledwindow.set_child(Some(grid));
+    let content_area = dialog.content_area();
+    content_area.append(&scrolledwindow);
+    content_area.set_vexpand(true);
+    content_area.set_margin_start(10);
+    content_area.set_margin_end(10);
+    content_area.set_margin_top(10);
+    content_area.set_margin_bottom(10);
+
+    dialog
+}
+
+pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32) {
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
     let properties = GPS::ElementInfo::element_properties(element_name).unwrap();
@@ -216,23 +243,12 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
             i += 1;
         }
     }
-    let scrolledwindow = gtk::ScrolledWindow::builder()
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    scrolledwindow.set_child(Some(&grid));
-    let content_area = dialog.content_area();
-    content_area.append(&scrolledwindow);
-    content_area.set_vexpand(true);
-    content_area.set_margin_start(10);
-    content_area.set_margin_end(10);
-    content_area.set_margin_top(10);
-    content_area.set_margin_bottom(10);
 
-    let app_weak = app.downgrade();
-    dialog.connect_response(
-        glib::clone!(@strong update_properties, @weak dialog => move |_,_| {
-            let app = upgrade_weak!(app_weak);
+    let dialog = create_dialog(
+        &format!("{} properties", element_name),
+        app,
+        &grid,
+        glib::clone!(@strong update_properties => move |app, dialog| {
             for p in update_properties.borrow().values() {
                 GPS_INFO!("updated properties {}", p);
             }
@@ -251,16 +267,6 @@ pub fn display_pad_properties(
     node_id: u32,
     port_id: u32,
 ) {
-    let dialog = gtk::Dialog::with_buttons(
-        Some(&format!("{} properties from {}", port_name, element_name,)),
-        Some(&app.window),
-        gtk::DialogFlags::MODAL,
-        &[("Close", gtk::ResponseType::Close)],
-    );
-
-    dialog.set_default_size(640, 480);
-    dialog.set_modal(true);
-
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
 
@@ -317,23 +323,11 @@ pub fn display_pad_properties(
 
     // Add all specific properties from the given element
 
-    let scrolledwindow = gtk::ScrolledWindow::builder()
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    scrolledwindow.set_child(Some(&grid));
-    let content_area = dialog.content_area();
-    content_area.append(&scrolledwindow);
-    content_area.set_vexpand(true);
-    content_area.set_margin_start(10);
-    content_area.set_margin_end(10);
-    content_area.set_margin_top(10);
-    content_area.set_margin_bottom(10);
-
-    let app_weak = app.downgrade();
-    dialog.connect_response(
-        glib::clone!(@strong update_properties, @weak dialog => move |_,_| {
-            let app = upgrade_weak!(app_weak);
+    let dialog = create_dialog(
+        &format!("{} properties from {}", port_name, element_name),
+        app,
+        &grid,
+        glib::clone!(@strong update_properties => move |app, dialog| {
             for p in update_properties.borrow().values() {
                 GPS_INFO!("updated properties {}", p);
             }
@@ -343,4 +337,39 @@ pub fn display_pad_properties(
     );
 
     dialog.show();
+}
+
+pub fn display_pipeline_details(app: &GPSApp) {
+    let grid = gtk::Grid::new();
+    grid.set_column_spacing(4);
+    grid.set_row_spacing(4);
+    grid.set_margin_bottom(12);
+
+    if let Some(elements) = app.player.borrow().pipeline_elements() {
+        let elements_list = elements.join(" ");
+        let label = gtk::Label::builder()
+            .label("Elements:")
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .valign(gtk::Align::Start)
+            .margin_start(4)
+            .build();
+
+        let value = gtk::Label::builder()
+            .label(&elements_list)
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .margin_start(4)
+            .wrap(true)
+            .build();
+
+        grid.attach(&label, 0, 0_i32, 1, 1);
+        grid.attach(&value, 1, 0_i32, 1, 1);
+
+        let dialog = create_dialog("Pipeline properties", app, &grid, move |_app, dialog| {
+            dialog.close();
+        });
+
+        dialog.show();
+    }
 }

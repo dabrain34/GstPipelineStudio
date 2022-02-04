@@ -273,6 +273,10 @@ impl Player {
         }
     }
 
+    pub fn playing(&self) -> bool {
+        self.state() == PipelineState::Playing || self.state() == PipelineState::Paused
+    }
+
     pub fn downgrade(&self) -> PlayerWeak {
         PlayerWeak(Rc::downgrade(&self.0))
     }
@@ -306,6 +310,24 @@ impl Player {
             },
             _ => (),
         };
+    }
+
+    pub fn pipeline_elements(&self) -> Option<Vec<String>> {
+        if self.playing() {
+            let bin = self
+                .pipeline
+                .borrow()
+                .clone()
+                .unwrap()
+                .dynamic_cast::<gst::Bin>()
+                .unwrap();
+            let elements_name: Vec<String> = ElementInfo::search_fo_element(&bin, "")
+                .iter()
+                .map(|e| e.factory().unwrap().name().to_string())
+                .collect();
+            return Some(elements_name);
+        }
+        None
     }
 
     // Render graph methods

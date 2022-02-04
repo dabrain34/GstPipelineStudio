@@ -286,6 +286,7 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("favorite.remove", None));
 
         application.add_action(&gio::SimpleAction::new("graph.check", None));
+        application.add_action(&gio::SimpleAction::new("graph.pipeline_details", None));
 
         application.add_action(&gio::SimpleAction::new("port.delete", None));
         application.add_action(&gio::SimpleAction::new("port.properties", None));
@@ -653,6 +654,13 @@ impl GPSApp {
                             } else {
                                 GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{}", render_parse_launch));
                             }
+                        }
+                    );
+                    let app_weak = app.downgrade();
+                    app.connect_app_menu_action("graph.pipeline_details",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPSUI::properties::display_pipeline_details(&app);
                         }
                     );
                     pop_menu.show();

@@ -235,7 +235,9 @@ impl ElementInfo {
                         elements.append(&mut bin_elements);
                     } else {
                         GPS_INFO!("Found factory: {}", element.factory().unwrap().name());
-                        if element.factory().unwrap().name() == element_name {
+                        if element.factory().unwrap().name() == element_name
+                            || element_name.is_empty()
+                        {
                             GPS_INFO!("Found {}", element_name);
                             elements.push(element);
                         }
