@@ -67,6 +67,8 @@
 ### app
 
 - [x] Can set pad properties to be used during the pipeline generation. See videomixer_alpha.xml
+- [x] Support gtk4paintablesink with playin
+- [x] Display a pipeline properties dialog (list elements)
 
 ## TODO
 
