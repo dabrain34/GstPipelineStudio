@@ -77,6 +77,9 @@ rustdoc:
     - .fedora
     - .fdo.distribution-image@fedora
   stage: extras
+  only:
+    - flatpak
+    - tags
   variables:
     RUSTDOCFLAGS: "-Dwarnings"
   script:
@@ -86,7 +89,7 @@ rustdoc:
 
 flatpak:
   image: "registry.gitlab.gnome.org/gnome/gnome-runtime-images/gnome:41"
-  stage: test
+  stage: extras
   only:
     - flatpak
     - tags
