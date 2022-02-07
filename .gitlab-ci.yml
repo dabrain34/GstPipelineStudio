@@ -7,7 +7,7 @@ stages:
   - prepare
   - lint
   - test
-  - extras
+  - release
 
 variables:
   FDO_UPSTREAM_REPO: "dabrain34/GstPipelineStudio"
@@ -76,7 +76,7 @@ rustdoc:
   extends:
     - .fedora
     - .fdo.distribution-image@fedora
-  stage: extras
+  stage: release
   only:
     - flatpak
     - tags
@@ -87,9 +87,21 @@ rustdoc:
     - rustdoc --version
     - cargo doc --no-deps
 
+dist-package:
+  extends:
+    - .fedora
+    - .fdo.distribution-image@fedora
+  stage: release
+  only:
+    - flatpak
+    - tags
+  script:
+    - meson build
+    - ninja -C build dist
+
 flatpak:
   image: "registry.gitlab.gnome.org/gnome/gnome-runtime-images/gnome:41"
-  stage: extras
+  stage: release
   only:
     - flatpak
     - tags

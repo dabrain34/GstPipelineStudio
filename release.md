@@ -6,4 +6,4 @@
 - create a tag on gitlab
 - meson builddir -Dbuildtype=release
 - ninja -C buiddir dist
-- upload the package and the sha256 to gitlab for Flatpak
+- upload the package and the sha256 to gitlab for Flatpak in the release notes
