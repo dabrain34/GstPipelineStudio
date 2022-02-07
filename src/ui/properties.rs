@@ -348,7 +348,7 @@ pub fn display_pipeline_details(app: &GPSApp) {
     if let Some(elements) = app.player.borrow().pipeline_elements() {
         let elements_list = elements.join(" ");
         let label = gtk::Label::builder()
-            .label("Elements:")
+            .label(&format!("{} elements:", elements.len()))
             .hexpand(true)
             .halign(gtk::Align::Start)
             .valign(gtk::Align::Start)
