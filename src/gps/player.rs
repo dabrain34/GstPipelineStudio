@@ -280,6 +280,11 @@ impl Player {
     fn on_pipeline_message(&self, msg: &gst::MessageRef) {
         use gst::MessageView;
         match msg.view() {
+            MessageView::Eos(_) => {
+                GPS_INFO!("EOS received");
+                self.set_state(PipelineState::Stopped)
+                    .expect("Unable to set state to stopped");
+            }
             MessageView::Error(err) => {
                 GPS_ERROR!(
                     "Error from {:?}: {} ({:?})",
@@ -288,7 +293,7 @@ impl Player {
                     err.debug()
                 );
                 self.set_state(PipelineState::Error)
-                    .expect("Unable to set state to stopped");
+                    .expect("Unable to set state to Error");
             }
             MessageView::Application(msg) => match msg.structure() {
                 // Here we can send ourselves messages from any thread and show them to the user in
