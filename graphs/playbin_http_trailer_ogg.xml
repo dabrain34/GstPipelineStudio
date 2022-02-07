@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Graph id="0">
+  <Node name="playbin3" id="1" type="Source" pos_x="330.09708" pos_y="140.2776">
+    <Property name="uri" value="https://download.blender.org/peach/trailer/trailer_400p.ogg" />
+  </Node>
+</Graph>
