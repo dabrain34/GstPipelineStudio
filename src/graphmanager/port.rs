@@ -186,6 +186,13 @@ impl Port {
         private.label.text().to_string()
     }
 
+    /// Set the port name
+    ///
+    pub fn set_name(&self, name: &str) {
+        let private = imp::Port::from_instance(self);
+        private.label.set_text(name);
+    }
+
     /// Retrieves the port direction
     ///
     pub fn direction(&self) -> PortDirection {
