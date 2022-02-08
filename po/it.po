@@ -1,0 +1,45 @@
+# Italian translations for gps package.
+# Copyright (C) 2022 THE gps'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the GstPipelineStudio package.
+# Automatically generated, 2022.
+# Albano Battistella <albano_battistella>, 2022.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gps\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2019-09-29 22:56+0200\n"
+"PO-Revision-Date: 2022-02-08 20:46+0100\n"
+"Last-Translator: Albano Battistella <albano_battistella@hotmail.com>\n"
+"Language-Team: Italian\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:7
+#: data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in:4
+msgid "GstPipelineStudio"
+msgstr "GstPipelineStudio"
+
+#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:8
+msgid "Draw your own GStreamer pipeline..."
+msgstr "Disegna la tua pipeline GStreamer..."
+
+#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:10
+msgid ""
+"GstPipelineStudio aims to provide a graphical user interface to the GStreamer framework. "
+"From a first step in the framework with a simple pipeline to a complex pipeline debugging, "
+"the tool provides a friendly interface to add elements to a pipeline and debug it."
+msgstr ""GstPipelineStudio mira a fornire un'interfaccia utente grafica al framework GStreamer. "
+"Da un primo passaggio nel framework con una pipeline semplice a un debug di una pipeline complessa,"
+"lo strumento fornisce un'interfaccia intuitiva per aggiungere elementi a una pipeline ed eseguirne il debug."
+
+#: data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in.in:4
+msgid "A GUI for GStreamer"
+msgstr "Una interfaccia grafica per GStreamer"
+
+#: src/app.rs:344
+msgid "GPS is ready"
+msgstr "GPS è pronto"
