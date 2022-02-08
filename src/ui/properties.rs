@@ -154,7 +154,9 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
 
             combo.connect_changed(move |c| {
                 if let Some(text) = c.active_text() {
-                    f(c.widget_name().to_string(), text.to_string())
+                    let value = text.to_string();
+                    let value = value.split_once(':');
+                    f(c.widget_name().to_string(), value.unwrap().0.to_string());
                 }
             });
             Some(combo.upcast::<gtk::Widget>())
