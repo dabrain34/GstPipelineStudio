@@ -70,6 +70,20 @@
 - [x] Support gtk4paintablesink with playbin
 - [x] Display a pipeline properties dialog (list elements)
 
+## 0.2.2
+
+### app
+
+- [x] Remove quit as it's unnecessary with close button
+- [x] Remove the close button in dialogs (properties etc.)
+- [x] Unable to use flags in playbin3
+- [x] the desktop icon execs gps_pipeline_studio
+- [x] move burger menu on the right
+
+### Graphview
+
+- [x] Update node description on property removal
+
 ## TODO
 
 ### Graphview
@@ -96,11 +110,8 @@
 - [ ] Implement zoom on the view (https://gitlab.gnome.org/World/obfuscate/-/blob/master/src/widgets/drawing_area.rs)
 - [ ] Settings: add a log level selection
 - [ ] reopen the last log on prematured exit (crash)
-- [ ] burger menu must be on the right
-- [x] Remove quit as it's unnecessary with close cross
 - [ ] Play/pause should be prevented until the pipeline is ready
 - [ ] Filter the elements by class/rank etc.
-- [x] Remove the close button in dialogs (properties etc.)
 
 ### CI/Infra
 
@@ -109,4 +120,3 @@
 ## bugs
 
 - [ ] check that element exists before creating it on file load.
-- [x] Unable to use flags in playbin3
