@@ -120,3 +120,4 @@
 ## bugs
 
 - [ ] check that element exists before creating it on file load.
+- [ ] Combo box is not well selected if the value is not linear such as flags. See flags in playbin
