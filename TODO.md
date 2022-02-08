@@ -98,6 +98,8 @@
 - [ ] reopen the last log on prematured exit (crash)
 - [ ] burger menu must be on the right
 - [x] Remove quit as it's unnecessary with close cross
+- [ ] Play/pause should be prevented until the pipeline is ready
+- [ ] Filter the elements by class/rank etc.
 - [x] Remove the close button in dialogs (properties etc.)
 
 ### CI/Infra
