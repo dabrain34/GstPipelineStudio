@@ -27,6 +27,8 @@ install_data(
 appdata_conf = configuration_data()
 appdata_conf.set('app-id', application_id)
 appdata_conf.set('gettext-package', gettext_package)
+appdata_conf.set('version', version)
+appdata_conf.set('current_date', current_date)
 appdata_file = i18n.merge_file (
   input: configure_file(
     input: '@0@.appdata.xml.in.in'.format(base_id),

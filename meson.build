@@ -5,6 +5,9 @@ project('gst_pipeline_studio',
                    ],
           license: 'GPL-3.0-or-later',
 )
+python_mod = import('python')
+python3 = python_mod.find_installation()
+current_date = run_command(python3, '-c', 'import datetime; print(datetime.datetime.now().strftime("%Y-%m-%d"), end ="")').stdout()
 i18n = import('i18n')
 
 dependency('glib-2.0', version: '>= 2.66')

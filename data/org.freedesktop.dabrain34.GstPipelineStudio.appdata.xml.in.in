@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright 2019 Guillaume Desmottes 2019 <guillaume@desmottes.be -->
+<!-- Copyright 2022 Stephane Cerveau 2022 <scerveau@collabora.com -->
 <component type="desktop-application">
   <id>@app-id@</id>
   <metadata_license>CC0</metadata_license>
@@ -27,7 +27,7 @@
   <translation type="gettext">@gettext-package@</translation>
   <launchable type="desktop-id">@app-id@.desktop</launchable>
     <releases>
-    <release version="0.1.0" date="2022-01-11"/>
+    <release version="@version@" date="@current_date@"/>
   </releases>
   <content_rating type="oars-1.1">
     <content_attribute id="violence-cartoon">none</content_attribute>
