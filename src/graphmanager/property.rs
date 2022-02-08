@@ -16,9 +16,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 // SPDX-License-Identifier: GPL-3.0-only
+use log::info;
 use std::cell::Ref;
 use std::collections::HashMap;
-
 pub trait PropertyExt {
     fn hidden_property(&self, name: &str) -> bool {
         name.starts_with('_')
@@ -38,6 +38,7 @@ pub trait PropertyExt {
     ///
     fn update_properties(&self, new_properties: &HashMap<String, String>) {
         for (key, value) in new_properties {
+            info!("Updating property name={} value={}", key, value);
             if value.is_empty() {
                 self.remove_property(key);
             } else {

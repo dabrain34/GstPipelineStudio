@@ -350,6 +350,7 @@ impl PropertyExt for Node {
         let private = imp::Node::from_instance(self);
         trace!("property name={} removed", name);
         private.properties.borrow_mut().remove(name);
+        self.update_description();
     }
 
     /// Retrieves node properties.
