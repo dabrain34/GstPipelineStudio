@@ -27,10 +27,6 @@
         <attribute name="label" translatable="yes" comments="Primary menu entry that opens the About dialog.">_About GstPipelineStudio</attribute>
         <attribute name="action">app.about</attribute>
       </item>
-      <item>
-        <attribute name="label" translatable="yes" comments="Primary menu entry that quit app">_Quit GstPipelineStudio</attribute>
-        <attribute name="action">app.quit</attribute>
-      </item>
     </section>
   </menu>
   <menu id="port_menu">

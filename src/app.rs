@@ -263,6 +263,9 @@ impl GPSApp {
     }
 
     fn setup_app_actions(&self, application: &gtk::Application) {
+        application.add_action(&gio::SimpleAction::new("new-window", None));
+        application.set_accels_for_action("app.new-window", &["<primary>n"]);
+
         application.add_action(&gio::SimpleAction::new("open", None));
         application.set_accels_for_action("app.open", &["<primary>o"]);
 
@@ -271,14 +274,9 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("delete", None));
         application.set_accels_for_action("app.delete", &["<primary>d", "Delete"]);
+
         application.add_action(&gio::SimpleAction::new("preferences", None));
         application.set_accels_for_action("app.preferences", &["<primary>p"]);
-
-        application.add_action(&gio::SimpleAction::new("quit", None));
-        application.set_accels_for_action("app.quit", &["<primary>q"]);
-
-        application.add_action(&gio::SimpleAction::new("new-window", None));
-        application.set_accels_for_action("app.new-window", &["<primary>n"]);
 
         application.add_action(&gio::SimpleAction::new("about", None));
         application.set_accels_for_action("app.about", &["<primary>a"]);
@@ -520,12 +518,6 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let graph_view = app.graphview.borrow();
             graph_view.delete_selected();
-        });
-
-        let app = application.downgrade();
-        self.connect_app_menu_action("quit", move |_, _| {
-            let app = app.upgrade().unwrap();
-            app.quit();
         });
 
         let app_weak = self.downgrade();
