@@ -19,6 +19,7 @@
 use crate::app::GPSApp;
 use crate::gps as GPS;
 use crate::logger;
+use crate::ui as GPSUI;
 use crate::{GPS_INFO, GPS_TRACE};
 use gtk::glib;
 use gtk::prelude::*;
@@ -112,6 +113,8 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
 
             combo.set_widget_name(property_name);
             GPS_TRACE!("add ComboBox property : {}", combo.widget_name());
+            // Add an empty entry to be able to reset the value
+            combo.append_text("");
             if t.is_a(glib::ParamSpecEnum::static_type()) {
                 let param = param
                     .clone()
@@ -143,12 +146,12 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             }
             if let Some(value) = app.element_property(node_id, property_name) {
                 //Retrieve the first value (index) from the property
-                combo.set_active(Some(value.parse::<u32>().unwrap_or(0)));
+                combo.set_active(Some(value.parse::<u32>().unwrap_or(0) + 1));
             } else if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
                 if let Ok(value) = GPS::ElementInfo::element_property(element_name, param.name()) {
-                    combo.set_active(Some(value.parse::<u32>().unwrap_or(0)));
+                    combo.set_active(Some(value.parse::<u32>().unwrap_or(0) + 1));
                 }
             }
 
@@ -156,7 +159,10 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                 if let Some(text) = c.active_text() {
                     let value = text.to_string();
                     let value = value.split_once(':');
-                    f(c.widget_name().to_string(), value.unwrap().0.to_string());
+                    f(
+                        c.widget_name().to_string(),
+                        value.unwrap_or_default().0.to_string(),
+                    );
                 }
             });
             Some(combo.upcast::<gtk::Widget>())
@@ -170,43 +176,6 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             None
         }
     }
-}
-
-fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
-    name: &str,
-    app: &GPSApp,
-    grid: &gtk::Grid,
-    f: F,
-) -> gtk::Dialog {
-    let dialog = gtk::Dialog::with_buttons(
-        Some(name),
-        Some(&app.window),
-        gtk::DialogFlags::MODAL,
-        &[("Close", gtk::ResponseType::Close)],
-    );
-
-    dialog.set_default_size(640, 480);
-    dialog.set_modal(true);
-    let app_weak = app.downgrade();
-    dialog.connect_response(glib::clone!(@weak dialog => move |_,_| {
-        let app = upgrade_weak!(app_weak);
-        f(app, dialog)
-    }));
-
-    let scrolledwindow = gtk::ScrolledWindow::builder()
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    scrolledwindow.set_child(Some(grid));
-    let content_area = dialog.content_area();
-    content_area.append(&scrolledwindow);
-    content_area.set_vexpand(true);
-    content_area.set_margin_start(10);
-    content_area.set_margin_end(10);
-    content_area.set_margin_top(10);
-    content_area.set_margin_bottom(10);
-
-    dialog
 }
 
 pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32) {
@@ -231,7 +200,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
             name,
             param,
             glib::clone!(@strong update_properties => move |name, value| {
-                GPS_TRACE!("property changed: {}:{}", name, value);
+                GPS_INFO!("property changed: {}:{}", name, value);
                 update_properties.borrow_mut().insert(name, value);
             }),
         );
@@ -246,14 +215,11 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
         }
     }
 
-    let dialog = create_dialog(
+    let dialog = GPSUI::dialog::create_dialog(
         &format!("{} properties", element_name),
         app,
         &grid,
         glib::clone!(@strong update_properties => move |app, dialog| {
-            for p in update_properties.borrow().values() {
-                GPS_INFO!("updated properties {}", p);
-            }
             app.update_element_properties(node_id, &update_properties.borrow());
             dialog.close();
         }),
@@ -325,7 +291,7 @@ pub fn display_pad_properties(
 
     // Add all specific properties from the given element
 
-    let dialog = create_dialog(
+    let dialog = GPSUI::dialog::create_dialog(
         &format!("{} properties from {}", port_name, element_name),
         app,
         &grid,
@@ -368,9 +334,10 @@ pub fn display_pipeline_details(app: &GPSApp) {
         grid.attach(&label, 0, 0_i32, 1, 1);
         grid.attach(&value, 1, 0_i32, 1, 1);
 
-        let dialog = create_dialog("Pipeline properties", app, &grid, move |_app, dialog| {
-            dialog.close();
-        });
+        let dialog =
+            GPSUI::dialog::create_dialog("Pipeline properties", app, &grid, move |_app, dialog| {
+                dialog.close();
+            });
 
         dialog.show();
     }

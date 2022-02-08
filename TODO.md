@@ -98,6 +98,7 @@
 - [ ] reopen the last log on prematured exit (crash)
 - [ ] burger menu must be on the right
 - [x] Remove quit as it's unnecessary with close cross
+- [x] Remove the close button in dialogs (properties etc.)
 
 ### CI/Infra
 
@@ -106,3 +107,4 @@
 ## bugs
 
 - [ ] check that element exists before creating it on file load.
+- [x] Unable to use flags in playbin3

@@ -19,21 +19,11 @@
 use crate::app::GPSApp;
 
 use crate::settings;
-
+use crate::ui as GPSUI;
 use gtk::glib;
 use gtk::prelude::*;
 
 pub fn display_settings(app: &GPSApp) {
-    let dialog = gtk::Dialog::with_buttons(
-        Some("GPS settings"),
-        Some(&app.window),
-        gtk::DialogFlags::MODAL,
-        &[("Close", gtk::ResponseType::Close)],
-    );
-
-    dialog.set_default_size(640, 480);
-    dialog.set_modal(true);
-
     let grid = gtk::Grid::new();
     grid.set_column_spacing(4);
     grid.set_row_spacing(4);
@@ -64,21 +54,9 @@ pub fn display_settings(app: &GPSApp) {
     grid.attach(&label, 0, 0, 1, 1);
     grid.attach(&widget, 1, 0, 1, 1);
 
-    let scrolledwindow = gtk::ScrolledWindow::builder()
-        .hexpand(true)
-        .vexpand(true)
-        .build();
-    scrolledwindow.set_child(Some(&grid));
-    let content_area = dialog.content_area();
-    content_area.append(&scrolledwindow);
-    content_area.set_vexpand(true);
-    content_area.set_margin_start(10);
-    content_area.set_margin_end(10);
-    content_area.set_margin_top(10);
-    content_area.set_margin_bottom(10);
-
-    dialog.connect_response(move |dialog, _| {
-        dialog.destroy();
+    let dialog = GPSUI::dialog::create_dialog("Preferences", app, &grid, move |_app, dialog| {
+        dialog.close();
     });
+
     dialog.show();
 }
