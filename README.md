@@ -40,6 +40,10 @@ $ ninja -C builddir
 $ ./builddir/target/release/gst_pipeline_studio
 ```
 
+## Flatpak
+
+The application is also available on [Flathub](https://flathub.org/apps/details/org.freedesktop.dabrain34.GstPipelineStudio).
+
 ## License
 
 GstPipelineStudio is distributed under the terms of the GPL3 license.
