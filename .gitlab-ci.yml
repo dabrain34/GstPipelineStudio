@@ -94,7 +94,6 @@ dist-package:
   stage: release
   only:
     - flatpak
-    - tags
   script:
     - meson build
     - ninja -C build dist
