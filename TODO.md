@@ -96,6 +96,7 @@
 - [ ] Implement zoom on the view (https://gitlab.gnome.org/World/obfuscate/-/blob/master/src/widgets/drawing_area.rs)
 - [ ] Settings: add a log level selection
 - [ ] reopen the last log on prematured exit (crash)
+- [ ] burger menu must be on the right
 - [x] Remove quit as it's unnecessary with close cross
 
 ### CI/Infra

@@ -105,7 +105,7 @@
     <property name="default-height">600</property>
     <child type="titlebar">
       <object class="GtkHeaderBar" id="header-bar">
-        <child type="start">
+        <child type="end">
           <object class="GtkMenuButton" id="gear_menu_button">
             <property name="valign">3</property>
             <property name="focus-on-click">0</property>
