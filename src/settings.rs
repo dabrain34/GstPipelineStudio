@@ -1,3 +1,11 @@
+// settings.rs
+//
+// Copyright 2022 Stéphane Cerveau <scerveau@collabora.com>
+//
+// This file is part of GstPipelineStudio
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
 use gtk::glib;
 use std::collections::HashMap;
 use std::fs::create_dir_all;

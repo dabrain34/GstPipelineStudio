@@ -1,3 +1,11 @@
+// logger.rs
+//
+// Copyright 2022 Stéphane Cerveau <scerveau@collabora.com>
+//
+// This file is part of GstPipelineStudio
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
 use gtk::glib::Sender;
 use log::{debug, error, info, trace, warn};
 use simplelog::*;
