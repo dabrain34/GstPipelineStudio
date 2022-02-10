@@ -1,3 +1,8 @@
+# Important
+
+Until version 1.0, this software should be considered as **unstable**.
+The settings moreover the graph file format might change over the development phase.
+
 # GstPipelineStudio: Draw your own GStreamer pipeline ...
 
 ## Description
