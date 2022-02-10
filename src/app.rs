@@ -258,6 +258,9 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("open", None));
         application.set_accels_for_action("app.open", &["<primary>o"]);
 
+        application.add_action(&gio::SimpleAction::new("open_pipeline", None));
+        application.set_accels_for_action("app.open_pipeline", &["<primary>p"]);
+
         application.add_action(&gio::SimpleAction::new("save_as", None));
         application.set_accels_for_action("app.save", &["<primary>s"]);
 
@@ -489,6 +492,22 @@ impl GPSApp {
         });
 
         let app_weak = self.downgrade();
+        self.connect_app_menu_action("open_pipeline", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            GPSUI::dialog::create_input_dialog(
+                "Enter pipeline description with gst-launch format",
+                "description",
+                &Settings::recent_pipeline_description(),
+                &app,
+                move |app, pipeline_desc| {
+                    app.load_pipeline(&pipeline_desc)
+                        .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", pipeline_desc));
+                    Settings::set_recent_pipeline_description(&pipeline_desc);
+                },
+            );
+        });
+
+        let app_weak = self.downgrade();
         self.connect_app_menu_action("save_as", move |_, _| {
             let app = upgrade_weak!(app_weak);
             GPSApp::get_file_from_dialog(&app, true, move |app, filename| {
@@ -631,11 +650,11 @@ impl GPSApp {
                     app.connect_app_menu_action("graph.check",
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
-                            let render_parse_launch = app.player.borrow().render_gst_launch(&app.graphview.borrow());
-                            if app.player.borrow().create_pipeline(&render_parse_launch).is_ok() {
-                                GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
+                            let pipeline_description = app.player.borrow().pipeline_description_from_graphview(&app.graphview.borrow());
+                            if app.player.borrow().create_pipeline(&pipeline_description).is_ok() {
+                                GPSUI::message::display_message_dialog(&pipeline_description,gtk::MessageType::Info, |_| {});
                             } else {
-                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{render_parse_launch}", ));
+                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{pipeline_description}"));
                             }
                         }
                     );
@@ -752,7 +771,7 @@ impl GPSApp {
                             move |_,_| {
                                 let app = upgrade_weak!(app_weak);
                                 GPS_DEBUG!("node.request-pad-input {}", node_id);
-                                app.create_port_with_caps(node_id, GM::PortDirection::Input, GM::PortPresence::Sometimes, input.caps().to_string())
+                                app.create_port_with_caps(node_id, GM::PortDirection::Input, GM::PortPresence::Sometimes, input.caps().to_string());
                             }
                         );
                     } else {
@@ -908,13 +927,13 @@ impl GPSApp {
         properties
     }
 
-    fn create_port_with_caps(
+    pub fn create_port_with_caps(
         &self,
         node_id: u32,
         direction: GM::PortDirection,
         presence: GM::PortPresence,
         caps: String,
-    ) {
+    ) -> u32 {
         let node = self.node(node_id);
         let ports = node.all_ports(direction);
         let port_name = match direction {
@@ -925,11 +944,27 @@ impl GPSApp {
         let graphview = self.graphview.borrow();
         let port_name = format!("{}{}", port_name, ports.len());
         let port = graphview.create_port(&port_name, direction, presence);
+        let id = port.id();
         let properties: HashMap<String, String> = HashMap::from([("_caps".to_string(), caps)]);
         port.update_properties(&properties);
         if let Some(mut node) = graphview.node(node_id) {
             graphview.add_port_to_node(&mut node, port);
         }
+        id
+    }
+
+    pub fn create_link(
+        &self,
+        node_from_id: u32,
+        node_to_id: u32,
+        port_from_id: u32,
+        port_to_id: u32,
+        active: bool,
+    ) {
+        let graphview = self.graphview.borrow();
+        let link =
+            graphview.create_link(node_from_id, node_to_id, port_from_id, port_to_id, active);
+        graphview.add_link(link);
     }
 
     fn clear_graph(&self) {
@@ -952,6 +987,13 @@ impl GPSApp {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).expect("buffer overflow");
         graph_view.load_from_xml(buffer)?;
+        Ok(())
+    }
+
+    fn load_pipeline(&self, pipeline_desc: &str) -> anyhow::Result<()> {
+        let player = self.player.borrow();
+        let graphview = self.graphview.borrow();
+        player.graphview_from_pipeline_description(&graphview, pipeline_desc);
         Ok(())
     }
 }

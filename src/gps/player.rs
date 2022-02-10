@@ -7,8 +7,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::app::{AppState, GPSApp, GPSAppWeak};
-use crate::graphmanager::{GraphView, Node, NodeType, PortDirection, PropertyExt};
+use crate::graphmanager as GM;
+use crate::graphmanager::PropertyExt;
 
+use crate::common;
 use crate::gps::ElementInfo;
 use crate::logger;
 use crate::settings;
@@ -165,14 +167,14 @@ impl Player {
 
     pub fn start_pipeline(
         &self,
-        graphview: &GraphView,
+        graphview: &GM::GraphView,
         new_state: PipelineState,
     ) -> anyhow::Result<PipelineState> {
         if self.state() == PipelineState::Stopped || self.state() == PipelineState::Error {
             let pipeline = self
-                .create_pipeline(&self.render_gst_launch(graphview))
+                .create_pipeline(&self.pipeline_description_from_graphview(graphview))
                 .map_err(|err| {
-                    GPS_ERROR!("Unable to start a pipeline: {}", err);
+                    GPS_ERROR!("Unable to create a pipeline: {}", err);
                     err
                 })?;
 
@@ -328,8 +330,8 @@ impl Player {
     #[allow(clippy::only_used_in_recursion)]
     fn process_gst_node(
         &self,
-        graphview: &GraphView,
-        node: &Node,
+        graphview: &GM::GraphView,
+        node: &GM::Node,
         elements: &mut HashMap<String, String>,
         mut description: String,
     ) -> String {
@@ -344,7 +346,7 @@ impl Player {
             }
         }
         //Port properties
-        let ports = node.all_ports(PortDirection::All);
+        let ports = node.all_ports(GM::PortDirection::All);
         for port in ports {
             for (name, value) in port.properties().iter() {
                 if !port.hidden_property(name) {
@@ -353,7 +355,7 @@ impl Player {
             }
         }
 
-        let ports = node.all_ports(PortDirection::Output);
+        let ports = node.all_ports(GM::PortDirection::Output);
         let n_ports = ports.len();
         for port in ports {
             if let Some((_port_to, node_to)) = graphview.port_connected_to(port.id()) {
@@ -375,8 +377,8 @@ impl Player {
         description
     }
 
-    pub fn render_gst_launch(&self, graphview: &GraphView) -> String {
-        let source_nodes = graphview.all_nodes(NodeType::Source);
+    pub fn pipeline_description_from_graphview(&self, graphview: &GM::GraphView) -> String {
+        let source_nodes = graphview.all_nodes(GM::NodeType::Source);
         let mut elements: HashMap<String, String> = HashMap::new();
         let mut description = String::from("");
         for source_node in source_nodes {
@@ -384,6 +386,140 @@ impl Player {
                 self.process_gst_node(graphview, &source_node, &mut elements, description.clone());
         }
         description
+    }
+
+    pub fn create_links_for_element(&self, element: &gst::Element, graphview: &GM::GraphView) {
+        let mut iter = element.iterate_pads();
+        let node = graphview
+            .node_by_unique_name(&element.name())
+            .expect("node should exists");
+
+        loop {
+            match iter.next() {
+                Ok(Some(pad)) => {
+                    GPS_INFO!("Found pad: {}", pad.name());
+
+                    if pad.direction() == gst::PadDirection::Src {
+                        let port = node
+                            .port_by_name(&pad.name())
+                            .expect("The port should exist here");
+                        if let Some(peer_pad) = pad.peer() {
+                            if let Some(peer_element) = peer_pad.parent_element() {
+                                let peer_node = graphview
+                                    .node_by_unique_name(&peer_element.name())
+                                    .expect("The node should exists here");
+                                let peer_port = peer_node
+                                    .port_by_name(&peer_pad.name())
+                                    .expect("The port should exists here");
+                                self.app.borrow().as_ref().unwrap().create_link(
+                                    node.id(),
+                                    peer_node.id(),
+                                    port.id(),
+                                    peer_port.id(),
+                                    true,
+                                );
+                            }
+                        }
+                    }
+                }
+                Err(gst::IteratorError::Resync) => iter.resync(),
+                _ => break,
+            }
+        }
+    }
+
+    pub fn create_pads_for_element(&self, element: &gst::Element, node: &GM::Node) {
+        let mut iter = element.iterate_pads();
+        loop {
+            match iter.next() {
+                Ok(Some(pad)) => {
+                    let pad_name = pad.name().to_string();
+                    GPS_INFO!("Found pad: {}", pad_name);
+                    let mut port_direction = GM::PortDirection::Input;
+                    if pad.direction() == gst::PadDirection::Src {
+                        port_direction = GM::PortDirection::Output;
+                    }
+                    let port_id = self.app.borrow().as_ref().unwrap().create_port_with_caps(
+                        node.id(),
+                        port_direction,
+                        GM::PortPresence::Always,
+                        pad.current_caps()
+                            .unwrap_or_else(|| pad.query_caps(None))
+                            .to_string(),
+                    );
+                    if let Some(port) = node.port(port_id) {
+                        port.set_name(&pad_name);
+                    }
+                }
+                Err(gst::IteratorError::Resync) => iter.resync(),
+                _ => break,
+            }
+        }
+    }
+
+    pub fn create_properties_for_element(&self, element: &gst::Element, node: &GM::Node) {
+        let properties = ElementInfo::element_properties(element)
+            .unwrap_or_else(|_| panic!("Couldn't get properties for {}", node.name()));
+        for (property_name, property_value) in properties {
+            if property_name == "name"
+                || property_name == "parent"
+                || (property_value.flags() & glib::ParamFlags::READABLE)
+                    != glib::ParamFlags::READABLE
+            {
+                continue;
+            }
+
+            if let Ok(value_str) = ElementInfo::element_property(element, &property_name) {
+                let default_value_str =
+                    common::value_as_str(property_value.default_value()).unwrap_or_default();
+                GPS_DEBUG!(
+                    "property name {} value_str '{}' default '{}'",
+                    property_name,
+                    value_str,
+                    default_value_str
+                );
+                if !value_str.is_empty() && value_str != default_value_str {
+                    node.add_property(&property_name, &value_str);
+                }
+            }
+        }
+    }
+
+    pub fn graphview_from_pipeline_description(
+        &self,
+        graphview: &GM::GraphView,
+        pipeline_desc: &str,
+    ) {
+        graphview.clear();
+
+        if let Ok(pipeline) = self.create_pipeline(pipeline_desc) {
+            let mut iter = pipeline.iterate_elements();
+            let mut elements: Vec<gst::Element> = Vec::new();
+            let elements = loop {
+                match iter.next() {
+                    Ok(Some(element)) => {
+                        GPS_INFO!("Found element: {}", element.name());
+                        let element_factory_name = element.factory().unwrap().name().to_string();
+                        let node = graphview.create_node(
+                            &element_factory_name,
+                            ElementInfo::element_type(&element_factory_name),
+                        );
+                        node.set_unique_name(&element.name());
+                        graphview.add_node(node.clone());
+                        self.create_pads_for_element(&element, &node);
+                        self.create_properties_for_element(&element, &node);
+                        elements.push(element);
+                    }
+                    Err(gst::IteratorError::Resync) => iter.resync(),
+                    _ => break elements,
+                }
+            };
+            for element in elements {
+                self.create_links_for_element(&element, graphview);
+            }
+        } else {
+            GPS_ERROR!("Unable to create a pipeline: {}", pipeline_desc);
+        }
     }
 }
 

@@ -14,6 +14,11 @@
         <attribute name="accel">&lt;primary&gt;n</attribute>
       </item>
       <item>
+        <attribute name="label" translatable="yes" comments="Primary menu entry that opens a pipeline">_Open pipeline</attribute>
+        <attribute name="action">app.open_pipeline</attribute>
+        <attribute name="accel">&lt;primary&gt;p</attribute>
+      </item>
+      <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save As</attribute>
         <attribute name="action">app.save_as</attribute>
         <attribute name="accel">&lt;primary&gt;n</attribute>

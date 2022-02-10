@@ -43,3 +43,54 @@ pub fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
 
     dialog
 }
+
+pub fn create_input_dialog<F: Fn(GPSApp, String) + 'static>(
+    dialog_name: &str,
+    input_name: &str,
+    default_value: &str,
+    app: &GPSApp,
+    f: F,
+) {
+    let dialog = gtk::Dialog::with_buttons(
+        Some(dialog_name),
+        Some(&app.window),
+        gtk::DialogFlags::MODAL,
+        &[("Ok", gtk::ResponseType::Apply)],
+    );
+    dialog.set_default_size(600, 100);
+    dialog.set_modal(true);
+
+    let label = gtk::Label::builder()
+        .label(input_name)
+        .hexpand(true)
+        .valign(gtk::Align::Center)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .build();
+
+    let entry = gtk::Entry::builder()
+        .width_request(400)
+        .valign(gtk::Align::Center)
+        .build();
+    entry.set_text(default_value);
+
+    let content_area = dialog.content_area();
+    content_area.set_orientation(gtk::Orientation::Horizontal);
+    content_area.set_vexpand(true);
+    content_area.set_margin_start(10);
+    content_area.set_margin_end(10);
+    content_area.set_margin_top(10);
+    content_area.set_margin_bottom(10);
+    content_area.append(&label);
+    content_area.append(&entry);
+    let app_weak = app.downgrade();
+    dialog.connect_response(glib::clone!(@weak entry => move |dialog, response_type| {
+        let app = upgrade_weak!(app_weak);
+        if response_type == gtk::ResponseType::Apply {
+            f(app, entry.text().to_string());
+        }
+        dialog.close()
+    }));
+
+    dialog.show();
+}

@@ -17,10 +17,12 @@ use crate::config;
 use crate::logger;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct Settings {
     pub app_maximized: bool,
     pub app_width: i32,
     pub app_height: i32,
+    pub recent_pipeline: String,
 
     // values must be emitted before tables
     pub favorites: Vec<String>,
@@ -65,6 +67,17 @@ impl Settings {
         let mut path = PathBuf::new();
         path.push("gstpipelinestudio.log");
         path
+    }
+
+    pub fn set_recent_pipeline_description(pipeline: &str) {
+        let mut settings = Settings::load_settings();
+        settings.recent_pipeline = pipeline.to_string();
+        Settings::save_settings(&settings);
+    }
+
+    pub fn recent_pipeline_description() -> String {
+        let settings = Settings::load_settings();
+        settings.recent_pipeline
     }
 
     pub fn add_favorite(favorite: &str) {
