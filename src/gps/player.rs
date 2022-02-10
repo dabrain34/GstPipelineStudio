@@ -82,6 +82,10 @@ impl Player {
         Ok(pipeline)
     }
 
+    pub fn get_version() -> String {
+        gst::version_string().to_string()
+    }
+
     pub fn set_app(&self, app: GPSAppWeak) {
         *self.app.borrow_mut() = Some(app.upgrade().unwrap());
     }

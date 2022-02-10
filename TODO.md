@@ -93,6 +93,7 @@
 ### GStreamer:
 
 - [ ] Implement pipeline unit test
+- [x] Display GStreamer version in the about dialog
 
 ### app
 
