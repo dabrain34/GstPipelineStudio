@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::ops;
+use std::path::Path;
 use std::rc::{Rc, Weak};
 
 use crate::gps as GPS;
@@ -464,6 +465,81 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("node.duplicate", None));
     }
 
+    fn update_recent_files_menu(&self) {
+        let application = gio::Application::default()
+            .expect("No default application")
+            .downcast::<gtk::Application>()
+            .expect("Unable to downcast default application");
+
+        // Get the recent files menu from the builder
+        let recent_menu: gio::Menu = self
+            .builder
+            .object("recent_files_menu")
+            .expect("Couldn't get recent_files_menu");
+
+        // Clear existing menu items
+        recent_menu.remove_all();
+
+        // Clean up old recent file actions
+        for i in 0..4 {
+            let action_name = format!("recent_file_{}", i);
+            if application.lookup_action(&action_name).is_some() {
+                application.remove_action(&action_name);
+            }
+        }
+
+        // Get recent files and filter out non-existent ones
+        let recent_files = Settings::get_recent_open_files();
+        let mut valid_files = Vec::new();
+
+        for file in recent_files {
+            if Path::new(&file).exists() {
+                valid_files.push(file);
+            }
+        }
+
+        // Update settings if we removed any invalid files
+        if valid_files.len() < Settings::get_recent_open_files().len() {
+            let mut settings = Settings::load_settings();
+            settings.recent_open_files = valid_files.clone();
+            Settings::save_settings(&settings);
+        }
+
+        // Populate the menu
+        if valid_files.is_empty() {
+            let item = gio::MenuItem::new(Some("(No recent files)"), None);
+            recent_menu.append_item(&item);
+        } else {
+            for (i, filename) in valid_files.iter().enumerate().take(4) {
+                let action_name = format!("recent_file_{}", i);
+                let full_action_name = format!("app.{}", action_name);
+
+                // Extract just the filename for display
+                let display_name = Path::new(filename)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(filename);
+
+                let item = gio::MenuItem::new(Some(display_name), Some(&full_action_name));
+                recent_menu.append_item(&item);
+
+                // Create action for this recent file
+                let action = gio::SimpleAction::new(&action_name, None);
+                let app_weak = self.downgrade();
+                let filename_clone = filename.clone();
+
+                action.connect_activate(move |_, _| {
+                    let app = upgrade_weak!(app_weak);
+                    app.load_graph(&filename_clone, false)
+                        .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", filename_clone));
+                    app.update_recent_files_menu();
+                });
+
+                application.add_action(&action);
+            }
+        }
+    }
+
     pub fn app_pop_menu_at_position(
         &self,
         widget: &impl IsA<Widget>,
@@ -634,6 +710,7 @@ impl GPSApp {
         window.present();
         self.set_app_state(AppState::Ready);
         self.setup_app_actions(application);
+        self.update_recent_files_menu();
 
         let app_weak = self.downgrade();
         self.connect_app_menu_action("new-window", move |_, _| {
@@ -656,6 +733,8 @@ impl GPSApp {
                 move |app, filename| {
                     app.load_graph(&filename, false)
                         .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", filename));
+                    Settings::add_recent_open_file(&filename);
+                    app.update_recent_files_menu();
                 },
             );
         });

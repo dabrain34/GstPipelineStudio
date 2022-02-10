@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <requires lib="gtk" version="4.0"/>
+  <menu id="recent_files_menu">
+  </menu>
   <menu id="primary_menu">
     <section>
       <item>
@@ -26,6 +28,10 @@
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save As</attribute>
         <attribute name="action">app.save_as</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes" comments="Primary menu entry that open recent files">_Open Recent</attribute>
+        <link name="submenu" id="recent_files_menu"/>
       </item>
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that open the preferences">_Preferences</attribute>

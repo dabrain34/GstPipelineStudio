@@ -26,6 +26,7 @@ pub struct Settings {
 
     // values must be emitted before tables
     pub favorites: Vec<String>,
+    pub recent_open_files: Vec<String>,
     pub paned_positions: HashMap<String, i32>,
     pub preferences: HashMap<String, String>,
 }
@@ -111,6 +112,28 @@ impl Settings {
             favorites.push(fav);
         }
         favorites
+    }
+
+    pub fn add_recent_open_file(filename: &str) {
+        let mut settings = Settings::load_settings();
+        // Remove the file if it already exists in the list
+        settings.recent_open_files.retain(|x| x != filename);
+        // Add to the front of the list
+        settings.recent_open_files.insert(0, String::from(filename));
+        // Keep only the 4 most recent files
+        if settings.recent_open_files.len() > 4 {
+            settings.recent_open_files.truncate(4);
+        }
+        Settings::save_settings(&settings);
+    }
+
+    pub fn get_recent_open_files() -> Vec<String> {
+        let mut recent_open_files = Vec::new();
+        let settings = Settings::load_settings();
+        for recent in settings.recent_open_files {
+            recent_open_files.push(recent);
+        }
+        recent_open_files
     }
 
     // Save the provided settings to the settings path
