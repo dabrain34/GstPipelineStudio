@@ -37,6 +37,7 @@ use std::cell::RefMut;
 use std::{cmp::Ordering, collections::HashMap};
 
 static GRAPHVIEW_STYLE: &str = include_str!("graphview.css");
+pub static GRAPHVIEW_XML_VERSION: &str = "0.1";
 
 mod imp {
     use super::*;
@@ -830,8 +831,11 @@ impl GraphView {
             .perform_indent(true)
             .create_writer(&mut buffer);
 
-        writer
-            .write(XMLWEvent::start_element("Graph").attr("id", &private.id.get().to_string()))?;
+        writer.write(
+            XMLWEvent::start_element("Graph")
+                .attr("id", &private.id.get().to_string())
+                .attr("version", GRAPHVIEW_XML_VERSION),
+        )?;
 
         //Get the nodes
         let nodes = self.all_nodes(NodeType::All);
@@ -919,6 +923,11 @@ impl GraphView {
                             trace!("New graph detected");
                             if let Some(id) = attrs.get::<String>(&String::from("id")) {
                                 self.set_id(id.parse::<u32>().expect("id should be an u32"));
+                            }
+                            if let Some(version) = attrs.get::<String>(&"version".to_string()) {
+                                info!("Found file format version: {}", version);
+                            } else {
+                                warn!("No file format version found");
                             }
                         }
                         "Node" => {
