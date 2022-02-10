@@ -195,10 +195,12 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
             }),
         );
         if let Some(widget) = widget {
-            let label = gtk::Label::new(Some(name));
-            label.set_hexpand(true);
-            label.set_halign(gtk::Align::Start);
-            label.set_margin_start(4);
+            let label = gtk::Label::builder()
+                .label(name)
+                .hexpand(true)
+                .halign(gtk::Align::Start)
+                .margin_start(4)
+                .build();
             grid.attach(&label, 0, i, 1, 1);
             grid.attach(&widget, 1, i, 1, 1);
             i += 1;
@@ -236,10 +238,12 @@ pub fn display_pad_properties(
     let mut i = 0;
     let properties = app.pad_properties(node_id, port_id);
     for (name, value) in properties {
-        let property_name = gtk::Label::new(Some(&name));
-        property_name.set_hexpand(true);
-        property_name.set_halign(gtk::Align::Start);
-        property_name.set_margin_start(4);
+        let property_name = gtk::Label::builder()
+            .label(&name)
+            .hexpand(true)
+            .halign(gtk::Align::Start)
+            .margin_start(4)
+            .build();
         let property_value = gtk::Entry::new();
         property_value.set_width_request(150);
         property_value.set_text(&value);
@@ -254,10 +258,12 @@ pub fn display_pad_properties(
     }
 
     // Add a new property  allowing to set pads property.
-    let label = gtk::Label::new(Some("Add a new Property"));
-    label.set_hexpand(true);
-    label.set_halign(gtk::Align::Start);
-    label.set_margin_start(4);
+    let label = gtk::Label::builder()
+        .label("Add a new Property")
+        .hexpand(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .build();
 
     let property_name = gtk::Entry::new();
     property_name.set_width_request(150);
