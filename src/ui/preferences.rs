@@ -8,25 +8,31 @@
 
 use crate::app::GPSApp;
 
+use crate::logger;
 use crate::settings;
 use crate::ui as GPSUI;
 use gtk::glib;
 use gtk::prelude::*;
+
+fn add_settings_widget(grid: &gtk::Grid, label_name: &str, widget: &gtk::Widget, row: i32) {
+    let label = gtk::Label::builder()
+        .label(label_name)
+        .hexpand(true)
+        .halign(gtk::Align::Start)
+        .margin_start(4)
+        .build();
+
+    grid.attach(&label, 0, row, 1, 1);
+    grid.attach(widget, 1, row, 1, 1);
+}
 
 pub fn display_settings(app: &GPSApp) {
     let grid = gtk::Grid::new();
     grid.set_column_spacing(4);
     grid.set_row_spacing(4);
     grid.set_margin_bottom(12);
-
-    let label = gtk::Label::builder()
-        .label("Use gtk4paintablesink element for video rendering:")
-        .hexpand(true)
-        .halign(gtk::Align::Start)
-        .margin_start(4)
-        .build();
-    let widget = gtk::CheckButton::new();
     let settings = settings::Settings::load_settings();
+    let widget = gtk::CheckButton::new();
     widget.set_active(
         settings
             .preferences
@@ -41,8 +47,36 @@ pub fn display_settings(app: &GPSApp) {
         settings::Settings::save_settings(&settings);
     }));
 
-    grid.attach(&label, 0, 0, 1, 1);
-    grid.attach(&widget, 1, 0, 1, 1);
+    let widget = widget
+        .dynamic_cast::<gtk::Widget>()
+        .expect("Should be a widget");
+    add_settings_widget(
+        &grid,
+        "Use gtk4paintablesink element for video rendering:",
+        &widget,
+        0,
+    );
+
+    let widget = gtk::SpinButton::with_range(0.0, 5.0, 1.0);
+    widget.set_value(
+        settings
+            .preferences
+            .get("log_level")
+            .unwrap_or(&"0.0".to_string())
+            .parse::<f64>()
+            .expect("Should a f64 value"),
+    );
+    widget.connect_value_changed(glib::clone!(@weak widget => move |c| {
+        let mut settings = settings::Settings::load_settings();
+        settings.preferences.insert("log_level".to_string(), c.value().to_string());
+        logger::set_log_level(logger::LogLevel::from_u32(c.value() as u32));
+        settings::Settings::save_settings(&settings);
+    }));
+
+    let widget = widget
+        .dynamic_cast::<gtk::Widget>()
+        .expect("Should be a widget");
+    add_settings_widget(&grid, "Log level", &widget, 1);
 
     let dialog = GPSUI::dialog::create_dialog("Preferences", app, &grid, move |_app, dialog| {
         dialog.close();

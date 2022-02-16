@@ -17,12 +17,28 @@ use std::fs::File;
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 
 pub enum LogLevel {
+    Off,
     Error,
     Warning,
     Info,
     Debug,
     Trace,
 }
+
+impl LogLevel {
+    pub fn from_u32(value: u32) -> LogLevel {
+        match value {
+            0 => LogLevel::Off,
+            1 => LogLevel::Error,
+            2 => LogLevel::Warning,
+            3 => LogLevel::Info,
+            4 => LogLevel::Debug,
+            5 => LogLevel::Trace,
+            _ => panic!("Unknown value: {}", value),
+        }
+    }
+}
+
 impl fmt::Display for LogLevel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -95,6 +111,7 @@ impl io::Write for WriteAdapter {
 
 fn translate_to_simple_logger(log_level: LogLevel) -> LevelFilter {
     match log_level {
+        LogLevel::Off => LevelFilter::Off,
         LogLevel::Error => LevelFilter::Error,
         LogLevel::Warning => LevelFilter::Warn,
         LogLevel::Info => LevelFilter::Info,
@@ -128,6 +145,10 @@ pub fn init_logger(sender: Sender<String>, log_file: &str) {
     .unwrap();
 }
 
+pub fn set_log_level(level: LogLevel) {
+    log::set_max_level(translate_to_simple_logger(level));
+}
+
 pub fn print_log(log_level: LogLevel, msg: String) {
     match log_level {
         LogLevel::Error => {
@@ -145,5 +166,6 @@ pub fn print_log(log_level: LogLevel, msg: String) {
         LogLevel::Trace => {
             trace!("{}", msg);
         }
+        _ => {}
     };
 }
