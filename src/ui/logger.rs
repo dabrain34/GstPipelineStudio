@@ -42,6 +42,19 @@ pub fn add_to_logger_list(app: &GPSApp, log_entry: &str) {
             .dynamic_cast::<ListStore>()
             .expect("Could not cast to ListStore");
         let log: Vec<&str> = log_entry.splitn(3, ' ').collect();
-        list_store.insert_with_values(None, &[(0, &log[0]), (1, &log[1]), (2, &log[2])]);
+        list_store.insert_with_values(Some(0), &[(0, &log[0]), (1, &log[1]), (2, &log[2])]);
+        // Scroll to the first element.
+        if let Some(model) = logger_list.model() {
+            if let Some(iter) = model.iter_first() {
+                let path = model.path(&iter);
+                logger_list.scroll_to_cell(
+                    Some(&path),
+                    None::<&gtk::TreeViewColumn>,
+                    false,
+                    0.0,
+                    0.0,
+                );
+            }
+        }
     }
 }
