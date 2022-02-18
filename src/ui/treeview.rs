@@ -7,10 +7,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::app::GPSApp;
-use gtk::prelude::TreeViewExt;
+use gtk::prelude::{TreeViewExt, CellLayoutExt, Cast, CellRendererTextExt};
 use gtk::{CellRendererText, TreeView, TreeViewColumn};
 
-pub fn add_column_to_treeview(app: &GPSApp, tree_name: &str, column_name: &str, column_n: i32) {
+pub fn add_column_to_treeview(app: &GPSApp, tree_name: &str, column_name: &str, column_n: i32, wrappable: bool) {
     let treeview: TreeView = app
         .builder
         .object(tree_name)
@@ -21,5 +21,11 @@ pub fn add_column_to_treeview(app: &GPSApp, tree_name: &str, column_name: &str, 
     // Association of the view's column with the model's `id` column.
     column.add_attribute(&cell, "text", column_n);
     column.set_title(column_name);
+
+    if wrappable {
+        column.set_sizing(gtk::TreeViewColumnSizing::Autosize);
+        let cell: gtk::CellRendererText = column.cells()[0].clone().downcast().unwrap();
+        cell.set_wrap_width(1024);
+    }
     treeview.append_column(&column);
 }
