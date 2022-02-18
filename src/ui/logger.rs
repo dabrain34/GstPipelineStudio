@@ -23,9 +23,9 @@ fn reset_logger_list(logger_list: &TreeView) {
 }
 
 pub fn setup_logger_list(app: &GPSApp) {
-    treeview::add_column_to_treeview(app, "treeview-logger", "TIME", 0);
-    treeview::add_column_to_treeview(app, "treeview-logger", "LEVEL", 1);
-    treeview::add_column_to_treeview(app, "treeview-logger", "LOG", 2);
+    treeview::add_column_to_treeview(app, "treeview-logger", "TIME", 0, false);
+    treeview::add_column_to_treeview(app, "treeview-logger", "LEVEL", 1, false);
+    treeview::add_column_to_treeview(app, "treeview-logger", "LOG", 2, true);
     let logger_list: TreeView = app
         .builder
         .object("treeview-logger")

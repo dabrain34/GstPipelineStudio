@@ -30,7 +30,7 @@ pub fn setup_favorite_list(app: &GPSApp) {
         .builder
         .object("treeview-favorites")
         .expect("Couldn't get treeview-favorites");
-    treeview::add_column_to_treeview(app, "treeview-favorites", "Name", 0);
+    treeview::add_column_to_treeview(app, "treeview-favorites", "Name", 0, false);
     reset_favorite_list(&favorite_list);
     let app_weak = app.downgrade();
     favorite_list.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
@@ -119,7 +119,7 @@ pub fn setup_elements_list(app: &GPSApp) {
         .builder
         .object("treeview-elements")
         .expect("Couldn't get treeview-elements");
-    treeview::add_column_to_treeview(app, "treeview-elements", "Name", 0);
+    treeview::add_column_to_treeview(app, "treeview-elements", "Name", 0, false);
     reset_elements_list(&tree);
     let app_weak = app.downgrade();
     tree.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
