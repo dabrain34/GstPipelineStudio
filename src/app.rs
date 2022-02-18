@@ -272,6 +272,8 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("favorite.remove", None));
 
+        application.add_action(&gio::SimpleAction::new("logger.clear", None));
+
         application.add_action(&gio::SimpleAction::new("graph.check", None));
         application.add_action(&gio::SimpleAction::new("graph.pipeline_details", None));
 

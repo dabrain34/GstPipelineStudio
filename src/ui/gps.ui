@@ -61,6 +61,14 @@
       </item>
     </section>
   </menu>
+    <menu id="logger_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes" comments="logger menu entry clear the logs">_Clear</attribute>
+        <attribute name="action">app.logger.clear</attribute>
+      </item>
+    </section>
+  </menu>
   <menu id="node_menu">
     <section>
       <item>
