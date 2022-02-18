@@ -39,23 +39,6 @@ une interface intuitive pour ajouter des elements à un pipeline pour l'examiner
 msgid "A GUI for GStreamer"
 msgstr "Une interface utilisateur pour GStreamer"
 
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:15
-msgid "Player rendering video"
-msgstr "Rendu video dans le lecteur"
-
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:26
-msgid "Searching song using the mobile client"
-msgstr ""
-
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:35
-msgid "Guillaume Desmottes"
-msgstr ""
-
-#. Translators: Do NOT translate or transliterate this text (this is an icon file name)!
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in:9
-msgid "@icon@"
-msgstr ""
-
 #: src/app.rs:344
 msgid "GPS is ready"
 msgstr "GPS est prêt"
