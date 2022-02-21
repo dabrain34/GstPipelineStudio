@@ -30,7 +30,7 @@ pub struct Settings {
 
 impl Settings {
     fn settings_file_exist() {
-        let s = Settings::get_settings_file_path();
+        let s = Settings::settings_file_path();
 
         if !s.exists() {
             if let Some(parent_dir) = s.parent() {
@@ -47,7 +47,7 @@ impl Settings {
         }
     }
 
-    fn get_settings_file_path() -> PathBuf {
+    fn settings_file_path() -> PathBuf {
         let mut path = glib::user_config_dir();
         path.push(config::APP_ID);
         path.push("settings.toml");
@@ -80,7 +80,7 @@ impl Settings {
         Settings::save_settings(&settings);
     }
 
-    pub fn get_favorites_list() -> Vec<String> {
+    pub fn favorites_list() -> Vec<String> {
         let mut favorites = Vec::new();
         let settings = Settings::load_settings();
         for fav in settings.favorites {
@@ -92,7 +92,7 @@ impl Settings {
     // Save the provided settings to the settings path
     pub fn save_settings(settings: &Settings) {
         Settings::settings_file_exist();
-        let s = Settings::get_settings_file_path();
+        let s = Settings::settings_file_path();
         if let Err(e) = serde_any::to_file(&s, settings) {
             GPS_ERROR!("Error while trying to save file: {} {}", s.display(), e);
         }
@@ -100,7 +100,7 @@ impl Settings {
 
     // Load the current settings
     pub fn load_settings() -> Settings {
-        let s = Settings::get_settings_file_path();
+        let s = Settings::settings_file_path();
         if s.exists() && s.is_file() {
             match serde_any::from_file::<Settings, _>(&s) {
                 Ok(s) => s,

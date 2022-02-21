@@ -19,7 +19,7 @@ use gtk::{gio, glib};
 pub fn reset_favorite_list(favorite_list: &TreeView) {
     let model = ListStore::new(&[String::static_type()]);
     favorite_list.set_model(Some(&model));
-    let favorites = Settings::get_favorites_list();
+    let favorites = Settings::favorites_list();
     for favorite in favorites {
         model.insert_with_values(None, &[(0, &favorite)]);
     }
@@ -88,7 +88,7 @@ pub fn setup_favorite_list(app: &GPSApp) {
 }
 
 pub fn add_to_favorite_list(app: &GPSApp, element_name: String) {
-    let mut favorites = Settings::get_favorites_list();
+    let mut favorites = Settings::favorites_list();
     favorites.sort();
     if !favorites.contains(&element_name) {
         let favorite_list: TreeView = app
