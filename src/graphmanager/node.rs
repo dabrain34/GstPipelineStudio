@@ -50,6 +50,7 @@ impl NodeType {
 mod imp {
     use super::*;
     use once_cell::unsync::OnceCell;
+    #[derive(Default)]
     pub struct Node {
         pub(super) layoutgrid: gtk::Grid,
         pub(super) name: gtk::Label,
@@ -64,6 +65,7 @@ mod imp {
         pub(super) selected: Cell<bool>,
         pub(super) light: Cell<bool>,
         pub(super) position: Cell<(f32, f32)>,
+        pub(super) unique_name: RefCell<String>,
     }
 
     #[glib::object_subclass]
@@ -102,15 +104,7 @@ mod imp {
                 layoutgrid,
                 name,
                 description,
-                id: OnceCell::new(),
-                node_type: OnceCell::new(),
-                ports: RefCell::new(HashMap::new()),
-                num_ports_in: Cell::new(0),
-                num_ports_out: Cell::new(0),
-                properties: RefCell::new(HashMap::new()),
-                selected: Cell::new(false),
-                light: Cell::new(false),
-                position: Cell::new((0.0, 0.0)),
+                ..Default::default()
             }
         }
     }
@@ -143,6 +137,9 @@ impl Node {
         let private = imp::Node::from_obj(&res);
         private.id.set(id).expect("Node id is already set");
         res.set_name(name);
+        let mut unique_name = private.name.text().to_string();
+        unique_name.push_str(&id.to_string());
+        private.unique_name.replace(unique_name);
         res.add_css_class("node");
         private
             .node_type
@@ -242,10 +239,15 @@ impl Node {
     /// Retrieves the unique name composed with the node name and its id
     ///
     pub fn unique_name(&self) -> String {
-        let private = imp::Node::from_obj(self);
-        let mut unique_name = private.name.text().to_string();
-        unique_name.push_str(&self.id().to_string());
-        unique_name
+        let private = imp::Node::from_instance(self);
+        private.unique_name.borrow().clone()
+    }
+
+    /// Update the unique name
+    ///
+    pub fn set_unique_name(&self, unique_name: &str) {
+        let private = imp::Node::from_instance(self);
+        private.unique_name.replace(unique_name.to_string());
     }
 
     /// Retrieves the NodeType

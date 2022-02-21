@@ -604,6 +604,19 @@ impl GraphView {
         private.nodes.borrow().get(&id).cloned()
     }
 
+    /// Get the node with the specified node name inside the graphview.
+    ///
+    /// Returns `None` if the node is not in the graphview.
+    pub fn node_by_unique_name(&self, unique_name: &str) -> Option<Node> {
+        let private = imp::GraphView::from_obj(self);
+        for node in private.nodes.borrow().values() {
+            if node.unique_name() == unique_name {
+                return Some(node.clone());
+            }
+        }
+        None
+    }
+
     /// Remove all the nodes from the graphview
     ///
     pub fn remove_all_nodes(&self) {
