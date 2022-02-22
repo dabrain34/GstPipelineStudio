@@ -196,6 +196,19 @@ impl Node {
         private.ports.borrow().get(&id).cloned()
     }
 
+    /// Get the port with the specified port name inside the node.
+    ///
+    /// Returns `None` if the node is not in the graphview.
+    pub fn port_by_name(&self, name: &str) -> Option<Port> {
+        let private = imp::Node::from_obj(self);
+        for port in private.ports.borrow().values() {
+            if port.name() == name {
+                return Some(port.clone());
+            }
+        }
+        None
+    }
+
     /// Check if we can remove a port dependending on PortPrensence attribute
     ///
     pub fn can_remove_port(&self, id: u32) -> bool {
@@ -239,14 +252,14 @@ impl Node {
     /// Retrieves the unique name composed with the node name and its id
     ///
     pub fn unique_name(&self) -> String {
-        let private = imp::Node::from_instance(self);
+        let private = imp::Node::from_obj(self);
         private.unique_name.borrow().clone()
     }
 
     /// Update the unique name
     ///
     pub fn set_unique_name(&self, unique_name: &str) {
-        let private = imp::Node::from_instance(self);
+        let private = imp::Node::from_obj(self);
         private.unique_name.replace(unique_name.to_string());
     }
 
