@@ -52,7 +52,9 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             } else if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
-                if let Ok(value) = GPS::ElementInfo::element_property(element_name, param.name()) {
+                if let Ok(value) =
+                    GPS::ElementInfo::element_property_by_feature_name(element_name, param.name())
+                {
                     check_button.set_active(value.parse::<bool>().unwrap_or(false));
                 }
             } else if let Some(value) = value_as_str(param.default_value()) {
@@ -81,7 +83,9 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             } else if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
-                if let Ok(value) = GPS::ElementInfo::element_property(element_name, param.name()) {
+                if let Ok(value) =
+                    GPS::ElementInfo::element_property_by_feature_name(element_name, param.name())
+                {
                     entry.set_text(&value);
                 }
             } else if let Some(value) = value_as_str(param.default_value()) {
@@ -140,7 +144,9 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             } else if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
-                if let Ok(value) = GPS::ElementInfo::element_property(element_name, param.name()) {
+                if let Ok(value) =
+                    GPS::ElementInfo::element_property_by_feature_name(element_name, param.name())
+                {
                     combo.set_active(Some(value.parse::<u32>().unwrap_or(0) + 1));
                 }
             }
@@ -171,8 +177,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
 pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32) {
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
-    let properties = GPS::ElementInfo::element_properties(element_name)
-        .expect("Should get the list of the properties properly");
+    let properties = GPS::ElementInfo::element_properties_by_feature_name(element_name).unwrap();
 
     let grid = gtk::Grid::new();
     grid.set_column_spacing(4);

@@ -132,13 +132,8 @@ impl ElementInfo {
 
         element_type
     }
-    pub fn element_property(element_name: &str, property_name: &str) -> anyhow::Result<String> {
-        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
 
-        let factory = feature
-            .downcast::<gst::ElementFactory>()
-            .expect("Unable to get the factory from the feature");
-        let element = factory.create().build()?;
+    pub fn element_property(element: &gst::Element, property_name: &str) -> anyhow::Result<String> {
         let value = element
             .property_value(property_name)
             .transform::<String>()
@@ -148,16 +143,22 @@ impl ElementInfo {
         Ok(value)
     }
 
-    pub fn element_properties(
+    pub fn element_property_by_feature_name(
         element_name: &str,
-    ) -> anyhow::Result<HashMap<String, glib::ParamSpec>> {
-        let mut properties_list = HashMap::new();
+        property_name: &str,
+    ) -> anyhow::Result<String> {
         let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
-
         let factory = feature
             .downcast::<gst::ElementFactory>()
             .expect("Unable to get the factory from the feature");
         let element = factory.create().build()?;
+        ElementInfo::element_property(&element, property_name)
+    }
+
+    pub fn element_properties(
+        element: &gst::Element,
+    ) -> anyhow::Result<HashMap<String, glib::ParamSpec>> {
+        let mut properties_list = HashMap::new();
         let params = element.class().list_properties();
 
         for param in params.iter() {
@@ -182,6 +183,18 @@ impl ElementInfo {
             }
         }
         Ok(properties_list)
+    }
+
+    pub fn element_properties_by_feature_name(
+        element_name: &str,
+    ) -> anyhow::Result<HashMap<String, glib::ParamSpec>> {
+        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
+
+        let factory = feature
+            .downcast::<gst::ElementFactory>()
+            .expect("Unable to get the factory from the feature");
+        let element = factory.create().build()?;
+        ElementInfo::element_properties(&element)
     }
 
     pub fn element_is_uri_src_handler(element_name: &str) -> bool {
