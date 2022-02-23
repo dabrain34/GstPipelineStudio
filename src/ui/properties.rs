@@ -7,6 +7,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::app::GPSApp;
+use crate::common;
 use crate::gps as GPS;
 use crate::logger;
 use crate::ui as GPSUI;
@@ -17,22 +18,6 @@ use gtk::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
-fn value_as_str(v: &glib::Value) -> Option<String> {
-    match v.type_() {
-        glib::Type::I8 => Some(str_some_value!(v, i8).to_string()),
-        glib::Type::U8 => Some(str_some_value!(v, u8).to_string()),
-        glib::Type::BOOL => Some(str_some_value!(v, bool).to_string()),
-        glib::Type::I32 => Some(str_some_value!(v, i32).to_string()),
-        glib::Type::U32 => Some(str_some_value!(v, u32).to_string()),
-        glib::Type::I64 => Some(str_some_value!(v, i64).to_string()),
-        glib::Type::U64 => Some(str_some_value!(v, u64).to_string()),
-        glib::Type::F32 => Some(str_some_value!(v, f32).to_string()),
-        glib::Type::F64 => Some(str_some_value!(v, f64).to_string()),
-        glib::Type::STRING => str_opt_value!(v, String),
-        _ => None,
-    }
-}
 
 pub fn property_to_widget<F: Fn(String, String) + 'static>(
     app: &GPSApp,
@@ -57,7 +42,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                 {
                     check_button.set_active(value.parse::<bool>().unwrap_or(false));
                 }
-            } else if let Some(value) = value_as_str(param.default_value()) {
+            } else if let Some(value) = common::value_as_str(param.default_value()) {
                 check_button.set_active(value.parse::<bool>().unwrap_or(false));
             }
             check_button.connect_toggled(glib::clone!(@weak check_button => move |c| {
@@ -88,7 +73,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                 {
                     entry.set_text(&value);
                 }
-            } else if let Some(value) = value_as_str(param.default_value()) {
+            } else if let Some(value) = common::value_as_str(param.default_value()) {
                 entry.set_text(&value);
             }
 
