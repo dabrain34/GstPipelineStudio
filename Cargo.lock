@@ -367,9 +367,9 @@ dependencies = [
 
 [[package]]
 name = "glib"
-version = "0.15.2"
+version = "0.15.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30a3e6b2e5ef2ecfb10c1e083074a81160b8f6408fcc08195c872e9de37a361b"
+checksum = "aa570813c504bdf7539a9400180c2dd4b789a819556fb86da7226d7d1b037b49"
 dependencies = [
  "bitflags 1.3.2",
  "futures-channel",
@@ -522,13 +522,12 @@ dependencies = [
 
 [[package]]
 name = "gstreamer"
-version = "0.18.1"
+version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8050dd478c50f1796595275eb8f21b2e1c2604f7797fcd2cc513c7af710bb4ac"
+checksum = "8564e2f284af8050f02252c5bb563ef8cbd4363403013ad4755852f743ca8c43"
 dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
- "fragile",
  "futures-channel",
  "futures-core",
  "futures-util",
@@ -618,9 +617,9 @@ dependencies = [
 
 [[package]]
 name = "gtk4"
-version = "0.4.2"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8622c50f55cbe83e78335cf95850ccefa99e8eac3335ef7d17473312402d7e89"
+checksum = "9e841556e3fe55d8a43ada76b7b08a5f65570bbdfe3b8f72c333053b8832c626"
 dependencies = [
  "bitflags 1.3.2",
  "cairo-rs",
