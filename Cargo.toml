@@ -26,3 +26,6 @@ futures-executor = "0.3"
 [features]
 default = ["gtk4-plugin"]
 gtk4-plugin = ["gst-plugin-gtk4"]
+
+[profile.release]
+strip = "debuginfo"
