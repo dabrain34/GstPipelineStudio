@@ -106,13 +106,13 @@ impl Player {
         }
 
         // Create pipeline from the description
-        let pipeline = gst::parse_launch(&description.to_string())?;
+        let pipeline = gst::parse_launch(description)?;
         let pipeline = pipeline.downcast::<gst::Pipeline>();
         /* start playing */
         if pipeline.is_err() {
             GPS_ERROR!("Can not create a proper pipeline from gstreamer parse_launch");
             return Err(anyhow::anyhow!(
-                "Unable to create a pipeline from the given parse launch {"
+                "Unable to create a pipeline from the given parse launch"
             ));
         }
         self.check_for_gtk4sink(pipeline.as_ref().unwrap());
