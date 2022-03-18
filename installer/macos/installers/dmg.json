@@ -1,0 +1,9 @@
+{
+    "title": "GstPipelineStudio installer",
+    "icon": "GstPipelineStudio.icns",
+    "background": "gps_dmg_background.png",
+    "contents": [
+      { "x": 948, "y": 270, "type": "link", "path": "/Applications" },
+      { "x": 692, "y": 270, "type": "file", "path": "GstPipelineStudio.app" }
+    ]
+}

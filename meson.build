@@ -5,6 +5,9 @@ project('gst_pipeline_studio',
                    ],
           license: 'GPL-3.0-or-later',
 )
+
+host_system = host_machine.system()
+
 python_mod = import('python')
 python3 = python_mod.find_installation()
 current_date = run_command(python3, '-c', 'import datetime; print(datetime.datetime.now().strftime("%Y-%m-%d"), end ="")').stdout()

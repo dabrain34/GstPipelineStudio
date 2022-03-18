@@ -204,3 +204,46 @@ flatpak:
       - target_test/
   when: 'manual'
 
+
+macos installer stable:
+  stage: test
+  tags:
+    - gst-macos-11.1
+  before_script:
+    - pip3 install --upgrade pip
+    # Make sure meson is up to date
+    - pip3 install -U meson
+    # Need to install certificates for python
+    - pip3 install --upgrade certifi
+    # Another way to install certificates
+    - open /Applications/Python\ 3.8/Install\ Certificates.command
+    # Get ninja
+    - pip3 install -U ninja
+  script:
+    # rust toolchain
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y
+    - source $HOME/.cargo/env
+    # brew install
+    - /bin/bash -c "./installer/macos/brew_setup.sh"
+    - /bin/bash -c "./installer/macos/deploy_macos.sh"
+  artifacts:
+    name: "MacOS installer"
+    paths:
+      - installer/**/GstPipelineStudio*.dmg
+      - installer/**/GstPipelineStudio*.tar.gz
+    expire_in: 14 days
+  when: 'manual'
+
+macos installer release:
+  extends: 'macos installer stable'
+  stage: release
+  only:
+    - flatpak
+    - tags
+  artifacts:
+    name: "MacOS installer"
+    paths:
+      - installer/**/GstPipelineStudio*.dmg
+      - installer/**/GstPipelineStudio*.tar.gz
+  when: 'always'
+
