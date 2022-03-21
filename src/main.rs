@@ -11,8 +11,8 @@ mod macros;
 mod app;
 mod common;
 mod config;
+mod graphbook;
 mod graphmanager;
-mod session;
 mod ui;
 #[macro_use]
 mod logger;

@@ -87,6 +87,7 @@
 ## 0.3.0
 ### app
  - [x] handle the caps setter element
+ - [x] Add multiple graphviews with tabs.
 
 ### CI/Infra
 - [x] Create a macos installer

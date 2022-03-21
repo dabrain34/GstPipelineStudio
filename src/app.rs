@@ -7,17 +7,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use glib::SignalHandlerId;
-use glib::Value;
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{gio, gio::SimpleAction, glib, graphene};
 use gtk::{
     Application, ApplicationWindow, Builder, Button, FileChooserAction, FileChooserDialog, Paned,
-    PopoverMenu, ResponseType, Statusbar, Viewport, Widget,
+    PopoverMenu, ResponseType, Statusbar, Widget,
 };
 use log::error;
 use once_cell::unsync::OnceCell;
-use std::cell::{Ref, RefCell};
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -25,12 +24,12 @@ use std::ops;
 use std::rc::{Rc, Weak};
 
 use crate::gps as GPS;
+use crate::graphbook;
 use crate::logger;
-use crate::session::GPSSession;
 use crate::settings::Settings;
 use crate::ui as GPSUI;
 
-use crate::{GPS_DEBUG, GPS_ERROR, GPS_INFO, GPS_TRACE, GPS_WARN};
+use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 
 use crate::graphmanager as GM;
 use crate::graphmanager::PropertyExt;
@@ -38,7 +37,8 @@ use std::fmt;
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
-    pub session: RefCell<GPSSession>,
+    pub current_graphtab: Cell<u32>,
+    pub graphbook: RefCell<HashMap<u32, graphbook::GraphTab>>,
     pub builder: Builder,
     pub plugin_list_initialized: OnceCell<bool>,
     pub signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
@@ -97,15 +97,12 @@ impl GPSApp {
 
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
-            session: RefCell::new(GPSSession::new()),
+            current_graphtab: Cell::new(0),
+            graphbook: RefCell::new(HashMap::new()),
             builder,
             plugin_list_initialized: OnceCell::new(),
             signal_handlers: RefCell::new(HashMap::new()),
         }));
-        let app_weak = app.downgrade();
-        app.session.borrow().set_player(app_weak);
-        app.session.borrow().set_graphview_id(0);
-
         let settings = Settings::load_settings();
 
         if settings.app_maximized {
@@ -121,10 +118,6 @@ impl GPSApp {
         app.set_paned_position(&settings, "playcontrols_position-paned", 100);
 
         Ok(app)
-    }
-
-    pub fn session(&self) -> Ref<GPSSession> {
-        self.session.borrow()
     }
 
     fn set_paned_position(
@@ -182,7 +175,11 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let value = slider.value() as u64;
             GPS_TRACE!("Seeking to {} s", value);
-            if app.session().player().set_position(value).is_err() {
+            if graphbook::current_graphtab(&app)
+                .player()
+                .set_position(value)
+                .is_err()
+            {
                 GPS_ERROR!("Seeking to {} failed", value);
             }
         });
@@ -199,15 +196,17 @@ impl GPSApp {
                     .builder
                     .object("scale-position")
                     .expect("Couldn't get status_bar");
-                let position = app.session().player().position();
-                let duration = app.session().player().duration();
+                let position = graphbook::current_graphtab(&app).player().position();
+                let duration = graphbook::current_graphtab(&app).player().duration();
                 slider.set_range(0.0, duration as f64 / 1000_f64);
                 slider.block_signal(&slider_update_signal_id);
                 slider.set_value(position as f64 / 1000_f64);
                 slider.unblock_signal(&slider_update_signal_id);
 
                 // Query the current playing position from the underlying player.
-                let position_desc = app.session().player().position_description();
+                let position_desc = graphbook::current_graphtab(&app)
+                    .player()
+                    .position_description();
                 // Display the playing position in the gui.
                 label.set_text(&position_desc);
                 // Tell the callback to continue calling this closure.
@@ -262,7 +261,9 @@ impl GPSApp {
         application.set_accels_for_action("app.open_pipeline", &["<primary>p"]);
 
         application.add_action(&gio::SimpleAction::new("save_as", None));
+        application.add_action(&gio::SimpleAction::new("save", None));
         application.set_accels_for_action("app.save", &["<primary>s"]);
+        application.add_action(&gio::SimpleAction::new("save_as", None));
 
         application.add_action(&gio::SimpleAction::new("delete", None));
         application.set_accels_for_action("app.delete", &["<primary>d", "Delete"]);
@@ -278,6 +279,7 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("logger.clear", None));
 
         application.add_action(&gio::SimpleAction::new("graph.check", None));
+        application.add_action(&gio::SimpleAction::new("graph.clear", None));
         application.add_action(&gio::SimpleAction::new("graph.pipeline_details", None));
 
         application.add_action(&gio::SimpleAction::new("port.delete", None));
@@ -331,7 +333,7 @@ impl GPSApp {
             .expect("Unable to dynamic cast to SimpleAction")
     }
 
-    fn disconnect_app_menu_action(&self, action_name: &str) {
+    pub fn disconnect_app_menu_action(&self, action_name: &str) {
         let action = self.app_menu_action(action_name);
 
         if let Some(signal_handler_id) = self.signal_handlers.borrow_mut().remove(action_name) {
@@ -420,7 +422,12 @@ impl GPSApp {
             .builder
             .object("notebook-preview")
             .expect("Couldn't get box_preview");
-        if n_sink == 0 {
+        let mut n_video_sink = n_sink;
+        for tab in self.graphbook.borrow().values() {
+            n_video_sink += tab.player().n_video_sink();
+        }
+
+        if n_video_sink == 0 {
             loop {
                 let i = notebook_preview.n_pages();
                 if i == 0 {
@@ -435,17 +442,14 @@ impl GPSApp {
             .valign(gtk::Align::Center)
             .build();
         box_preview.append(&picture);
-        let label = gtk::Label::new(Some(&format!("Preview{n_sink}")));
+        let label = gtk::Label::new(Some(&format!("Preview{n_video_sink}")));
         notebook_preview.insert_page(&box_preview, Some(&label), None);
+        notebook_preview.set_current_page(Some(n_video_sink as u32));
     }
 
     pub fn build_ui(&self, application: &Application) {
-        let drawing_area_window: Viewport = self
-            .builder
-            .object("drawing_area")
-            .expect("Couldn't get drawing_area");
-
-        drawing_area_window.set_child(Some(&*self.session.borrow().graphview()));
+        graphbook::setup_graphbook(self);
+        graphbook::create_graphtab(self, 0, None);
 
         // Setup the logger to get messages into the TreeView
         let (ready_tx, ready_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
@@ -478,15 +482,20 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("new-window", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            app.clear_graph();
-            GPS_ERROR!("clear graph");
+            let id = graphbook::graphbook_get_new_graphtab_id(&app);
+            graphbook::create_graphtab(&app, id, None);
+            let graphbook: gtk::Notebook = app
+                .builder
+                .object("graphbook")
+                .expect("Couldn't get graphbook");
+            graphbook.set_current_page(Some(id));
         });
 
         let app_weak = self.downgrade();
         self.connect_app_menu_action("open", move |_, _| {
             let app = upgrade_weak!(app_weak);
             GPSApp::get_file_from_dialog(&app, false, move |app, filename| {
-                app.load_graph(&filename)
+                app.load_graph(&filename, false)
                     .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", filename));
             });
         });
@@ -506,6 +515,24 @@ impl GPSApp {
                 },
             );
         });
+        let app_weak = self.downgrade();
+        self.connect_app_menu_action("save", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            let gt = graphbook::current_graphtab(&app);
+            if gt.undefined() {
+                GPSApp::get_file_from_dialog(&app, true, move |app, filename| {
+                    GPS_DEBUG!("Save file {}", filename);
+                    app.save_graph(&filename)
+                        .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
+                    graphbook::current_graphtab_set_filename(&app, filename.as_str());
+                });
+            } else if gt.modified() {
+                let filename = gt.filename();
+                app.save_graph(&filename)
+                    .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
+                graphbook::current_graphtab_set_filename(&app, filename.as_str());
+            }
+        });
 
         let app_weak = self.downgrade();
         self.connect_app_menu_action("save_as", move |_, _| {
@@ -514,6 +541,7 @@ impl GPSApp {
                 GPS_DEBUG!("Save file {}", filename);
                 app.save_graph(&filename)
                     .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
+                graphbook::current_graphtab_set_filename(&app, filename.as_str());
             });
         });
 
@@ -526,7 +554,9 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("delete", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            app.session().graphview().delete_selected();
+            graphbook::current_graphtab(&app)
+                .graphview()
+                .delete_selected();
         });
 
         let app_weak = self.downgrade();
@@ -538,27 +568,26 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_button_action("button-play", move |_| {
             let app = upgrade_weak!(app_weak);
-            let _ = app
-                .session()
-                .player()
-                .start_pipeline(&app.session().graphview(), GPS::PipelineState::Playing);
+            let _ = graphbook::current_graphtab(&app).player().start_pipeline(
+                &graphbook::current_graphtab(&app).graphview(),
+                GPS::PipelineState::Playing,
+            );
         });
 
         let app_weak = self.downgrade();
         self.connect_button_action("button-pause", move |_| {
             let app = upgrade_weak!(app_weak);
-            let _ = app
-                .session()
-                .player()
-                .start_pipeline(&app.session().graphview(), GPS::PipelineState::Paused);
+            let _ = graphbook::current_graphtab(&app).player().start_pipeline(
+                &graphbook::current_graphtab(&app).graphview(),
+                GPS::PipelineState::Paused,
+            );
         });
 
         let app_weak = self.downgrade();
         self.connect_button_action("button-stop", move |_| {
             let app = upgrade_weak!(app_weak);
 
-            let _ = app
-                .session()
+            let _ = graphbook::current_graphtab(&app)
                 .player()
                 .set_state(GPS::PipelineState::Stopped);
         });
@@ -568,277 +597,6 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             app.clear_graph();
         });
-        let app_weak = self.downgrade();
-        self.session().graphview().connect_local(
-            "node-added",
-            false,
-            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-                let graph_id = values[1].get::<u32>().expect("graph id in args[1]");
-                let node_id = values[2].get::<u32>().expect("node id in args[2]");
-                GPS_INFO!("Node added node id={} in graph id={}", node_id, graph_id);
-                if let Some(node) = app.session().graphview().node(node_id) {
-                    let description = GPS::ElementInfo::element_description(&node.name()).ok();
-                    node.set_tooltip_markup(description.as_deref());
-                    for port in node.all_ports(GM::PortDirection::All) {
-                        let caps = PropertyExt::property(&port,"_caps");
-                        GPS_TRACE!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
-                        port.set_tooltip_markup(caps.as_deref());
-                    }
-                }
-
-                None
-            }),
-        );
-        let app_weak = self.downgrade();
-        self.session().graphview().connect_local(
-            "port-added",
-            false,
-            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-                let graph_id = values[1].get::<u32>().expect("graph id in args[1]");
-                let node_id = values[2].get::<u32>().expect("node id in args[2]");
-                let port_id = values[3].get::<u32>().expect("port id in args[3]");
-                GPS_INFO!("Port added port id={} to node id={} in graph id={}", port_id, node_id, graph_id);
-                if let Some(node) = app.session().graphview().node(node_id) {
-                    if let Some(port) = node.port(port_id) {
-                        let caps = PropertyExt::property(&port, "_caps");
-                        GPS_TRACE!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
-                        port.set_tooltip_markup(caps.as_deref());
-                    }
-                }
-                None
-            }),
-        );
-        let app_weak = self.downgrade();
-        self.session().graphview().connect_local(
-            "graph-updated",
-            false,
-            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-                let id = values[1].get::<u32>().expect("id in args[1]");
-                GPS_TRACE!("Graph updated id={}", id);
-                let _ = app
-                    .save_graph(
-                        Settings::default_graph_file_path()
-                            .to_str()
-                            .expect("Unable to convert to string"),
-                    )
-                    .map_err(|e| GPS_WARN!("Unable to save file {}", e));
-                None
-            }),
-        );
-        // When user clicks on port with right button
-        let app_weak = self.downgrade();
-        self.session().graphview()
-            .connect_local(
-                "graph-right-clicked",
-                false,
-                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                    let app = upgrade_weak!(app_weak, None);
-                    let point = values[1].get::<graphene::Point>().expect("point in args[2]");
-
-                    let pop_menu = app.app_pop_menu_at_position(&*app.session().graphview(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
-                    let menu: gio::MenuModel = app
-                    .builder
-                    .object("graph_menu")
-                    .expect("Couldn't graph_menu");
-                    pop_menu.set_menu_model(Some(&menu));
-
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("graph.check",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            let render_parse_launch = app.session().player().pipeline_description_from_graphview(&app.session().graphview());
-                            if app.session().player().create_pipeline(&render_parse_launch).is_ok() {
-                                GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
-                            } else {
-                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{render_parse_launch}"));
-                            }
-                        }
-                    );
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("graph.pipeline_details",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPSUI::properties::display_pipeline_details(&app);
-                        }
-                    );
-                    pop_menu.show();
-                    None
-                }),
-            );
-
-        // When user clicks on port with right button
-        let app_weak = self.downgrade();
-        self.session().graphview().connect_local(
-            "port-right-clicked",
-            false,
-            move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-
-                let port_id = values[1].get::<u32>().expect("port id args[1]");
-                let node_id = values[2].get::<u32>().expect("node id args[2]");
-                let point = values[3]
-                    .get::<graphene::Point>()
-                    .expect("point in args[3]");
-
-                let pop_menu = app.app_pop_menu_at_position(
-                    &*app.session().graphview(),
-                    point.to_vec2().x() as f64,
-                    point.to_vec2().y() as f64,
-                );
-                let menu: gio::MenuModel = app
-                    .builder
-                    .object("port_menu")
-                    .expect("Couldn't get menu model for port");
-                pop_menu.set_menu_model(Some(&menu));
-
-                if app.session().graphview().can_remove_port(node_id, port_id) {
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("port.delete", move |_, _| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_TRACE!("port.delete-link port {} node {}", port_id, node_id);
-                        app.session().graphview().remove_port(node_id, port_id);
-                    });
-                } else {
-                    app.disconnect_app_menu_action("port.delete");
-                }
-
-                let app_weak = app.downgrade();
-                app.connect_app_menu_action("port.properties", move |_, _| {
-                    let app = upgrade_weak!(app_weak);
-                    GPS_TRACE!("port.properties port {} node {}", port_id, node_id);
-                    let node = app.node(node_id);
-                    let port = app.port(node_id, port_id);
-                    GPSUI::properties::display_pad_properties(
-                        &app,
-                        &node.name(),
-                        &port.name(),
-                        node_id,
-                        port_id,
-                    );
-                });
-                pop_menu.show();
-                None
-            },
-        );
-
-        // When user clicks on node with right button
-        let app_weak = self.downgrade();
-        self.session().graphview()
-            .connect_local(
-                "node-right-clicked",
-                false,
-                glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                    let app = upgrade_weak!(app_weak, None);
-
-                    let node_id = values[1].get::<u32>().expect("node id args[1]");
-                    let point = values[2].get::<graphene::Point>().expect("point in args[2]");
-
-                    let pop_menu = app.app_pop_menu_at_position(&*app.session().graphview(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
-                    let menu: gio::MenuModel = app
-                        .builder
-                        .object("node_menu")
-                        .expect("Couldn't get menu model for node");
-                    pop_menu.set_menu_model(Some(&menu));
-
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.add-to-favorite",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.add-to-favorite {}", node_id);
-                            if let Some(node) = app.session().graphview().node(node_id) {
-                                GPSUI::elements::add_to_favorite_list(&app, node.name());
-                            };
-                        }
-                    );
-
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.delete",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.delete {}", node_id);
-                            app.session().graphview().remove_node(node_id);
-                        }
-                    );
-                    let node = app.node(node_id);
-                    if let Some(input) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Input) {
-                        let app_weak = app.downgrade();
-                        app.connect_app_menu_action("node.request-pad-input",
-                            move |_,_| {
-                                let app = upgrade_weak!(app_weak);
-                                GPS_DEBUG!("node.request-pad-input {}", node_id);
-                                app.create_port_with_caps(node_id, GM::PortDirection::Input, GM::PortPresence::Sometimes, input.caps().to_string());
-                            }
-                        );
-                    } else {
-                        app.disconnect_app_menu_action("node.request-pad-input");
-                    }
-                    let node = app.node(node_id);
-                    if let Some(output) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Output) {
-                        let app_weak = app.downgrade();
-                        app.connect_app_menu_action("node.request-pad-output",
-                            move |_,_| {
-                                let app = upgrade_weak!(app_weak);
-                                GPS_DEBUG!("node.request-pad-output {}", node_id);
-                                app.create_port_with_caps(node_id, GM::PortDirection::Output, GM::PortPresence::Sometimes, output.caps().to_string());
-                            }
-                        );
-                    } else {
-                        app.disconnect_app_menu_action("node.request-pad-output");
-                    }
-
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.properties",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.properties {}", node_id);
-                            let node = app.session().graphview().node(node_id).unwrap();
-                            GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
-                        }
-                    );
-
-                    pop_menu.show();
-                    None
-                }),
-            );
-        let app_weak = self.downgrade();
-        self.session().graphview.borrow().connect_local(
-            "node-double-clicked",
-            false,
-            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-                let node_id = values[1].get::<u32>().expect("node id args[1]");
-                GPS_TRACE!("Node  double clicked id={}", node_id);
-                let node = app.session().graphview.borrow().node(node_id).unwrap();
-                GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
-                None
-            }),
-        );
-        let app_weak = self.downgrade();
-        self.session().graphview.borrow().connect_local(
-            "link-double-clicked",
-            false,
-            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-                let link_id = values[1].get::<u32>().expect("link id args[1]");
-                GPS_TRACE!("link double clicked id={}", link_id);
-                let link = app.session().graphview.borrow().link(link_id).unwrap();
-                GPSUI::dialog::create_input_dialog(
-                    "Enter caps filter description",
-                    "description",
-                    &link.name(),
-                    &app,
-                    move |app, link_desc| {
-                        GPS_ERROR!("link double clicked id={}", link.id());
-                        app.session().graphview.borrow().set_link_name(link.id(), link_desc.as_str());
-                        GPS_ERROR!("link double clicked name={}", link.name());
-                    },
-                );
-                None
-            }),
-        );
 
         // Setup the favorite list
         GPSUI::elements::setup_favorite_list(self);
@@ -850,6 +608,7 @@ impl GPSApp {
                 Settings::default_graph_file_path()
                     .to_str()
                     .expect("Unable to convert to string"),
+                true,
             )
             .map_err(|_e| {
                 GPS_WARN!("Unable to load default graph");
@@ -866,8 +625,7 @@ impl GPSApp {
 
     pub fn add_new_element(&self, element_name: &str) {
         let (inputs, outputs) = GPS::PadInfo::pads(element_name, false);
-        let node = self
-            .session()
+        let node = graphbook::current_graphtab(self)
             .graphview()
             .create_node(element_name, GPS::ElementInfo::element_type(element_name));
         let node_id = node.id();
@@ -876,12 +634,12 @@ impl GPSApp {
                 GPS_DEBUG!("Open file {}", filename);
                 let mut properties: HashMap<String, String> = HashMap::new();
                 properties.insert(String::from("location"), filename);
-                if let Some(node) = app.session().graphview().node(node_id) {
+                if let Some(node) = graphbook::current_graphtab(&app).graphview().node(node_id) {
                     node.update_properties(&properties);
                 }
             });
         }
-        self.session().graphview().add_node(node);
+        graphbook::current_graphtab(self).graphview().add_node(node);
         for input in inputs {
             self.create_port_with_caps(
                 node_id,
@@ -900,16 +658,15 @@ impl GPSApp {
         }
     }
 
-    fn node(&self, node_id: u32) -> GM::Node {
-        let node = self
-            .session()
+    pub fn node(&self, node_id: u32) -> GM::Node {
+        let node = graphbook::current_graphtab(self)
             .graphview()
             .node(node_id)
             .unwrap_or_else(|| panic!("Unable to retrieve node with id {}", node_id));
         node
     }
 
-    fn port(&self, node_id: u32, port_id: u32) -> GM::Port {
+    pub fn port(&self, node_id: u32, port_id: u32) -> GM::Port {
         let node = self.node(node_id);
         node.port(port_id)
             .unwrap_or_else(|| panic!("Unable to retrieve port with id {}", port_id))
@@ -961,15 +718,16 @@ impl GPSApp {
             _ => String::from("?"),
         };
         let port_name = format!("{}{}", port_name, ports.len());
-        let port = self
-            .session()
+        let port = graphbook::current_graphtab(self)
             .graphview()
             .create_port(&port_name, direction, presence);
         let id = port.id();
         let properties: HashMap<String, String> = HashMap::from([("_caps".to_string(), caps)]);
         port.update_properties(&properties);
-        if let Some(mut node) = self.session().graphview().node(node_id) {
-            self.session().graphview().add_port_to_node(&mut node, port);
+        if let Some(mut node) = graphbook::current_graphtab(self).graphview().node(node_id) {
+            graphbook::current_graphtab(self)
+                .graphview()
+                .add_port_to_node(&mut node, port);
         }
         id
     }
@@ -981,37 +739,43 @@ impl GPSApp {
         port_from_id: u32,
         port_to_id: u32,
     ) {
-        let session = self.session();
-        let graphview = session.graphview.borrow();
-        let link = graphview.create_link(node_from_id, node_to_id, port_from_id, port_to_id);
-        graphview.add_link(link);
+        let graphtab = graphbook::current_graphtab(self);
+        let link =
+            graphtab
+                .graphview()
+                .create_link(node_from_id, node_to_id, port_from_id, port_to_id);
+        graphtab.graphview().add_link(link);
     }
 
     fn clear_graph(&self) {
-        self.session().graphview().clear();
+        graphbook::current_graphtab(self).graphview().clear();
     }
 
-    fn save_graph(&self, filename: &str) -> anyhow::Result<()> {
+    pub fn save_graph(&self, filename: &str) -> anyhow::Result<()> {
         let mut file = File::create(filename)?;
-        let buffer = self.session().graphview().render_xml()?;
+        let buffer = graphbook::current_graphtab(self).graphview().render_xml()?;
         file.write_all(&buffer)?;
 
         Ok(())
     }
 
-    fn load_graph(&self, filename: &str) -> anyhow::Result<()> {
+    fn load_graph(&self, filename: &str, untitled: bool) -> anyhow::Result<()> {
         let mut file = File::open(filename)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).expect("buffer overflow");
-        self.session().graphview().load_from_xml(buffer)?;
+        let graphtab = graphbook::current_graphtab(self);
+        graphtab.graphview().load_from_xml(buffer)?;
+        if !untitled {
+            graphbook::current_graphtab_set_filename(self, filename);
+        }
         Ok(())
     }
 
     fn load_pipeline(&self, pipeline_desc: &str) -> anyhow::Result<()> {
-        let session = self.session();
-        let player = session.player();
-        let graphview = session.graphview.borrow();
-        player.graphview_from_pipeline_description(&graphview, pipeline_desc);
+        let graphtab = graphbook::current_graphtab(self);
+        graphtab
+            .player()
+            .graphview_from_pipeline_description(&graphtab.graphview(), pipeline_desc);
         Ok(())
     }
 }

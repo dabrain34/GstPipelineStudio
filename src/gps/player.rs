@@ -199,6 +199,7 @@ impl Player {
                 PipelineState::Paused => pipeline.set_state(gst::State::Paused)?,
                 PipelineState::Stopped | PipelineState::Error => {
                     pipeline.set_state(gst::State::Null)?;
+                    self.n_video_sink.set(0);
                     gst::StateChangeSuccess::Success
                 }
             };
@@ -267,6 +268,9 @@ impl Player {
 
     pub fn playing(&self) -> bool {
         self.state() == PipelineState::Playing || self.state() == PipelineState::Paused
+    }
+    pub fn n_video_sink(&self) -> usize {
+        self.n_video_sink.get()
     }
 
     pub fn downgrade(&self) -> PlayerWeak {

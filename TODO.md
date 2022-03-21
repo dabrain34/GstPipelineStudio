@@ -12,8 +12,7 @@
 ### app
 
 - [ ] Control the connection between element
-  - [ ] unable to connect element with incompatible caps.
-- [ ] Add multiple graphviews with tabs.
+- [ ] unable to connect element with incompatible caps.
 - [ ] Implement graph dot render/load
 
 

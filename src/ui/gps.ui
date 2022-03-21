@@ -11,7 +11,7 @@
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that opens the graph">_Open</attribute>
         <attribute name="action">app.open</attribute>
-        <attribute name="accel">&lt;primary&gt;n</attribute>
+        <attribute name="accel">&lt;primary&gt;o</attribute>
       </item>
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that opens a pipeline">_Open pipeline</attribute>
@@ -19,9 +19,13 @@
         <attribute name="accel">&lt;primary&gt;p</attribute>
       </item>
       <item>
+        <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save</attribute>
+        <attribute name="action">app.save</attribute>
+        <attribute name="accel">&lt;primary&gt;s</attribute>
+      </item>
+      <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save As</attribute>
         <attribute name="action">app.save_as</attribute>
-        <attribute name="accel">&lt;primary&gt;n</attribute>
       </item>
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that open the preferences">_Preferences</attribute>
@@ -48,6 +52,10 @@
   </menu>
   <menu id="graph_menu">
     <section>
+      <item>
+        <attribute name="label" translatable="yes" comments="graph menu entry clear graph">_Clear graph</attribute>
+        <attribute name="action">app.graph.clear</attribute>
+      </item>
       <item>
         <attribute name="label" translatable="yes" comments="graph menu entry check graph">_Check graph</attribute>
         <attribute name="action">app.graph.check</attribute>
@@ -205,7 +213,7 @@
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
                     <property name="child">
-                      <object class="GtkViewport" id="drawing_area">
+                      <object class="GtkNotebook" id="graphbook">
                         <child>
                           <placeholder/>
                         </child>
