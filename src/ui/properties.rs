@@ -300,7 +300,7 @@ pub fn display_pipeline_details(app: &GPSApp) {
     grid.set_row_spacing(4);
     grid.set_margin_bottom(12);
 
-    if let Some(elements) = app.player.borrow().pipeline_elements() {
+    if let Some(elements) = app.session().player().pipeline_elements() {
         let elements_list = elements.join(" ");
         let label = gtk::Label::builder()
             .label(format!("{} elements:", elements.len()))

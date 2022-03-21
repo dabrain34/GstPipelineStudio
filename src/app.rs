@@ -17,7 +17,7 @@ use gtk::{
 };
 use log::error;
 use once_cell::unsync::OnceCell;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -26,6 +26,7 @@ use std::rc::{Rc, Weak};
 
 use crate::gps as GPS;
 use crate::logger;
+use crate::session::GPSSession;
 use crate::settings::Settings;
 use crate::ui as GPSUI;
 
@@ -37,9 +38,8 @@ use std::fmt;
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
-    pub graphview: RefCell<GM::GraphView>,
+    pub session: RefCell<GPSSession>,
     pub builder: Builder,
-    pub player: RefCell<GPS::Player>,
     pub plugin_list_initialized: OnceCell<bool>,
     pub signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
 }
@@ -95,18 +95,16 @@ impl GPSApp {
         window.set_application(Some(application));
         window.set_title(Some("GStreamer Pipeline Studio"));
 
-        let player = GPS::Player::new().expect("Unable to initialize GStreamer subsystem");
         let app = GPSApp(Rc::new(GPSAppInner {
             window,
-            graphview: RefCell::new(GM::GraphView::new()),
+            session: RefCell::new(GPSSession::new()),
             builder,
-            player: RefCell::new(player),
             plugin_list_initialized: OnceCell::new(),
             signal_handlers: RefCell::new(HashMap::new()),
         }));
         let app_weak = app.downgrade();
-        app.player.borrow().set_app(app_weak);
-        app.graphview.borrow_mut().set_id(0);
+        app.session.borrow().set_player(app_weak);
+        app.session.borrow().set_graphview_id(0);
 
         let settings = Settings::load_settings();
 
@@ -123,6 +121,10 @@ impl GPSApp {
         app.set_paned_position(&settings, "playcontrols_position-paned", 100);
 
         Ok(app)
+    }
+
+    pub fn session(&self) -> Ref<GPSSession> {
+        self.session.borrow()
     }
 
     fn set_paned_position(
@@ -178,10 +180,9 @@ impl GPSApp {
             .expect("Couldn't get status_bar");
         let slider_update_signal_id = slider.connect_value_changed(move |slider| {
             let app = upgrade_weak!(app_weak);
-            let player = app.player.borrow();
             let value = slider.value() as u64;
             GPS_TRACE!("Seeking to {} s", value);
-            if player.set_position(value).is_err() {
+            if app.session().player().set_position(value).is_err() {
                 GPS_ERROR!("Seeking to {} failed", value);
             }
         });
@@ -189,7 +190,6 @@ impl GPSApp {
         let timeout_id =
             glib::timeout_add_local(std::time::Duration::from_millis(500), move || {
                 let app = upgrade_weak!(app_weak, glib::ControlFlow::Break);
-                let player = app.player.borrow();
 
                 let label: gtk::Label = app
                     .builder
@@ -199,15 +199,15 @@ impl GPSApp {
                     .builder
                     .object("scale-position")
                     .expect("Couldn't get status_bar");
-                let position = player.position();
-                let duration = player.duration();
+                let position = app.session().player().position();
+                let duration = app.session().player().duration();
                 slider.set_range(0.0, duration as f64 / 1000_f64);
                 slider.block_signal(&slider_update_signal_id);
                 slider.set_value(position as f64 / 1000_f64);
                 slider.unblock_signal(&slider_update_signal_id);
 
                 // Query the current playing position from the underlying player.
-                let position_desc = player.position_description();
+                let position_desc = app.session().player().position_description();
                 // Display the playing position in the gui.
                 label.set_text(&position_desc);
                 // Tell the callback to continue calling this closure.
@@ -445,7 +445,7 @@ impl GPSApp {
             .object("drawing_area")
             .expect("Couldn't get drawing_area");
 
-        drawing_area_window.set_child(Some(&*self.graphview.borrow()));
+        drawing_area_window.set_child(Some(&*self.session.borrow().graphview()));
 
         // Setup the logger to get messages into the TreeView
         let (ready_tx, ready_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
@@ -526,8 +526,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("delete", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            let graph_view = app.graphview.borrow();
-            graph_view.delete_selected();
+            app.session().graphview().delete_selected();
         });
 
         let app_weak = self.downgrade();
@@ -539,28 +538,29 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_button_action("button-play", move |_| {
             let app = upgrade_weak!(app_weak);
-            let graph_view = app.graphview.borrow();
             let _ = app
-                .player
-                .borrow()
-                .start_pipeline(&graph_view, GPS::PipelineState::Playing);
+                .session()
+                .player()
+                .start_pipeline(&app.session().graphview(), GPS::PipelineState::Playing);
         });
 
         let app_weak = self.downgrade();
         self.connect_button_action("button-pause", move |_| {
             let app = upgrade_weak!(app_weak);
-            let graph_view = app.graphview.borrow();
             let _ = app
-                .player
-                .borrow()
-                .start_pipeline(&graph_view, GPS::PipelineState::Paused);
+                .session()
+                .player()
+                .start_pipeline(&app.session().graphview(), GPS::PipelineState::Paused);
         });
 
         let app_weak = self.downgrade();
         self.connect_button_action("button-stop", move |_| {
             let app = upgrade_weak!(app_weak);
-            let player = app.player.borrow();
-            let _ = player.set_state(GPS::PipelineState::Stopped);
+
+            let _ = app
+                .session()
+                .player()
+                .set_state(GPS::PipelineState::Stopped);
         });
 
         let app_weak = self.downgrade();
@@ -569,7 +569,7 @@ impl GPSApp {
             app.clear_graph();
         });
         let app_weak = self.downgrade();
-        self.graphview.borrow().connect_local(
+        self.session().graphview().connect_local(
             "node-added",
             false,
             glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
@@ -577,7 +577,7 @@ impl GPSApp {
                 let graph_id = values[1].get::<u32>().expect("graph id in args[1]");
                 let node_id = values[2].get::<u32>().expect("node id in args[2]");
                 GPS_INFO!("Node added node id={} in graph id={}", node_id, graph_id);
-                if let Some(node) = app.graphview.borrow().node(node_id) {
+                if let Some(node) = app.session().graphview().node(node_id) {
                     let description = GPS::ElementInfo::element_description(&node.name()).ok();
                     node.set_tooltip_markup(description.as_deref());
                     for port in node.all_ports(GM::PortDirection::All) {
@@ -591,7 +591,7 @@ impl GPSApp {
             }),
         );
         let app_weak = self.downgrade();
-        self.graphview.borrow().connect_local(
+        self.session().graphview().connect_local(
             "port-added",
             false,
             glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
@@ -600,7 +600,7 @@ impl GPSApp {
                 let node_id = values[2].get::<u32>().expect("node id in args[2]");
                 let port_id = values[3].get::<u32>().expect("port id in args[3]");
                 GPS_INFO!("Port added port id={} to node id={} in graph id={}", port_id, node_id, graph_id);
-                if let Some(node) = app.graphview.borrow().node(node_id) {
+                if let Some(node) = app.session().graphview().node(node_id) {
                     if let Some(port) = node.port(port_id) {
                         let caps = PropertyExt::property(&port, "_caps");
                         GPS_TRACE!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
@@ -611,7 +611,7 @@ impl GPSApp {
             }),
         );
         let app_weak = self.downgrade();
-        self.graphview.borrow().connect_local(
+        self.session().graphview().connect_local(
             "graph-updated",
             false,
             glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
@@ -630,8 +630,7 @@ impl GPSApp {
         );
         // When user clicks on port with right button
         let app_weak = self.downgrade();
-        self.graphview
-            .borrow()
+        self.session().graphview()
             .connect_local(
                 "graph-right-clicked",
                 false,
@@ -639,7 +638,7 @@ impl GPSApp {
                     let app = upgrade_weak!(app_weak, None);
                     let point = values[1].get::<graphene::Point>().expect("point in args[2]");
 
-                    let pop_menu = app.app_pop_menu_at_position(&*app.graphview.borrow(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
+                    let pop_menu = app.app_pop_menu_at_position(&*app.session().graphview(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
                     let menu: gio::MenuModel = app
                     .builder
                     .object("graph_menu")
@@ -650,11 +649,11 @@ impl GPSApp {
                     app.connect_app_menu_action("graph.check",
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
-                            let pipeline_description = app.player.borrow().pipeline_description_from_graphview(&app.graphview.borrow());
-                            if app.player.borrow().create_pipeline(&pipeline_description).is_ok() {
-                                GPSUI::message::display_message_dialog(&pipeline_description,gtk::MessageType::Info, |_| {});
+                            let render_parse_launch = app.session().player().pipeline_description_from_graphview(&app.session().graphview());
+                            if app.session().player().create_pipeline(&render_parse_launch).is_ok() {
+                                GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
                             } else {
-                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{pipeline_description}"));
+                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{render_parse_launch}"));
                             }
                         }
                     );
@@ -672,7 +671,7 @@ impl GPSApp {
 
         // When user clicks on port with right button
         let app_weak = self.downgrade();
-        self.graphview.borrow().connect_local(
+        self.session().graphview().connect_local(
             "port-right-clicked",
             false,
             move |values: &[Value]| {
@@ -685,7 +684,7 @@ impl GPSApp {
                     .expect("point in args[3]");
 
                 let pop_menu = app.app_pop_menu_at_position(
-                    &*app.graphview.borrow(),
+                    &*app.session().graphview(),
                     point.to_vec2().x() as f64,
                     point.to_vec2().y() as f64,
                 );
@@ -695,12 +694,12 @@ impl GPSApp {
                     .expect("Couldn't get menu model for port");
                 pop_menu.set_menu_model(Some(&menu));
 
-                if app.graphview.borrow().can_remove_port(node_id, port_id) {
+                if app.session().graphview().can_remove_port(node_id, port_id) {
                     let app_weak = app.downgrade();
                     app.connect_app_menu_action("port.delete", move |_, _| {
                         let app = upgrade_weak!(app_weak);
                         GPS_TRACE!("port.delete-link port {} node {}", port_id, node_id);
-                        app.graphview.borrow().remove_port(node_id, port_id);
+                        app.session().graphview().remove_port(node_id, port_id);
                     });
                 } else {
                     app.disconnect_app_menu_action("port.delete");
@@ -727,8 +726,7 @@ impl GPSApp {
 
         // When user clicks on node with right button
         let app_weak = self.downgrade();
-        self.graphview
-            .borrow()
+        self.session().graphview()
             .connect_local(
                 "node-right-clicked",
                 false,
@@ -738,7 +736,7 @@ impl GPSApp {
                     let node_id = values[1].get::<u32>().expect("node id args[1]");
                     let point = values[2].get::<graphene::Point>().expect("point in args[2]");
 
-                    let pop_menu = app.app_pop_menu_at_position(&*app.graphview.borrow(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
+                    let pop_menu = app.app_pop_menu_at_position(&*app.session().graphview(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
                     let menu: gio::MenuModel = app
                         .builder
                         .object("node_menu")
@@ -750,7 +748,7 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.add-to-favorite {}", node_id);
-                            if let Some(node) = app.graphview.borrow().node(node_id) {
+                            if let Some(node) = app.session().graphview().node(node_id) {
                                 GPSUI::elements::add_to_favorite_list(&app, node.name());
                             };
                         }
@@ -761,7 +759,7 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.delete {}", node_id);
-                            app.graphview.borrow_mut().remove_node(node_id);
+                            app.session().graphview().remove_node(node_id);
                         }
                     );
                     let node = app.node(node_id);
@@ -796,7 +794,7 @@ impl GPSApp {
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
                             GPS_DEBUG!("node.properties {}", node_id);
-                            let node = app.graphview.borrow().node(node_id).unwrap();
+                            let node = app.session().graphview().node(node_id).unwrap();
                             GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
                         }
                     );
@@ -806,27 +804,27 @@ impl GPSApp {
                 }),
             );
         let app_weak = self.downgrade();
-        self.graphview.borrow().connect_local(
+        self.session().graphview.borrow().connect_local(
             "node-double-clicked",
             false,
             glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
                 let app = upgrade_weak!(app_weak, None);
                 let node_id = values[1].get::<u32>().expect("node id args[1]");
                 GPS_TRACE!("Node  double clicked id={}", node_id);
-                let node = app.graphview.borrow().node(node_id).unwrap();
+                let node = app.session().graphview.borrow().node(node_id).unwrap();
                 GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
                 None
             }),
         );
         let app_weak = self.downgrade();
-        self.graphview.borrow().connect_local(
+        self.session().graphview.borrow().connect_local(
             "link-double-clicked",
             false,
             glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
                 let app = upgrade_weak!(app_weak, None);
                 let link_id = values[1].get::<u32>().expect("link id args[1]");
                 GPS_TRACE!("link double clicked id={}", link_id);
-                let link = app.graphview.borrow().link(link_id).unwrap();
+                let link = app.session().graphview.borrow().link(link_id).unwrap();
                 GPSUI::dialog::create_input_dialog(
                     "Enter caps filter description",
                     "description",
@@ -834,7 +832,7 @@ impl GPSApp {
                     &app,
                     move |app, link_desc| {
                         GPS_ERROR!("link double clicked id={}", link.id());
-                        app.graphview.borrow().set_link_name(link.id(), link_desc.as_str());
+                        app.session().graphview.borrow().set_link_name(link.id(), link_desc.as_str());
                         GPS_ERROR!("link double clicked name={}", link.name());
                     },
                 );
@@ -867,23 +865,23 @@ impl GPSApp {
     fn drop(self) {}
 
     pub fn add_new_element(&self, element_name: &str) {
-        let graphview = self.graphview.borrow();
         let (inputs, outputs) = GPS::PadInfo::pads(element_name, false);
-        let node =
-            graphview.create_node(element_name, GPS::ElementInfo::element_type(element_name));
+        let node = self
+            .session()
+            .graphview()
+            .create_node(element_name, GPS::ElementInfo::element_type(element_name));
         let node_id = node.id();
         if GPS::ElementInfo::element_is_uri_src_handler(element_name) {
             GPSApp::get_file_from_dialog(self, false, move |app, filename| {
                 GPS_DEBUG!("Open file {}", filename);
-                let graphview = app.graphview.borrow();
                 let mut properties: HashMap<String, String> = HashMap::new();
                 properties.insert(String::from("location"), filename);
-                if let Some(node) = graphview.node(node_id) {
+                if let Some(node) = app.session().graphview().node(node_id) {
                     node.update_properties(&properties);
                 }
             });
         }
-        graphview.add_node(node);
+        self.session().graphview().add_node(node);
         for input in inputs {
             self.create_port_with_caps(
                 node_id,
@@ -904,8 +902,8 @@ impl GPSApp {
 
     fn node(&self, node_id: u32) -> GM::Node {
         let node = self
-            .graphview
-            .borrow()
+            .session()
+            .graphview()
             .node(node_id)
             .unwrap_or_else(|| panic!("Unable to retrieve node with id {}", node_id));
         node
@@ -962,14 +960,16 @@ impl GPSApp {
             GM::PortDirection::Output => String::from("src_"),
             _ => String::from("?"),
         };
-        let graphview = self.graphview.borrow();
         let port_name = format!("{}{}", port_name, ports.len());
-        let port = graphview.create_port(&port_name, direction, presence);
+        let port = self
+            .session()
+            .graphview()
+            .create_port(&port_name, direction, presence);
         let id = port.id();
         let properties: HashMap<String, String> = HashMap::from([("_caps".to_string(), caps)]);
         port.update_properties(&properties);
-        if let Some(mut node) = graphview.node(node_id) {
-            graphview.add_port_to_node(&mut node, port);
+        if let Some(mut node) = self.session().graphview().node(node_id) {
+            self.session().graphview().add_port_to_node(&mut node, port);
         }
         id
     }
@@ -981,38 +981,36 @@ impl GPSApp {
         port_from_id: u32,
         port_to_id: u32,
     ) {
-        let graphview = self.graphview.borrow();
+        let session = self.session();
+        let graphview = session.graphview.borrow();
         let link = graphview.create_link(node_from_id, node_to_id, port_from_id, port_to_id);
         graphview.add_link(link);
     }
 
     fn clear_graph(&self) {
-        let graph_view = self.graphview.borrow();
-        graph_view.clear();
+        self.session().graphview().clear();
     }
 
     fn save_graph(&self, filename: &str) -> anyhow::Result<()> {
-        let graph_view = self.graphview.borrow();
         let mut file = File::create(filename)?;
-        let buffer = graph_view.render_xml()?;
+        let buffer = self.session().graphview().render_xml()?;
         file.write_all(&buffer)?;
 
         Ok(())
     }
 
     fn load_graph(&self, filename: &str) -> anyhow::Result<()> {
-        let graph_view = self.graphview.borrow();
-        GPS_INFO!("Open graph file {}", filename);
         let mut file = File::open(filename)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).expect("buffer overflow");
-        graph_view.load_from_xml(buffer)?;
+        self.session().graphview().load_from_xml(buffer)?;
         Ok(())
     }
 
     fn load_pipeline(&self, pipeline_desc: &str) -> anyhow::Result<()> {
-        let player = self.player.borrow();
-        let graphview = self.graphview.borrow();
+        let session = self.session();
+        let player = session.player();
+        let graphview = session.graphview.borrow();
         player.graphview_from_pipeline_description(&graphview, pipeline_desc);
         Ok(())
     }
