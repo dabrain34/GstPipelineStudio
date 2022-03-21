@@ -37,6 +37,13 @@ pip3 install meson
 dnf install gtk4-devel gstreamer1-devel gstreamer1-plugins-base-devel python3-pip ninja-build pkgconfig
 ```
 
+### MacOS
+
+```sh
+brew install gtk4
+brew install gstreamer gst-plugins-base gst-plugins-bad
+```
+
 ## Getting started
 
 ```sh
