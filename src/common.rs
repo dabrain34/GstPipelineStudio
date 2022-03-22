@@ -12,6 +12,10 @@ use gtk::glib;
 pub fn init() -> Result<()> {
     std::env::set_var("GST_XINITTHREADS", "1");
     gst::init()?;
+    #[cfg(feature = "gtk4-plugin")]
+    {
+        gstgtk4::plugin_register_static().expect("Failed to register gstgtk4 plugin");
+    }
     gtk::init()?;
     Ok(())
 }

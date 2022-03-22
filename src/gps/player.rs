@@ -77,10 +77,6 @@ impl Player {
             current_state: Cell::new(PipelineState::Stopped),
             n_video_sink: Cell::new(0),
         }));
-        #[cfg(feature = "gtk4-plugin")]
-        {
-            gstgtk4::plugin_register_static().expect("Failed to register gstgtk4 plugin");
-        }
 
         Ok(pipeline)
     }
