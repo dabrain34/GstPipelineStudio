@@ -11,11 +11,11 @@ MESON_BUILD_ROOT=sys.argv[1]
 MESON_SOURCE_ROOT=sys.argv[2]
 CARGO_TARGET_DIR = os.path.join (MESON_BUILD_ROOT, "target")
 env["CARGO_TARGET_DIR"] = CARGO_TARGET_DIR
-CARGO_HOME = os.path.join (CARGO_TARGET_DIR, "cargo-home")
-env["CARGO_HOME"] = CARGO_HOME
+env["CARGO_HOME"] = os.path.join (CARGO_TARGET_DIR, "cargo-home")
 OUTPUT=sys.argv[3]
 BUILDTYPE=sys.argv[4]
 APP_BIN=sys.argv[5]
+env["PKG_CONFIG_PATH"] = os.path.join(MESON_BUILD_ROOT, "meson-uninstalled") + os.pathsep + env.get("PKG_CONFIG_PATH",'')
 
 
 if BUILDTYPE  == "release":

@@ -33,7 +33,6 @@ rust_sources = files(
   'logger.rs',
   'macros.rs',
   'main.rs',
-
   'settings.rs',
 )
 
