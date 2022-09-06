@@ -18,8 +18,9 @@ use std::cell::{Cell, Ref, RefCell};
 use std::collections::HashMap;
 
 use std::fmt;
+use std::fmt::Write as _;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeType {
     Source,
     Transform,
@@ -292,7 +293,7 @@ impl Node {
         let mut description = String::from("");
         for (name, value) in self_.properties.borrow().iter() {
             if !self.hidden_property(name) {
-                description.push_str(&format!("{}:{}", name, value));
+                let _ = write!(description, "{}:{}", name, value);
                 description.push('\n');
             }
         }

@@ -20,7 +20,7 @@ use std::fmt;
 
 use super::{PropertyExt, SelectionExt};
 
-#[derive(Debug, Clone, PartialOrd, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialOrd, PartialEq, Eq, Copy)]
 pub enum PortDirection {
     Input,
     Output,
@@ -46,7 +46,7 @@ impl PortDirection {
 }
 
 /// Port's presence
-#[derive(Debug, Clone, PartialEq, PartialOrd, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Copy)]
 pub enum PortPresence {
     /// Can not be removed from his parent independantly
     Always,
