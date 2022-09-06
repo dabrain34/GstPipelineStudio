@@ -14,6 +14,7 @@ use crate::GPS_INFO;
 use gst::glib;
 use gst::prelude::*;
 use std::collections::HashMap;
+use std::fmt::Write as _;
 
 #[derive(Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ElementInfo {
@@ -65,7 +66,7 @@ impl ElementInfo {
         if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
             desc.push_str("<b>Factory details:</b>\n");
             desc.push_str("<b>Rank:</b>");
-            desc.push_str(&format!("{:?}", rank));
+            let _ = write!(desc, "{:?}", rank);
             desc.push('\n');
             desc.push_str("<b>Name:</b>");
             desc.push_str(&factory.name());
@@ -78,7 +79,7 @@ impl ElementInfo {
                     desc.push_str("<b>");
                     desc.push_str(&key);
                     desc.push_str("</b>:");
-                    desc.push_str(&gtk::glib::markup_escape_text(val).to_string());
+                    desc.push_str(&gtk::glib::markup_escape_text(val));
                     desc.push('\n');
                 }
             }
@@ -94,25 +95,22 @@ impl ElementInfo {
                 desc.push('\n');
                 desc.push_str("<b>Description:");
                 desc.push_str("</b>");
-                desc.push_str(&gtk::glib::markup_escape_text(&plugin.description()).to_string());
+                desc.push_str(&gtk::glib::markup_escape_text(&plugin.description()));
                 desc.push('\n');
                 desc.push_str("<b>Filename:");
                 desc.push_str("</b>");
-                desc.push_str(
-                    &gtk::glib::markup_escape_text(
-                        &plugin
-                            .filename()
-                            .unwrap_or_default()
-                            .as_path()
-                            .display()
-                            .to_string(),
-                    )
-                    .to_string(),
-                );
+                desc.push_str(&gtk::glib::markup_escape_text(
+                    &plugin
+                        .filename()
+                        .unwrap_or_default()
+                        .as_path()
+                        .display()
+                        .to_string(),
+                ));
                 desc.push('\n');
                 desc.push_str("<b>Version:");
                 desc.push_str("</b>");
-                desc.push_str(&gtk::glib::markup_escape_text(&plugin.version()).to_string());
+                desc.push_str(&gtk::glib::markup_escape_text(&plugin.version()));
                 desc.push('\n');
             }
         }
@@ -215,7 +213,7 @@ impl ElementInfo {
     pub fn search_fo_element(bin: &gst::Bin, element_name: &str) -> Vec<gst::Element> {
         let mut iter = bin.iterate_elements();
         let mut elements: Vec<gst::Element> = Vec::new();
-        let elements = loop {
+        elements = loop {
             match iter.next() {
                 Ok(Some(element)) => {
                     if element.is::<gst::Bin>() {

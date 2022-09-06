@@ -20,10 +20,11 @@ use gtk::gdk;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Write as _;
 use std::ops;
 use std::rc::{Rc, Weak};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PipelineState {
     Playing,
     Paused,
@@ -332,13 +333,13 @@ impl Player {
         mut description: String,
     ) -> String {
         let unique_name = node.unique_name();
-        description.push_str(&format!("{} name={} ", node.name(), unique_name));
+        let _ = write!(description, "{} name={} ", node.name(), unique_name);
         elements.insert(unique_name.clone(), unique_name.clone());
         // Node properties
         for (name, value) in node.properties().iter() {
             //This allow to have an index in front of a property such as an enum.
             if !node.hidden_property(name) {
-                description.push_str(&format!("{}={} ", name, value));
+                let _ = write!(description, "{}={} ", name, value);
             }
         }
         //Port properties
@@ -346,7 +347,7 @@ impl Player {
         for port in ports {
             for (name, value) in port.properties().iter() {
                 if !port.hidden_property(name) {
-                    description.push_str(&format!("{}::{}={} ", port.name(), name, value));
+                    let _ = write!(description, "{}::{}={} ", port.name(), name, value);
                 }
             }
         }
@@ -356,13 +357,13 @@ impl Player {
         for port in ports {
             if let Some((_port_to, node_to)) = graphview.port_connected_to(port.id()) {
                 if n_ports > 1 {
-                    description.push_str(&format!("{}. ! ", unique_name));
+                    let _ = write!(description, "{}. ! ", unique_name);
                 } else {
                     description.push_str("! ");
                 }
                 if let Some(node) = graphview.node(node_to) {
                     if elements.contains_key(&node.unique_name()) {
-                        description.push_str(&format!("{}. ", node.unique_name()));
+                        let _ = write!(description, "{}. ", node.unique_name());
                     } else {
                         description =
                             self.process_gst_node(graphview, &node, elements, description.clone());

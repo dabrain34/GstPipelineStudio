@@ -13,7 +13,7 @@ use crate::graphmanager::{PortDirection, PortPresence};
 
 use gst::prelude::*;
 
-#[derive(Debug, PartialOrd, PartialEq)]
+#[derive(Debug, PartialOrd, PartialEq, Eq)]
 pub struct PadInfo {
     name: Option<String>,
     element_name: Option<String>,
