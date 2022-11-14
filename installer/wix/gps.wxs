@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Language="1033"
+           Manufacturer="dabrain34"
+           Name="GstPipelineStudio"
+           UpgradeCode="B28B3FA8-9310-4AA7-B0CA-CBCCA5FD00B2"
+           Version="1.0.0.0">
+
+    <Package InstallScope="perMachine" Compressed="yes" />
+
+    <MajorUpgrade DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="GPSAppShortcuts" Name="GStreamer Pipeline Studio" />
+      </Directory>
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="GstPipelineStudio">
+          <Component Id="ProductComponent">
+            <File KeyPath="yes" Source="gps.bat">
+              <Shortcut Id="GPSAppShortcut"
+                 Directory="GPSAppShortcuts"
+                 Name="GPSApp"
+                 WorkingDirectory="INSTALLFOLDER"
+                 Advertise="yes"
+                 Icon="icon.ico"
+                 IconIndex="0"
+                >
+              </Shortcut>
+            </File>
+            <RemoveFolder Id="DeleteTheGPSAppShortcut"
+                   Directory="GPSAppShortcuts"
+                   On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Icon Id="icon.ico" SourceFile="icon.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <Component Id="UninstallShortcut" Guid="*" Directory="GPSAppShortcuts">
+      <Shortcut Id="UninstallGPS"
+              Name="Uninstall GPS App"
+              Description="Uninstalls GPS App"
+              Target="[System64Folder]msiexec.exe"
+              Arguments="/x [ProductCode]" />
+      <RegistryValue Root="HKCU" Key="Software\GPS\GPSApp" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="GPSFeature">
+      <ComponentRef Id="ProductComponent" />
+      <ComponentGroupRef Id="_gstreamer" />
+      <ComponentGroupRef Id="_gstreamer_plugins" />
+      <ComponentRef Id="UninstallShortcut" />
+    </Feature>
+
+  </Product>
+</Wix>

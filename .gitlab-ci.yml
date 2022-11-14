@@ -98,22 +98,26 @@ windows rust docker stable:
     - 'docker'
     - 'windows'
     - '2022'
-  script:
-    - cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 &&
-      powershell ./ci/run_windows.ps1"
 
-    - |
-      if (!$?) {
-        Write-Host "Tests Failed!"
-        Exit 1
-      }
-
-test windows stable:
+windows installer stable:
   needs:
     - job: 'windows rust docker stable'
       artifacts: false
   image: "$WINDOWS_RUST_STABLE_IMAGE"
   extends: '.msvc2019 build'
+  script:
+    - "& ./ci/build_gps.ps1"
+    - cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 &&
+      powershell ./installer/wix/prepare_wix.ps1"
+    - cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 &&
+      powershell ./installer/wix/prepare_gstreamer.ps1"
+    - cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 &&
+      powershell ./installer/wix/build_installer.ps1"
+  artifacts:
+        paths:
+            - installer/wix/*.msi
+        expire_in: 1 days
+
 
 rustfmt-clippy:
   extends:
