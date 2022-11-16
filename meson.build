@@ -9,6 +9,7 @@ python_mod = import('python')
 python3 = python_mod.find_installation()
 current_date = run_command(python3, '-c', 'import datetime; print(datetime.datetime.now().strftime("%Y-%m-%d"), end ="")').stdout()
 i18n = import('i18n')
+host_system = host_machine.system()
 
 dependency('glib-2.0', version: '>= 2.66')
 dependency('gio-2.0', version: '>= 2.66')
@@ -69,5 +70,6 @@ meson.add_dist_script(
   meson.source_root(),
   join_paths(meson.build_root(), 'meson-dist', meson.project_name() + '-' + version)
 )
-
-meson.add_install_script('build-aux/meson/postinstall.py')
+if host_system == 'linux'
+  meson.add_install_script('build-aux/meson/postinstall.py')
+endif
