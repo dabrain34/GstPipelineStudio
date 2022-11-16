@@ -9,12 +9,7 @@ configure_file(
 )
 
 # Copy the config.rs output to the source directory.
-run_command(
-  'cp',
-  join_paths(meson.build_root(), 'src', 'config.rs'),
-  join_paths(meson.source_root(), 'src', 'config.rs'),
-  check: true
-)
+run_command(python3, '-c', 'import shutil; shutil.copyfile("@0@", "@1@")'.format(join_paths(meson.build_root(), 'src', 'config.rs'), join_paths(meson.source_root(), 'src', 'config.rs')))
 
 rust_sources = files(
   'gps/player.rs',
