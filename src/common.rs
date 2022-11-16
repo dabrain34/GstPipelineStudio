@@ -10,9 +10,7 @@ use anyhow::Result;
 use gtk::glib;
 
 pub fn init() -> Result<()> {
-    unsafe {
-        x11::xlib::XInitThreads();
-    }
+    std::env::set_var("GST_XINITTHREADS", "1");
     gst::init()?;
     gtk::init()?;
     Ok(())
