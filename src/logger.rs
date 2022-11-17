@@ -125,7 +125,7 @@ pub fn init_logger(sender: Sender<String>, log_file: &str) {
         WriteLogger::new(
             translate_to_simple_logger(LogLevel::Trace),
             Config::default(),
-            File::create(log_file).unwrap(),
+            File::create(log_file).unwrap_or_else(|_| panic!("Unable to create log {}", log_file)),
         ),
         WriteLogger::new(
             translate_to_simple_logger(LogLevel::Debug),

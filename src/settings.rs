@@ -64,7 +64,8 @@ impl Settings {
     }
 
     pub fn default_log_file_path() -> PathBuf {
-        let mut path = PathBuf::new();
+        let mut path = glib::user_config_dir();
+        path.push(config::APP_ID);
         path.push("gstpipelinestudio.log");
         path
     }

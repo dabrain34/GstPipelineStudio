@@ -983,6 +983,7 @@ impl GPSApp {
 
     fn load_graph(&self, filename: &str) -> anyhow::Result<()> {
         let graph_view = self.graphview.borrow();
+        GPS_INFO!("Open graph file {}", filename);
         let mut file = File::open(filename)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).expect("buffer overflow");
