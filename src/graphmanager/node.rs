@@ -114,12 +114,13 @@ mod imp {
     }
 
     impl ObjectImpl for Node {
-        fn constructed(&self, obj: &Self::Type) {
-            self.parent_constructed(obj);
-            self.layoutgrid.set_parent(obj);
+        fn constructed(&self) {
+            let obj = self.obj();
+            self.parent_constructed();
+            self.layoutgrid.set_parent(&*obj);
         }
 
-        fn dispose(&self, _obj: &Self::Type) {
+        fn dispose(&self) {
             self.layoutgrid.unparent();
         }
     }
@@ -136,7 +137,7 @@ impl Node {
     /// Create a new node
     ///
     pub fn new(id: u32, name: &str, node_type: NodeType) -> Self {
-        let res: Self = glib::Object::new(&[]).expect("Failed to create Node");
+        let res = glib::Object::new::<Self>(&[]);
         let private = imp::Node::from_instance(&res);
         private.id.set(id).expect("Node id is already set");
         res.set_name(name);

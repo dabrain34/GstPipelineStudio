@@ -75,8 +75,9 @@ mod imp {
     }
 
     impl ObjectImpl for GraphView {
-        fn constructed(&self, obj: &Self::Type) {
-            self.parent_constructed(obj);
+        fn constructed(&self) {
+            let obj = self.obj();
+            self.parent_constructed();
 
             let drag_state = Rc::new(RefCell::new(None));
             let drag_controller = gtk::GestureDrag::new();
@@ -238,7 +239,7 @@ mod imp {
             obj.add_controller(&event_motion);
         }
 
-        fn dispose(&self, _obj: &Self::Type) {
+        fn dispose(&self) {
             self.nodes
                 .borrow()
                 .values()
@@ -248,56 +249,34 @@ mod imp {
         fn signals() -> &'static [Signal] {
             static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
                 vec![
-                    Signal::builder(
-                        "port-right-clicked",
-                        &[
-                            u32::static_type().into(),
-                            u32::static_type().into(),
-                            graphene::Point::static_type().into(),
-                        ],
-                        <()>::static_type().into(),
-                    )
-                    .build(),
-                    Signal::builder(
-                        "node-right-clicked",
-                        &[
-                            u32::static_type().into(),
-                            graphene::Point::static_type().into(),
-                        ],
-                        <()>::static_type().into(),
-                    )
-                    .build(),
-                    Signal::builder(
-                        "graph-right-clicked",
-                        &[graphene::Point::static_type().into()],
-                        <()>::static_type().into(),
-                    )
-                    .build(),
-                    Signal::builder(
-                        "graph-updated",
-                        // returns graph ID
-                        &[u32::static_type().into()],
-                        <()>::static_type().into(),
-                    )
-                    .build(),
-                    Signal::builder(
-                        "node-added",
-                        // returns graph ID and Node ID
-                        &[u32::static_type().into(), u32::static_type().into()],
-                        <()>::static_type().into(),
-                    )
-                    .build(),
-                    Signal::builder(
-                        "port-added",
-                        // returns graph ID, Node ID, Port ID
-                        &[
-                            u32::static_type().into(),
-                            u32::static_type().into(),
-                            u32::static_type().into(),
-                        ],
-                        <()>::static_type().into(),
-                    )
-                    .build(),
+                    Signal::builder("port-right-clicked")
+                        .param_types([
+                            u32::static_type(),
+                            u32::static_type(),
+                            graphene::Point::static_type(),
+                        ])
+                        .build(),
+                    Signal::builder("node-right-clicked")
+                        .param_types([u32::static_type(), graphene::Point::static_type()])
+                        .build(),
+                    Signal::builder("graph-right-clicked")
+                        .param_types([graphene::Point::static_type()])
+                        .build(),
+                    Signal::builder("graph-updated")
+                        .param_types(
+                            // returns graph ID
+                            [u32::static_type()],
+                        )
+                        .build(),
+                    Signal::builder("node-added")
+                        .param_types(
+                            // returns graph ID and Node ID
+                            [u32::static_type(), u32::static_type()],
+                        )
+                        .build(),
+                    Signal::builder("port-added")
+                        .param_types([u32::static_type(), u32::static_type(), u32::static_type()])
+                        .build(),
                 ]
             });
             SIGNALS.as_ref()
@@ -305,7 +284,7 @@ mod imp {
     }
 
     impl WidgetImpl for GraphView {
-        fn snapshot(&self, _widget: &Self::Type, snapshot: &gtk::Snapshot) {
+        fn snapshot(&self, snapshot: &gtk::Snapshot) {
             /* FIXME: A lot of hardcoded values in here.
             Try to use relative units (em) and colours from the theme as much as possible. */
 
@@ -313,7 +292,7 @@ mod imp {
             self.nodes
                 .borrow()
                 .values()
-                .for_each(|node| self.instance().snapshot_child(node, snapshot));
+                .for_each(|node| self.obj().snapshot_child(node, snapshot));
 
             for link in self.links.borrow().values() {
                 if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
@@ -422,7 +401,7 @@ mod imp {
             point_from: &graphene::Point,
             point_to: &graphene::Point,
         ) {
-            let alloc = self.instance().allocation();
+            let alloc = self.obj().allocation();
 
             let link_cr = snapshot.append_cairo(&graphene::Rect::new(
                 0.0,
@@ -473,7 +452,7 @@ impl GraphView {
             &provider,
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
-        glib::Object::new(&[]).expect("Failed to create GraphView")
+        glib::Object::new::<Self>(&[])
     }
 
     /// Set graphview id
@@ -1159,8 +1138,7 @@ impl GraphView {
 
         let transform = gsk::Transform::new()
             // Nodes should not be able to be dragged out of the view, so we use `max(coordinate, 0.0)` to prevent that.
-            .translate(&graphene::Point::new(f32::max(x, 0.0), f32::max(y, 0.0)))
-            .unwrap();
+            .translate(&graphene::Point::new(f32::max(x, 0.0), f32::max(y, 0.0)));
 
         layout_manager
             .layout_child(widget)

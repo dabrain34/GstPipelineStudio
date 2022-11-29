@@ -138,9 +138,12 @@ impl ElementInfo {
         let factory = feature
             .downcast::<gst::ElementFactory>()
             .expect("Unable to get the factory from the feature");
-        let element = factory.create(None)?;
+        let element = factory.create().build()?;
         let value = element
-            .try_property::<String>(property_name)
+            .property_value(property_name)
+            .transform::<String>()
+            .expect("Unable to transform to string")
+            .get::<String>()
             .unwrap_or_default();
         Ok(value)
     }
@@ -154,20 +157,29 @@ impl ElementInfo {
         let factory = feature
             .downcast::<gst::ElementFactory>()
             .expect("Unable to get the factory from the feature");
-        let element = factory.create(None)?;
+        let element = factory.create().build()?;
         let params = element.class().list_properties();
 
         for param in params.iter() {
-            let value = element
-                .try_property::<String>(param.name())
-                .unwrap_or_default();
-            GPS_INFO!(
-                "Property_name {}={} type={:?}",
-                param.name(),
-                value,
-                param.type_()
-            );
-            properties_list.insert(String::from(param.name()), param.clone());
+            GPS_INFO!("Property_name {}", param.name());
+            if param.flags().contains(glib::ParamFlags::READABLE) {
+                match element.property_value(param.name()).transform::<String>() {
+                    Ok(value) => {
+                        GPS_INFO!(
+                            "Property_name {}={} type={:?}",
+                            param.name(),
+                            value.get::<String>().unwrap_or_default(),
+                            param.type_()
+                        );
+                        properties_list.insert(String::from(param.name()), param.clone());
+                    }
+                    Err(_e) => {
+                        GPS_ERROR!("Unable to convert the param {} to string ", param.name())
+                    }
+                }
+            } else {
+                GPS_ERROR!("The param {} is not readable", param.name())
+            }
         }
         Ok(properties_list)
     }
@@ -179,7 +191,8 @@ impl ElementInfo {
             .downcast::<gst::ElementFactory>()
             .expect("Unable to get the factory from the feature");
         let element = factory
-            .create(None)
+            .create()
+            .build()
             .expect("Unable to create an element from the feature");
         match element.dynamic_cast::<gst::URIHandler>() {
             Ok(uri_handler) => uri_handler.uri_type() == gst::URIType::Src,

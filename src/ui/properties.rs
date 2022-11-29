@@ -171,7 +171,8 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
 pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32) {
     let update_properties: Rc<RefCell<HashMap<String, String>>> =
         Rc::new(RefCell::new(HashMap::new()));
-    let properties = GPS::ElementInfo::element_properties(element_name).unwrap();
+    let properties = GPS::ElementInfo::element_properties(element_name)
+        .expect("Should get the list of the properties properly");
 
     let grid = gtk::Grid::new();
     grid.set_column_spacing(4);

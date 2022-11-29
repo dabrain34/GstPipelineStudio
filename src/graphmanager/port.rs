@@ -76,7 +76,7 @@ mod imp {
     use once_cell::unsync::OnceCell;
 
     /// Graphical representation of a port.
-    #[derive(Default, Clone)]
+    #[derive(Default)]
     pub struct Port {
         pub(super) label: gtk::Label,
         pub(super) id: OnceCell<u32>,
@@ -113,11 +113,12 @@ mod imp {
     }
 
     impl ObjectImpl for Port {
-        fn constructed(&self, obj: &Self::Type) {
-            self.parent_constructed(obj);
-            self.label.set_parent(obj);
+        fn constructed(&self) {
+            let obj = self.obj();
+            self.parent_constructed();
+            self.label.set_parent(&*obj);
         }
-        fn dispose(&self, _obj: &Self::Type) {
+        fn dispose(&self) {
             self.label.unparent()
         }
     }
@@ -134,7 +135,7 @@ impl Port {
     ///
     pub fn new(id: u32, name: &str, direction: PortDirection, presence: PortPresence) -> Self {
         // Create the widget and initialize needed fields
-        let port: Self = glib::Object::new(&[]).expect("Failed to create Port");
+        let port: Self = glib::Object::new::<Self>(&[]);
         port.add_css_class("port");
         let private = imp::Port::from_instance(&port);
         private.id.set(id).expect("Port id already set");
