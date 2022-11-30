@@ -45,7 +45,7 @@ try
     
     $AllArgs = $obj_files + @('-out', $msiFileName)
 
-    & $lightToolPath $AllArgs
+    & $lightToolPath $AllArgs -ext WixUIExtension
     if($LASTEXITCODE -ne 0)
     {
         throw "Linking of $wixobjFileName failed with exit code $LASTEXITCODE"
