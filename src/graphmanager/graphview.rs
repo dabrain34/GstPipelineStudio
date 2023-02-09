@@ -178,7 +178,7 @@ mod imp {
                 }),
             );
 
-            gesture.connect_released(clone!(@weak gesture, @weak drag_controller => move |_gesture, _n_press, x, y| {
+            gesture.connect_released(clone!(@weak gesture, @weak obj, @weak drag_controller => move |_gesture, _n_press, x, y| {
                 if gesture.current_button() == BUTTON_PRIMARY {
                     let widget = drag_controller
                             .widget()
@@ -218,7 +218,16 @@ mod imp {
                                 // click to a linked port
                                 widget.set_selected_port(None);
                             }
-                        } else {
+                        }
+                        else {
+                            if let Some(target) = target.ancestor(Node::static_type()) {
+                                let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
+                                info!(" node id {}", node.id());
+                                if _n_press % 2 == 0  {
+                                    info!("double clicked node id {}", node.id());
+                                    obj.emit_by_name::<()>("node-double-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]);
+                                }
+                            }
                             // Click to something else than a port
                             widget.set_selected_port(None);
                         }
@@ -257,6 +266,9 @@ mod imp {
                         ])
                         .build(),
                     Signal::builder("node-right-clicked")
+                        .param_types([u32::static_type(), graphene::Point::static_type()])
+                        .build(),
+                    Signal::builder("node-double-clicked")
                         .param_types([u32::static_type(), graphene::Point::static_type()])
                         .build(),
                     Signal::builder("graph-right-clicked")
