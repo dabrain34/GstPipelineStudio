@@ -786,6 +786,19 @@ impl GPSApp {
                     None
                 }),
             );
+        let app_weak = self.downgrade();
+        self.graphview.borrow().connect_local(
+            "node-double-clicked",
+            false,
+            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                let app = upgrade_weak!(app_weak, None);
+                let node_id = values[1].get::<u32>().expect("node id args[1]");
+                GPS_TRACE!("Node  double clicked id={}", node_id);
+                let node = app.graphview.borrow().node(node_id).unwrap();
+                GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
+                None
+            }),
+        );
 
         // Setup the favorite list
         GPSUI::elements::setup_favorite_list(self);
