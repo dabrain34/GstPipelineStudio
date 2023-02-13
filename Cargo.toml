@@ -7,9 +7,9 @@ rust-version = "1.67"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gtk = { version = "0.5.2", package = "gtk4" }
-gst = { package = "gstreamer", version = "0.19.3" }
-gst-plugin-gtk4 = { version = "0.9.1", optional=true }
+gtk = { version = "0.6.1", package = "gtk4" }
+gst = { package = "gstreamer", version = "0.20" }
+gst-plugin-gtk4 = { version = "0.10", optional=true }
 anyhow = "1"
 gettext-rs = {version = "0.7", features = ["gettext-system"]}
 log = "0.4.11"

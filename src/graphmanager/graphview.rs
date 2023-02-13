@@ -133,8 +133,6 @@ mod imp {
                 ),
             );
 
-            obj.add_controller(&drag_controller);
-
             let gesture = gtk::GestureClick::new();
             gesture.set_button(0);
             gesture.connect_pressed(
@@ -234,7 +232,6 @@ mod imp {
                     }
                 }
             }));
-            obj.add_controller(&gesture);
 
             let event_motion = gtk::EventControllerMotion::new();
             event_motion.connect_motion(glib::clone!(@weak obj => move |_e, x, y| {
@@ -245,7 +242,10 @@ mod imp {
                 }
 
             }));
-            obj.add_controller(&event_motion);
+
+            obj.add_controller(drag_controller);
+            obj.add_controller(gesture);
+            obj.add_controller(event_motion);
         }
 
         fn dispose(&self) {
@@ -458,26 +458,26 @@ impl GraphView {
     pub fn new() -> Self {
         // Load CSS from the STYLE variable.
         let provider = gtk::CssProvider::new();
-        provider.load_from_data(GRAPHVIEW_STYLE.as_bytes());
+        provider.load_from_data(GRAPHVIEW_STYLE);
         gtk::StyleContext::add_provider_for_display(
             &gtk::gdk::Display::default().expect("Error initializing gtk css provider."),
             &provider,
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
-        glib::Object::new::<Self>(&[])
+        glib::Object::new::<Self>()
     }
 
     /// Set graphview id
     ///
     pub fn set_id(&self, id: u32) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private.id.set(id)
     }
 
     /// Retrives the graphview id
     ///
     pub fn id(&self) -> u32 {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private.id.get()
     }
 
@@ -523,7 +523,7 @@ impl GraphView {
     /// Add node to the graphview without port
     ///
     pub fn add_node(&self, node: Node) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         node.set_parent(self);
 
         // Place widgets in colums of 3, growing down
@@ -566,7 +566,7 @@ impl GraphView {
     /// Remove node from the graphview
     ///
     pub fn remove_node(&self, id: u32) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let mut nodes = private.nodes.borrow_mut();
         if let Some(node) = nodes.remove(&id) {
             while let Some(link_id) = self.node_is_linked(node.id()) {
@@ -584,7 +584,7 @@ impl GraphView {
     ///
     /// Returns a vector of nodes
     pub fn all_nodes(&self, node_type: NodeType) -> Vec<Node> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let nodes = private.nodes.borrow();
         let nodes_list: Vec<_> = nodes
             .iter()
@@ -600,14 +600,14 @@ impl GraphView {
     ///
     /// Returns `None` if the node is not in the graphview.
     pub fn node(&self, id: u32) -> Option<Node> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private.nodes.borrow().get(&id).cloned()
     }
 
     /// Remove all the nodes from the graphview
     ///
     pub fn remove_all_nodes(&self) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let nodes_list = self.all_nodes(NodeType::All);
         for node in nodes_list {
             self.remove_node(node.id());
@@ -622,7 +622,7 @@ impl GraphView {
     ///
     /// Returns Some(link id) or `None` if the node is not linked.
     pub fn node_is_linked(&self, node_id: u32) -> Option<u32> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         for (key, link) in private.links.borrow().iter() {
             if link.node_from == node_id || link.node_to == node_id {
                 return Some(*key);
@@ -670,7 +670,7 @@ impl GraphView {
     /// Add the port with id from node with id.
     ///
     pub fn add_port_to_node(&self, node: &mut Node, port: Port) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let port_id = port.id();
         node.add_port(port);
 
@@ -681,7 +681,7 @@ impl GraphView {
     ///
     /// Return true if the port presence is not always.
     pub fn can_remove_port(&self, node_id: u32, port_id: u32) -> bool {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let nodes = private.nodes.borrow();
         if let Some(node) = nodes.get(&node_id) {
             return node.can_remove_port(port_id);
@@ -693,7 +693,7 @@ impl GraphView {
     /// Remove the port with id from node with id.
     ///
     pub fn remove_port(&self, node_id: u32, port_id: u32) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let nodes = private.nodes.borrow();
         if let Some(node) = nodes.get(&node_id) {
             if let Some(link_id) = self.port_is_linked(port_id) {
@@ -707,7 +707,7 @@ impl GraphView {
     ///
     /// Returns Some(link id) or `None` if the port is not linked.
     pub fn port_is_linked(&self, port_id: u32) -> Option<u32> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         for (key, link) in private.links.borrow().iter() {
             if link.port_from == port_id || link.port_to == port_id {
                 return Some(*key);
@@ -741,7 +741,7 @@ impl GraphView {
     /// Add a link to the graphView
     ///
     pub fn add_link(&self, link: Link) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         if !self.link_exists(&link) {
             private.links.borrow_mut().insert(link.id, link);
             self.graph_updated();
@@ -751,7 +751,7 @@ impl GraphView {
     /// Set the link state with ink id and link state (boolean)
     ///
     pub fn set_link_state(&self, link_id: u32, active: bool) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         if let Some(link) = private.links.borrow_mut().get_mut(&link_id) {
             link.active = active;
             self.queue_draw();
@@ -764,7 +764,7 @@ impl GraphView {
     ///
     /// Returns a vector of links
     pub fn all_links(&self, link_state: bool) -> Vec<Link> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let links = private.links.borrow();
         let links_list: Vec<_> = links
             .iter()
@@ -777,7 +777,7 @@ impl GraphView {
     /// Retrieves the node/port id connected to the input port id
     ///
     pub fn port_connected_to(&self, port_id: u32) -> Option<(u32, u32)> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         for (_id, link) in private.links.borrow().iter() {
             if port_id == link.port_from {
                 return Some((link.port_to, link.node_to));
@@ -789,7 +789,7 @@ impl GraphView {
     /// Delete the selected element (link, node, port)
     ///
     pub fn delete_selected(&self) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let mut link_id = None;
         let mut node_id = None;
         for link in private.links.borrow_mut().values() {
@@ -815,7 +815,7 @@ impl GraphView {
     /// Render the graph with XML format in a buffer
     ///
     pub fn render_xml(&self) -> anyhow::Result<Vec<u8>> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
 
         let mut buffer = Vec::new();
         let mut writer = EmitterConfig::new()
@@ -1114,7 +1114,7 @@ impl GraphView {
     }
 
     fn remove_link(&self, id: u32) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         let mut links = private.links.borrow_mut();
         links.remove(&id);
 
@@ -1122,14 +1122,14 @@ impl GraphView {
     }
 
     fn update_current_link_id(&self, link_id: u32) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         if link_id > private.current_link_id.get() {
             private.current_link_id.set(link_id);
         }
     }
 
     fn link_exists(&self, new_link: &Link) -> bool {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
 
         for link in private.links.borrow().values() {
             if (new_link.port_from == link.port_from && new_link.port_to == link.port_to)
@@ -1170,7 +1170,7 @@ impl GraphView {
     }
 
     fn unselect_nodes(&self) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         for node in private.nodes.borrow_mut().values() {
             node.set_selected(false);
             node.unselect_all_ports();
@@ -1178,14 +1178,14 @@ impl GraphView {
     }
 
     fn update_current_node_id(&self, node_id: u32) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         if node_id > private.current_node_id.get() {
             private.current_node_id.set(node_id);
         }
     }
 
     fn unselect_links(&self) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         for link in private.links.borrow_mut().values() {
             link.set_selected(false);
         }
@@ -1198,7 +1198,7 @@ impl GraphView {
     }
 
     fn point_on_link(&self, point: &graphene::Point) -> Option<Link> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         self.unselect_all();
         for link in private.links.borrow_mut().values() {
             if let Some((from_x, from_y, to_x, to_y)) = private.link_coordinates(link) {
@@ -1220,13 +1220,13 @@ impl GraphView {
     }
 
     fn graph_updated(&self) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         self.queue_draw();
         self.emit_by_name::<()>("graph-updated", &[&private.id.get()]);
     }
 
     fn next_node_id(&self) -> u32 {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private
             .current_node_id
             .set(private.current_node_id.get() + 1);
@@ -1234,7 +1234,7 @@ impl GraphView {
     }
 
     fn next_port_id(&self) -> u32 {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private
             .current_port_id
             .set(private.current_port_id.get() + 1);
@@ -1242,7 +1242,7 @@ impl GraphView {
     }
 
     fn next_link_id(&self) -> u32 {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private
             .current_link_id
             .set(private.current_link_id.get() + 1);
@@ -1253,17 +1253,17 @@ impl GraphView {
         if port.is_some() {
             self.unselect_all();
         }
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         *private.port_selected.borrow_mut() = port.cloned();
     }
 
     fn selected_port(&self) -> RefMut<Option<Port>> {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private.port_selected.borrow_mut()
     }
 
     fn set_mouse_position(&self, x: f64, y: f64) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         private.mouse_position.set((x, y));
     }
 
@@ -1292,7 +1292,7 @@ impl GraphView {
     }
 
     fn update_current_port_id(&self, port_id: u32) {
-        let private = imp::GraphView::from_instance(self);
+        let private = imp::GraphView::from_obj(self);
         if port_id > private.current_port_id.get() {
             private.current_port_id.set(port_id);
         }

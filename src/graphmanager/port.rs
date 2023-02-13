@@ -135,9 +135,9 @@ impl Port {
     ///
     pub fn new(id: u32, name: &str, direction: PortDirection, presence: PortPresence) -> Self {
         // Create the widget and initialize needed fields
-        let port: Self = glib::Object::new::<Self>(&[]);
+        let port: Self = glib::Object::new::<Self>();
         port.add_css_class("port");
-        let private = imp::Port::from_instance(&port);
+        let private = imp::Port::from_obj(&port);
         private.id.set(id).expect("Port id already set");
         private.selected.set(false);
         private
@@ -166,35 +166,35 @@ impl Port {
     /// Retrieves the port id
     ///
     pub fn id(&self) -> u32 {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         private.id.get().copied().expect("Port id is not set")
     }
 
     /// Retrieves the port name
     ///
     pub fn name(&self) -> String {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         private.label.text().to_string()
     }
 
     /// Set the port name
     ///
     pub fn set_name(&self, name: &str) {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         private.label.set_text(name);
     }
 
     /// Retrieves the port direction
     ///
     pub fn direction(&self) -> PortDirection {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         *private.direction.get().expect("Port direction is not set")
     }
 
     /// Retrieves the port presence
     ///
     pub fn presence(&self) -> PortPresence {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         *private.presence.get().expect("Port presence is not set")
     }
 }
@@ -205,7 +205,7 @@ impl SelectionExt for Port {
     }
 
     fn set_selected(&self, selected: bool) {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         private.selected.set(selected);
         if selected {
             self.add_css_class("port-selected");
@@ -215,7 +215,7 @@ impl SelectionExt for Port {
     }
 
     fn selected(&self) -> bool {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         private.selected.get()
     }
 }
@@ -224,7 +224,7 @@ impl PropertyExt for Port {
     /// Add a port property with a name and a value.
     ///
     fn add_property(&self, name: &str, value: &str) {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         trace!("property name={} updated with value={}", name, value);
         private
             .properties
@@ -235,7 +235,7 @@ impl PropertyExt for Port {
     /// Remove a port property with a name.
     ///
     fn remove_property(&self, name: &str) {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         trace!("property name={} removed", name);
         private.properties.borrow_mut().remove(name);
     }
@@ -243,7 +243,7 @@ impl PropertyExt for Port {
     /// Retrieves node properties.
     ///
     fn properties(&self) -> Ref<HashMap<String, String>> {
-        let private = imp::Port::from_instance(self);
+        let private = imp::Port::from_obj(self);
         private.properties.borrow()
     }
 }

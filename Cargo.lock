@@ -95,9 +95,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "cairo-rs"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "247e1183fa769ac22121f92276dae52f89acaf297f24b1320019f439b6e3b46f"
+checksum = "a8af54f5d48af1226928adc1f57edd22f5df1349e7da1fc96ae15cf43db0e871"
 dependencies = [
  "bitflags 1.3.2",
  "cairo-sys-rs",
@@ -109,9 +109,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-sys-rs"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c48f4af05fabdcfa9658178e1326efa061853f040ce7d72e33af6885196f421"
+checksum = "f55382a01d30e5e53f185eee269124f5e21ab526595b872751278dfbb463594e"
 dependencies = [
  "glib-sys",
  "libc",
@@ -200,12 +200,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fragile"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
-
-[[package]]
 name = "futures-channel"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -275,22 +269,23 @@ dependencies = [
 
 [[package]]
 name = "gdk-pixbuf"
-version = "0.16.4"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3094f2b8578136d1929cade4e0fff82f573521b579e96cfc24af2458431f176"
+checksum = "b023fbe0c6b407bd3d9805d107d9800da3829dc5a676653210f1d5f16d7f59bf"
 dependencies = [
  "bitflags 1.3.2",
  "gdk-pixbuf-sys",
  "gio",
  "glib",
  "libc",
+ "once_cell",
 ]
 
 [[package]]
 name = "gdk-pixbuf-sys"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3092cf797a5f1210479ea38070d9ae8a5b8e9f8f1be9f32f4643c529c7d70016"
+checksum = "7b41bd2b44ed49d99277d3925652a163038bd5ed943ec9809338ffb2f4391e3b"
 dependencies = [
  "gio-sys",
  "glib-sys",
@@ -301,9 +296,9 @@ dependencies = [
 
 [[package]]
 name = "gdk4"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc7fc4b05be1159056c57a08102ea494892f75ff8517f5518b0401e466f77c69"
+checksum = "6e4887e17b6926db51f1e538d871a8b1f5ceb5dfa3bd0034dc42ec355b390d8f"
 dependencies = [
  "bitflags 1.3.2",
  "cairo-rs",
@@ -317,9 +312,9 @@ dependencies = [
 
 [[package]]
 name = "gdk4-sys"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c057b794185a52862037526fb95aafabce9427fb98a7e9f5fe39a6f832c92822"
+checksum = "f4993c019bf03d18137c00ddafb2b23e73f7cbb45ae244f52af2542a3f4a9452"
 dependencies = [
  "cairo-sys-rs",
  "gdk-pixbuf-sys",
@@ -360,9 +355,9 @@ checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
 
 [[package]]
 name = "gio"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d4a17d999e6e4e05d87c2bb05b7140d47769bc53211711a33e2f91536458714"
+checksum = "1981edf8679d2f2c8ec3120015867f45aa0a1c2d5e3e129ca2f7dda174d3d2a9"
 dependencies = [
  "bitflags 1.3.2",
  "futures-channel",
@@ -380,9 +375,9 @@ dependencies = [
 
 [[package]]
 name = "gio-sys"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9b693b8e39d042a95547fc258a7b07349b1f0b48f4b2fa3108ba3c51c0b5229"
+checksum = "b5d3076ecb86c8c3a672c9843d6232b3a344fb81d304d0ba1ac64b23343efa46"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -393,9 +388,9 @@ dependencies = [
 
 [[package]]
 name = "glib"
-version = "0.16.4"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5204a4217749b385cefbfb7bf3a2fcde83e4ce6d0945f64440a1f5bd4010305"
+checksum = "91b429154ec5943185aeeaf79e646297567b6a056965f1e89da2657a0e23255b"
 dependencies = [
  "bitflags 1.3.2",
  "futures-channel",
@@ -408,6 +403,7 @@ dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
+ "memchr",
  "once_cell",
  "smallvec",
  "thiserror",
@@ -415,9 +411,9 @@ dependencies = [
 
 [[package]]
 name = "glib-macros"
-version = "0.16.3"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e084807350b01348b6d9dbabb724d1a0bb987f47a2c85de200e98e12e30733bf"
+checksum = "9bc80ac951300ca288dd9ab3863743c37a608fb0e5ca12863495640ec6b781ab"
 dependencies = [
  "anyhow",
  "heck 0.4.0",
@@ -430,9 +426,9 @@ dependencies = [
 
 [[package]]
 name = "glib-sys"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c61a4f46316d06bfa33a7ac22df6f0524c8be58e3db2d9ca99ccb1f357b62a65"
+checksum = "9ddcb73fa8236277bedadaaadb76aef49c85d66340f83bece244f46c2d4f0e01"
 dependencies = [
  "libc",
  "system-deps",
@@ -440,9 +436,9 @@ dependencies = [
 
 [[package]]
 name = "gobject-sys"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3520bb9c07ae2a12c7f2fbb24d4efc11231c8146a86956413fb1a79bb760a0f1"
+checksum = "9a0155d388840c77d61b033b66ef4f9bc7f4133d83df83572d6b4fb234a3be7d"
 dependencies = [
  "glib-sys",
  "libc",
@@ -451,9 +447,9 @@ dependencies = [
 
 [[package]]
 name = "graphene-rs"
-version = "0.16.3"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95ecb4d347e6d09820df3bdfd89a74a8eec07753a06bb92a3aac3ad31d04447b"
+checksum = "21cf11565bb0e4dfc2f99d4775b6c329f0d40a2cff9c0066214d31a0e1b46256"
 dependencies = [
  "glib",
  "graphene-sys",
@@ -462,9 +458,9 @@ dependencies = [
 
 [[package]]
 name = "graphene-sys"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9aa82337d3972b4eafdea71e607c23f47be6f27f749aab613f1ad8ddbe6dcd6"
+checksum = "cf80a4849a8d9565410a8fec6fc3678e9c617f4ac7be182ca55ab75016e07af9"
 dependencies = [
  "glib-sys",
  "libc",
@@ -474,9 +470,9 @@ dependencies = [
 
 [[package]]
 name = "gsk4"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dcd01e485189515263f6d3ac8a624b1c0cd13c1097991e72d0cc0c145a303c0"
+checksum = "432f981e4ea9f0739a5731d8a649acb794a3a729d2254e559ce7d613b17caf95"
 dependencies = [
  "bitflags 1.3.2",
  "cairo-rs",
@@ -490,9 +486,9 @@ dependencies = [
 
 [[package]]
 name = "gsk4-sys"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f47c49111e33020615a6c6b78d755c8b54b8504143cae1bf972bccc03eaa3f59"
+checksum = "096cb59175b0915ebf69c05a45263c0c989bd8537b8f2169912d0de644ba6a76"
 dependencies = [
  "cairo-sys-rs",
  "gdk4-sys",
@@ -506,14 +502,14 @@ dependencies = [
 
 [[package]]
 name = "gst-plugin-gtk4"
-version = "0.9.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52832b7e14e43c82e2139a0dbe704e8404bc6e306684cc417ccfdb876f522daa"
+checksum = "2f38df9956c32e9aa41df32cc624adc33397f73e8572d41016d9f31b2b875ccb"
 dependencies = [
- "fragile",
  "gst-plugin-version-helper",
  "gstreamer",
  "gstreamer-base",
+ "gstreamer-gl",
  "gstreamer-video",
  "gtk4",
  "once_cell",
@@ -550,9 +546,9 @@ dependencies = [
 
 [[package]]
 name = "gstreamer"
-version = "0.19.3"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e52247a9e1c5a2edb082fac77a59f8b40ec4c4eb719ccafe37072daabf4b56a9"
+checksum = "6d73132d9be53e8317e92169e06aea63be6712210fa254b4f17b76f207bd44cf"
 dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
@@ -569,14 +565,15 @@ dependencies = [
  "option-operations",
  "paste",
  "pretty-hex",
+ "smallvec",
  "thiserror",
 ]
 
 [[package]]
 name = "gstreamer-base"
-version = "0.19.3"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a61a299f9ea2ca892b43e2e428b86c679875e95ba23f8ae06fd730308df630f0"
+checksum = "5598bfedbff12675a6cddbe420b6a3ba5039c64aaf7df130db6339d09b634b0e"
 dependencies = [
  "atomic_refcell",
  "bitflags 1.3.2",
@@ -589,9 +586,9 @@ dependencies = [
 
 [[package]]
 name = "gstreamer-base-sys"
-version = "0.19.3"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbc3c4476e1503ae245c89fbe20060c30ec6ade5f44620bcc402cbc70a3911a1"
+checksum = "26114ed96f6668380f5a1554128159e98e06c3a7a8460f216d7cd6dce28f928c"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -601,10 +598,41 @@ dependencies = [
 ]
 
 [[package]]
-name = "gstreamer-sys"
-version = "0.19.2"
+name = "gstreamer-gl"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd119152dff9472ef8fa76afe7fb85a8ec639a5388f5c4b68058ce794a765a2a"
+checksum = "b82b83d18ad1c4d890694b4bedde170c748462a11f51a68428671bc1bf93e71e"
+dependencies = [
+ "bitflags 1.3.2",
+ "glib",
+ "gstreamer",
+ "gstreamer-base",
+ "gstreamer-gl-sys",
+ "gstreamer-video",
+ "libc",
+ "once_cell",
+]
+
+[[package]]
+name = "gstreamer-gl-sys"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f08af9ae5ca5aa01c4875346bb7e61310b75a9afc3607b52a6b73470be93bbc7"
+dependencies = [
+ "glib-sys",
+ "gobject-sys",
+ "gstreamer-base-sys",
+ "gstreamer-sys",
+ "gstreamer-video-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gstreamer-sys"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e56fe047adef7d47dbafa8bc1340fddb53c325e16574763063702fc94b5786d2"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -614,9 +642,9 @@ dependencies = [
 
 [[package]]
 name = "gstreamer-video"
-version = "0.19.3"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "065f78ce526608441f215182b94b624580a1817fe2982d1b1b439ab8d370af30"
+checksum = "5f74a5a277e91afde7f049174e6c84cfe670c7ae424a4a15ab309e60f25336f7"
 dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
@@ -631,9 +659,9 @@ dependencies = [
 
 [[package]]
 name = "gstreamer-video-sys"
-version = "0.19.3"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "298b78c5980c7ca790c48bab740ca5ffe70d08997987da103bfbfc566bcfd2a9"
+checksum = "66ddb6112d438aac0004d2db6053a572f92b1c5e0e9d6ff6c71d9245f7f73e46"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -645,9 +673,9 @@ dependencies = [
 
 [[package]]
 name = "gtk4"
-version = "0.5.2"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4c61a704ecdedd1c0ca66ff0184bd19e9c488835bb391655bfe6b60f6e2e43e"
+checksum = "73421200ad9c3919d0720779b345b05d31a6ce9998e74fc27012f12580822e46"
 dependencies = [
  "bitflags 1.3.2",
  "cairo-rs",
@@ -668,9 +696,9 @@ dependencies = [
 
 [[package]]
 name = "gtk4-macros"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42f57e7025a8bae8429e07aeeae9c4c3fef5d7cd14834afdd6d6d23f76984246"
+checksum = "db4676c4f90d8b010e88cb4558f61f47d76d6f6b8e6f6b89e62640f443907f61"
 dependencies = [
  "anyhow",
  "proc-macro-crate",
@@ -682,9 +710,9 @@ dependencies = [
 
 [[package]]
 name = "gtk4-sys"
-version = "0.5.2"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42e1bb57be47aac6ce77b5281ad64389a19db5aba6db75b07f0049571ad6fe0f"
+checksum = "e13cf3bc9559f71963c957eb639060b643e1276ae47b892ef6091d5bc15c3e1b"
 dependencies = [
  "cairo-sys-rs",
  "gdk-pixbuf-sys",
@@ -803,9 +831,9 @@ checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 
 [[package]]
 name = "memchr"
-version = "2.4.1"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
+checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "memoffset"
@@ -917,9 +945,9 @@ dependencies = [
 
 [[package]]
 name = "pango"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6a83cd4015382dbb0f4fcf3ab7b277d4885711a62b2f2c1e6582a120094edad"
+checksum = "243c048be90312220fb3bd578176eed8290568274a93c95040289d39349384bc"
 dependencies = [
  "bitflags 1.3.2",
  "gio",
@@ -931,9 +959,9 @@ dependencies = [
 
 [[package]]
 name = "pango-sys"
-version = "0.16.3"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e134909a9a293e04d2cc31928aa95679c5e4df954d0b85483159bd20d8f047f"
+checksum = "4293d0f0b5525eb5c24734d30b0ed02cd02aa734f216883f376b54de49625de8"
 dependencies = [
  "glib-sys",
  "gobject-sys",
