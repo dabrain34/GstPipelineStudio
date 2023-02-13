@@ -43,7 +43,6 @@ impl PadInfo {
             gst::PadPresence::Always => PortPresence::Always,
             gst::PadPresence::Sometimes => PortPresence::Sometimes,
             gst::PadPresence::Request => PortPresence::Sometimes,
-            _ => PortPresence::Unknown,
         }
     }
 

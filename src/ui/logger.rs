@@ -56,7 +56,7 @@ pub fn setup_logger_list(app: &GPSApp) {
             }
         }),
     );
-    logger_list.add_controller(&gesture);
+    logger_list.add_controller(gesture);
 }
 
 pub fn add_to_logger_list(app: &GPSApp, log_entry: &str) {

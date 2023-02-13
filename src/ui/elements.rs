@@ -84,7 +84,7 @@ pub fn setup_favorite_list(app: &GPSApp) {
             }
         }),
     );
-    favorite_list.add_controller(&gesture);
+    favorite_list.add_controller(gesture);
 }
 
 pub fn add_to_favorite_list(app: &GPSApp, element_name: String) {
