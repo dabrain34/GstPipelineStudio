@@ -16,9 +16,9 @@ variables:
 # Version and tag for our current container
 .fedora:
   variables:
-    FDO_DISTRIBUTION_VERSION: "35"
+    FDO_DISTRIBUTION_VERSION: "36"
     # Update this to trigger a container rebuild
-    FDO_DISTRIBUTION_TAG: "2023-02-13.0"
+    FDO_DISTRIBUTION_TAG: "2023-02-13.1"
   before_script:
     - source ./ci/env.sh
     - mkdir .cargo && echo -e "[net]\ngit-fetch-with-cli = true" > .cargo/config
