@@ -55,7 +55,7 @@ pub enum AppState {
 
 impl fmt::Display for AppState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}",)
     }
 }
 
@@ -68,7 +68,7 @@ impl ops::Deref for GPSApp {
     type Target = GPSAppInner;
 
     fn deref(&self) -> &GPSAppInner {
-        &*self.0
+        &self.0
     }
 }
 
@@ -432,7 +432,7 @@ impl GPSApp {
             .valign(gtk::Align::Center)
             .build();
         box_preview.append(&picture);
-        let label = gtk::Label::new(Some(&format!("Preview{}", n_sink)));
+        let label = gtk::Label::new(Some(&format!("Preview{n_sink}")));
         notebook_preview.insert_page(&box_preview, Some(&label), None);
     }
 
@@ -635,7 +635,7 @@ impl GPSApp {
                             if app.player.borrow().create_pipeline(&render_parse_launch).is_ok() {
                                 GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
                             } else {
-                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{}", render_parse_launch));
+                                GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{render_parse_launch}", ));
                             }
                         }
                     );

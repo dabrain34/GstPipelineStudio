@@ -209,7 +209,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
     }
 
     let dialog = GPSUI::dialog::create_dialog(
-        &format!("{} properties", element_name),
+        &format!("{element_name} properties"),
         app,
         &grid,
         glib::clone!(@strong update_properties => move |app, dialog| {
@@ -289,7 +289,7 @@ pub fn display_pad_properties(
     // Add all specific properties from the given element
 
     let dialog = GPSUI::dialog::create_dialog(
-        &format!("{} properties from {}", port_name, element_name),
+        &format!("{port_name} properties from {element_name}"),
         app,
         &grid,
         glib::clone!(@strong update_properties => move |app, dialog| {
