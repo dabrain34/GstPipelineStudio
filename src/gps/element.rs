@@ -66,7 +66,7 @@ impl ElementInfo {
         if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
             desc.push_str("<b>Factory details:</b>\n");
             desc.push_str("<b>Rank:</b>");
-            let _ = write!(desc, "{:?}", rank);
+            let _ = write!(desc, "{rank:?}",);
             desc.push('\n');
             desc.push_str("<b>Name:</b>");
             desc.push_str(&factory.name());

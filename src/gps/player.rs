@@ -34,7 +34,7 @@ pub enum PipelineState {
 
 impl fmt::Display for PipelineState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -46,7 +46,7 @@ impl ops::Deref for Player {
     type Target = PlayerInner;
 
     fn deref(&self) -> &PlayerInner {
-        &*self.0
+        &self.0
     }
 }
 
@@ -325,6 +325,7 @@ impl Player {
     }
 
     // Render graph methods
+    #[allow(clippy::only_used_in_recursion)]
     fn process_gst_node(
         &self,
         graphview: &GraphView,
@@ -339,7 +340,7 @@ impl Player {
         for (name, value) in node.properties().iter() {
             //This allow to have an index in front of a property such as an enum.
             if !node.hidden_property(name) {
-                let _ = write!(description, "{}={} ", name, value);
+                let _ = write!(description, "{name}={value} ");
             }
         }
         //Port properties
@@ -357,7 +358,7 @@ impl Player {
         for port in ports {
             if let Some((_port_to, node_to)) = graphview.port_connected_to(port.id()) {
                 if n_ports > 1 {
-                    let _ = write!(description, "{}. ! ", unique_name);
+                    let _ = write!(description, "{unique_name}. ! ");
                 } else {
                     description.push_str("! ");
                 }
