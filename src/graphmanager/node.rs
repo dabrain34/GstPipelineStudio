@@ -31,7 +31,7 @@ pub enum NodeType {
 
 impl fmt::Display for NodeType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -311,7 +311,7 @@ impl Node {
         let mut description = String::from("");
         for (name, value) in self_.properties.borrow().iter() {
             if !self.hidden_property(name) {
-                let _ = write!(description, "{}:{}", name, value);
+                let _ = write!(description, "{name}:{value}");
                 description.push('\n');
             }
         }

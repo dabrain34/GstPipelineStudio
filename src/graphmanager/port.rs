@@ -30,7 +30,7 @@ pub enum PortDirection {
 
 impl fmt::Display for PortDirection {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -57,7 +57,7 @@ pub enum PortPresence {
 
 impl fmt::Display for PortPresence {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
