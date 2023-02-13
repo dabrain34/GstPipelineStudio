@@ -62,6 +62,7 @@ mod imp {
         // Properties are different from GObject properties
         pub(super) properties: RefCell<HashMap<String, String>>,
         pub(super) selected: Cell<bool>,
+        pub(super) light: Cell<bool>,
         pub(super) position: Cell<(f32, f32)>,
     }
 
@@ -108,6 +109,7 @@ mod imp {
                 num_ports_out: Cell::new(0),
                 properties: RefCell::new(HashMap::new()),
                 selected: Cell::new(false),
+                light: Cell::new(false),
                 position: Cell::new((0.0, 0.0)),
             }
         }
@@ -274,6 +276,21 @@ impl Node {
     /// `(x, y)`
     pub fn position(&self) -> (f32, f32) {
         imp::Node::from_instance(self).position.get()
+    }
+
+    pub fn set_light(&self, light: bool) {
+        let self_ = imp::Node::from_instance(self);
+        self_.light.set(light);
+        if light {
+            self.add_css_class("node-light");
+        } else {
+            self.remove_css_class("node-light");
+        }
+    }
+
+    pub fn light(&self) -> bool {
+        let self_ = imp::Node::from_instance(self);
+        self_.light.get()
     }
 
     //Private

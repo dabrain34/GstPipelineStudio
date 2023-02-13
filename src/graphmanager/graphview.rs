@@ -837,7 +837,8 @@ impl GraphView {
                     .attr("id", &node.id().to_string())
                     .attr("type", &node.node_type().unwrap().to_string())
                     .attr("pos_x", &node.position().0.to_string())
-                    .attr("pos_y", &node.position().1.to_string()),
+                    .attr("pos_y", &node.position().1.to_string())
+                    .attr("light", &node.light().to_string()),
             )?;
             for port in node.ports().values() {
                 writer.write(
@@ -938,6 +939,10 @@ impl GraphView {
                             let pos_y: &String = attrs
                                 .get::<String>(&String::from("pos_y"))
                                 .unwrap_or(&default_value);
+                            let default_value = String::from("false");
+                            let light: &String = attrs
+                                .get::<String>(&String::from("light"))
+                                .unwrap_or(&default_value);
                             let node = self.create_node_with_id(
                                 id.parse::<u32>().unwrap(),
                                 name,
@@ -947,6 +952,7 @@ impl GraphView {
                                 pos_x.parse::<f32>().unwrap(),
                                 pos_y.parse::<f32>().unwrap(),
                             );
+                            node.set_light(light.parse::<bool>().unwrap());
                             current_node = Some(node);
                         }
                         "Property" => {
