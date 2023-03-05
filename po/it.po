@@ -32,7 +32,7 @@ msgid ""
 "GstPipelineStudio aims to provide a graphical user interface to the GStreamer framework. "
 "From a first step in the framework with a simple pipeline to a complex pipeline debugging, "
 "the tool provides a friendly interface to add elements to a pipeline and debug it."
-msgstr ""GstPipelineStudio mira a fornire un'interfaccia utente grafica al framework GStreamer. "
+msgstr "GstPipelineStudio mira a fornire un'interfaccia utente grafica al framework GStreamer. "
 "Da un primo passaggio nel framework con una pipeline semplice a un debug di una pipeline complessa,"
 "lo strumento fornisce un'interfaccia intuitiva per aggiungere elementi a una pipeline ed eseguirne il debug."
 
