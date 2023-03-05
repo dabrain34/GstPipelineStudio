@@ -59,8 +59,9 @@ cargo_sources = files(
   'Cargo.toml',
   'Cargo.lock',
 )
-
+if host_system == 'linux'
 subdir('data')
+endif
 subdir('src')
 subdir('po')
 
