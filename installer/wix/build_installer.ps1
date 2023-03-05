@@ -2,6 +2,10 @@ $wixFolder = Join-Path $PSScriptRoot -ChildPath 'wix/'
 $candleToolPath = Join-Path $wixFolder -ChildPath candle.exe
 $lightToolPath = Join-Path $wixFolder -ChildPath light.exe
 $heatToolPath = Join-Path $wixFolder -ChildPath heat.exe
+$GPSUpgradeCode = "9B87C8FF-599C-4F20-914E-AF5E68CB3DC0"
+$GPSVersion = $(git describe --always --abbrev=0)
+Write-Output $GPSVersion
+$GPSVersion = "0.2.3"
 
 try
 {
@@ -34,9 +38,9 @@ try
     Write-Output $wxs_files
     Write-Output $obj_files
     # compiling wxs file into wixobj
-    $msiFileName = "GstPipelineStudio.msi"
+    $msiFileName = "GstPipelineStudio-$GPSVersion.msi"
     foreach ($f in $wxs_files){
-        & "$candleToolPath" "$f" -dPlatform=x64 -dgstreamerBinInstallDir="$gstreamerBinInstallDir" -dgstreamerPluginInstallDir="$gstreamerPluginInstallDir"
+        & "$candleToolPath" "$f" -dPlatform=x64 -dGPSUpgradeCode="$GPSUpgradeCode" -dGPSVersion="$GPSVersion" -dgstreamerBinInstallDir="$gstreamerBinInstallDir" -dgstreamerPluginInstallDir="$gstreamerPluginInstallDir"
         if($LASTEXITCODE -ne 0)
         {
             throw "Compilation of $wxsFileName failed with exit code $LASTEXITCODE"

@@ -4,8 +4,8 @@
            Language="1033"
            Manufacturer="dabrain34"
            Name="GstPipelineStudio"
-           UpgradeCode="B28B3FA8-9310-4AA7-B0CA-CBCCA5FD00B2"
-           Version="1.0.0.0">
+           UpgradeCode="$(var.GPSUpgradeCode)"
+           Version="$(var.GPSVersion)">
 
     <Package InstallScope="perMachine" Compressed="yes" />
 

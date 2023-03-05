@@ -106,17 +106,15 @@ windows installer stable:
   image: "$WINDOWS_RUST_STABLE_IMAGE"
   extends: '.msvc2019 build'
   script:
+    - git fetch --tags
     - "& ./ci/build_gps.ps1"
-    - cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 &&
-      powershell ./installer/wix/prepare_wix.ps1"
-    - cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 &&
-      powershell ./installer/wix/prepare_gstreamer.ps1"
-    - cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 &&
-      powershell ./installer/wix/build_installer.ps1"
+    - "& ./installer/wix/prepare_wix.ps1"
+    - "& ./installer/wix/prepare_gstreamer.ps1"
+    - "& ./installer/wix/build_installer.ps1"
   artifacts:
         paths:
             - installer/wix/*.msi
-        expire_in: 1 days
+        expire_in: 10 days
 
 
 rustfmt-clippy:
