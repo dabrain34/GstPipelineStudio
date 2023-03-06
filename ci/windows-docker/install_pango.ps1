@@ -3,7 +3,7 @@
 $env:MESON_ARGS = "--prefix=C:\gst-install\ --wrap-mode=forcefallback"
 
 # Download pango all its subprojects
-git clone -b 1.50.14 --depth 1 https://gitlab.gnome.org/gnome/pango.git C:\pango
+git clone -b $env:DEFAULT_PANGO_BRANCH --depth 1 https://gitlab.gnome.org/gnome/pango.git C:\pango
 if (!$?) {
   Write-Host "Failed to clone pango"
   Exit 1
