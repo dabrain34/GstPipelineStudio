@@ -114,7 +114,7 @@ windows installer stable:
         paths:
             - installer/wix/*.msi
         expire_in: 10 days
-
+  when: 'manual'
 
 rustfmt-clippy:
   extends:
