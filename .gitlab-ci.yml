@@ -127,6 +127,17 @@ rustfmt-clippy:
     - cargo clippy --version
     - cargo clippy --color=always --all-targets -- -D warnings
 
+windows installer release:
+  extends: 'windows installer stable'
+  stage: release
+  only:
+    - flatpak
+    - tags
+  artifacts:
+        paths:
+            - installer/wix/*.msi
+  when: 'always'
+
 test-stable:
   extends:
     - .fedora
