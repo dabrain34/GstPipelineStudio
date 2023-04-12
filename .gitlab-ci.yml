@@ -107,7 +107,6 @@ windows installer stable:
   script:
     - git fetch --tags
     - "& ./ci/build_gps.ps1"
-    - "& ./installer/wix/prepare_wix.ps1"
     - "& ./installer/wix/prepare_gstreamer.ps1"
     - "& ./installer/wix/build_installer.ps1"
   artifacts:

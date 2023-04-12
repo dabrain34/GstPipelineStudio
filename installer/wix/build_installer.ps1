@@ -1,7 +1,19 @@
-$wixFolder = Join-Path $PSScriptRoot -ChildPath 'wix/'
+# Check wix installation
+$wixInstalledFolder = "C:\Program Files (x86)\WiX Toolset v3.11\bin"
+if(Test-Path $wixInstalledFolder)
+{
+    $wixFolder = $wixInstalledFolder
+}
+else
+{
+    $prepareWix = Join-Path $PSScriptRoot -ChildPath prepare_wix.ps1
+    & "$prepareWix"
+    $wixFolder = Join-Path $PSScriptRoot -ChildPath 'wix/'
+}
 $candleToolPath = Join-Path $wixFolder -ChildPath candle.exe
 $lightToolPath = Join-Path $wixFolder -ChildPath light.exe
 $heatToolPath = Join-Path $wixFolder -ChildPath heat.exe
+
 $GPSUpgradeCode = "9B87C8FF-599C-4F20-914E-AF5E68CB3DC0"
 $GPSVersion = $(git describe --always --abbrev=0)
 Write-Output $GPSVersion
