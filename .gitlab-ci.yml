@@ -12,7 +12,7 @@ stages:
 
 variables:
   FDO_UPSTREAM_REPO: "dabrain34/GstPipelineStudio"
-  GNOME_RUNTIME_IMAGE: "registry.gitlab.gnome.org/gnome/gnome-runtime-images/gnome:41"
+  GNOME_RUNTIME_IMAGE: 'quay.io/gnome_infrastructure/gnome-runtime-images:gnome-44'
   WINDOWS_RUST_STABLE_IMAGE: "$CI_REGISTRY_IMAGE/windows:$GST_RS_IMG_TAG-main-$GST_RS_STABLE"
   WINDOWS_RUST_STABLE_UPSTREAM_IMAGE: "$CI_REGISTRY/$FDO_UPSTREAM_REPO/windows:$GST_RS_IMG_TAG-main-$GST_RS_STABLE"
 
@@ -179,19 +179,11 @@ dist-package:
 
 flatpak:
   image: $GNOME_RUNTIME_IMAGE
-  stage: release
-  only:
-    - flatpak
-    - tags
-  # Using gstreamer runner avoids an issue with 'bwrap: No permissions to creating new namespace' during flatpak builder
-  tags:
-    - gstreamer
+  stage: test
   variables:
-    BUNDLE: "gst-pipeline-studio-nightly.flatpak"
     MANIFEST_PATH: "build-aux/org.freedesktop.dabrain34.GstPipelineStudio.Devel.json"
-    FLATPAK_MODULE: "gst-pipeline-studio"
     APP_ID: "org.freedesktop.dabrain34.GstPipelineStudio.Devel"
-    RUNTIME_REPO: "https://nightly.gnome.org/gnome-nightly.flatpakrepo"
+    BUNDLE: "gst-pipeline-studio-nightly.flatpak"
   script:
     - flatpak-builder app ${MANIFEST_PATH}
     - flatpak build-export repo app
@@ -202,6 +194,13 @@ flatpak:
     when: "always"
     paths:
       - "${BUNDLE}"
-      - ".flatpak-builder/build/${FLATPAK_MODULE}/_flatpak_build/meson-logs/meson-log.txt"
-      - ".flatpak-builder/build/${FLATPAK_MODULE}/_flatpak_build/meson-logs/testlog.txt"
     expire_in: 14 days
+  cache:
+    key: "flatpak"
+    paths:
+      - .flatpak-builder/downloads/
+      - .flatpak-builder/git/
+      - target/
+      - target_test/
+  when: 'manual'
+

@@ -1,28 +1,56 @@
 {
   "app-id": "org.freedesktop.dabrain34.GstPipelineStudio.Devel",
   "runtime": "org.gnome.Platform",
-  "runtime-version": "41",
+  "runtime-version": "44",
   "sdk": "org.gnome.Sdk",
-  "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+  "sdk-extensions": [
+    "org.freedesktop.Sdk.Extension.rust-stable"
+  ],
   "command": "gst_pipeline_studio",
   "finish-args": [
     "--socket=fallback-x11",
     "--socket=wayland",
     "--device=dri",
+    "--share=ipc",
+    "--share=network",
+    "--filesystem=home",
     "--env=G_MESSAGES_DEBUG=none",
     "--env=RUST_BACKTRACE=1"
   ],
   "build-options": {
     "append-path": "/usr/lib/sdk/rust-stable/bin",
-    "build-args": ["--share=network"],
-    "test-args": ["--socket=x11", "--share=network"]
+    "build-args": [
+      "--share=network"
+    ],
+    "test-args": [
+      "--socket=x11",
+      "--share=network"
+    ]
   },
   "modules": [
+    {
+      "name": "gstreamer",
+      "buildsystem": "meson",
+      "builddir": true,
+      "config-opts": [
+        "-Ddoc=disabled"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "tag": "1.22",
+          "url": "https://gitlab.freedesktop.org/gstreamer/gstreamer.git",
+          "disable-submodules": true
+        }
+      ]
+    },
     {
       "name": "gst_pipeline_studio",
       "buildsystem": "meson",
       "run-tests": true,
-      "config-opts": ["-Dprofile=development"],
+      "config-opts": [
+        "-Dprofile=development"
+      ],
       "sources": [
         {
           "type": "dir",
