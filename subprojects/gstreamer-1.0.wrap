@@ -2,7 +2,7 @@
 directory=gstreamer-1.0
 url=https://gitlab.freedesktop.org/gstreamer/gstreamer.git
 push-url=git@gitlab.freedesktop.org:gstreamer/gstreamer.git
-revision=main
+revision=1.22
 
 [provide]
 dependency_names = gstreamer-1.0, gstreamer-base-1.0, gstreamer-sys-1.0, gstreamer-plugins-bad-1.0, gstreamer-video-1.0, gstreamer-player-1.0
