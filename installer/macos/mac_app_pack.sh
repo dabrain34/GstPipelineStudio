@@ -110,6 +110,16 @@ fi
 cp $APP_BUILD/bin/*.dylib $APP_LIB_DIR
 chmod -R 766 $APP_LIB_DIR
 
+echo -n "relocate the gstreamer plugins......"
+for file in $APP_LIB_DIR/gstreamer-1.0/*.dylib
+do
+  echo "relocating ${file}"
+  lib_change_paths \
+    @executable_path/../Resources/lib \
+    $APP_LIB_DIR \
+    ${file}
+done
+
 lib_change_paths \
   @executable_path/../Resources/lib \
   $APP_LIB_DIR \
