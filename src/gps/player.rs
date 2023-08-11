@@ -362,6 +362,11 @@ impl Player {
                 if n_ports > 1 {
                     let _ = write!(description, "{unique_name}. ! ");
                 } else {
+                    if let Some(link) = graphview.port_link(port.id()) {
+                        if !link.name().is_empty() {
+                            let _ = write!(description, "! {} ", link.name());
+                        }
+                    }
                     description.push_str("! ");
                 }
                 if let Some(node) = graphview.node(node_to) {
@@ -416,7 +421,6 @@ impl Player {
                                     peer_node.id(),
                                     port.id(),
                                     peer_port.id(),
-                                    true,
                                 );
                             }
                         }

@@ -818,6 +818,29 @@ impl GPSApp {
                 None
             }),
         );
+        let app_weak = self.downgrade();
+        self.graphview.borrow().connect_local(
+            "link-double-clicked",
+            false,
+            glib::clone!(@weak application =>  @default-return None, move |values: &[Value]| {
+                let app = upgrade_weak!(app_weak, None);
+                let link_id = values[1].get::<u32>().expect("link id args[1]");
+                GPS_TRACE!("link double clicked id={}", link_id);
+                let link = app.graphview.borrow().link(link_id).unwrap();
+                GPSUI::dialog::create_input_dialog(
+                    "Enter caps filter description",
+                    "description",
+                    &link.name(),
+                    &app,
+                    move |app, link_desc| {
+                        GPS_ERROR!("link double clicked id={}", link.id());
+                        app.graphview.borrow().set_link_name(link.id(), link_desc.as_str());
+                        GPS_ERROR!("link double clicked name={}", link.name());
+                    },
+                );
+                None
+            }),
+        );
 
         // Setup the favorite list
         GPSUI::elements::setup_favorite_list(self);
@@ -959,11 +982,9 @@ impl GPSApp {
         node_to_id: u32,
         port_from_id: u32,
         port_to_id: u32,
-        active: bool,
     ) {
         let graphview = self.graphview.borrow();
-        let link =
-            graphview.create_link(node_from_id, node_to_id, port_from_id, port_to_id, active);
+        let link = graphview.create_link(node_from_id, node_to_id, port_from_id, port_to_id);
         graphview.add_link(link);
     }
 
