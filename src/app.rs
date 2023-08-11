@@ -882,8 +882,6 @@ impl GPSApp {
                     node.update_properties(&properties);
                 }
             });
-        } else if GPS::ElementInfo::element_is_capsfilter(element_name) {
-            node.set_light(true);
         }
         graphview.add_node(node);
         for input in inputs {

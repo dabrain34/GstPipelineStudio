@@ -213,10 +213,6 @@ impl ElementInfo {
         }
     }
 
-    pub fn element_is_capsfilter(element_name: &str) -> bool {
-        matches!(element_name, "capsfilter")
-    }
-
     pub fn element_supports_new_pad_request(
         element_name: &str,
         direction: PortDirection,
