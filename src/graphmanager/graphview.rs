@@ -144,7 +144,7 @@ mod imp {
                         let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("port pick() did not return a widget");
                         if let Some(target) = target.ancestor(Port::static_type()) {
                             let port = target.dynamic_cast::<Port>().expect("click event is not on the Port");
-                            let node = port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");                      
+                            let node = port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
                             obj.emit_by_name::<()>("port-right-clicked", &[&port.id(), &node.id(), &graphene::Point::new(x as f32,y as f32)]);
                         } else if let Some(target) = target.ancestor(Node::static_type()) {
                             let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
@@ -204,7 +204,6 @@ mod imp {
                                             node_to.id(),
                                             port_from.id(),
                                             port_to.id(),
-                                            true,
                                          ));
                                     }
                                     widget.set_selected_port(None);
@@ -225,7 +224,13 @@ mod imp {
                                     info!("double clicked node id {}", node.id());
                                     obj.emit_by_name::<()>("node-double-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]);
                                 }
+                            } else if _n_press % 2 == 0  {
+                                if let Some(link) = widget.point_on_link(&graphene::Point::new(x.floor() as f32,y.floor() as f32)) {
+                                    info!("double clicked link id {}", link.id());
+                                    obj.emit_by_name::<()>("link-double-clicked", &[&link.id(), &graphene::Point::new(x as f32,y as f32)]);
+                                }
                             }
+
                             // Click to something else than a port
                             widget.set_selected_port(None);
                         }
@@ -289,6 +294,9 @@ mod imp {
                     Signal::builder("port-added")
                         .param_types([u32::static_type(), u32::static_type(), u32::static_type()])
                         .build(),
+                    Signal::builder("link-double-clicked")
+                        .param_types([u32::static_type(), graphene::Point::static_type()])
+                        .build(),
                 ]
             });
             SIGNALS.as_ref()
@@ -310,8 +318,9 @@ mod imp {
                 if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
                     self.draw_link(
                         snapshot,
-                        link.active,
+                        link.active(),
                         link.selected(),
+                        link.name().as_str(),
                         link.thickness as f64,
                         &graphene::Point::new(from_x as f32, from_y as f32),
                         &graphene::Point::new(to_x as f32, to_y as f32),
@@ -335,6 +344,7 @@ mod imp {
                     snapshot,
                     false,
                     false,
+                    "",
                     2.0,
                     &graphene::Point::new(from_x as f32, from_y as f32),
                     &graphene::Point::new(to_x as f32, to_y as f32),
@@ -403,12 +413,13 @@ mod imp {
             let (to_x, to_y) = self.link_to_coordinates(link.node_to, link.port_to);
             Some((from_x, from_y, to_x, to_y))
         }
-
+        #[allow(clippy::too_many_arguments)]
         fn draw_link(
             &self,
             snapshot: &gtk::Snapshot,
             active: bool,
             selected: bool,
+            name: &str,
             thickness: f64,
             point_from: &graphene::Point,
             point_to: &graphene::Point,
@@ -441,6 +452,13 @@ mod imp {
             if let Err(e) = link_cr.stroke() {
                 warn!("Failed to draw graphview links: {}", e);
             };
+            warn!("the link name is {}", name);
+            if !name.is_empty() {
+                let x = (point_from.x() + point_to.x()) / 2.0 + 20.0;
+                let y = (point_from.y() + point_to.y()) / 2.0 + 20.0;
+                link_cr.move_to(x as f64, y as f64);
+                let _ = link_cr.show_text(name);
+            }
         }
     }
 }
@@ -739,7 +757,6 @@ impl GraphView {
         node_to_id: u32,
         port_from_id: u32,
         port_to_id: u32,
-        active: bool,
     ) -> Link {
         self.create_link_with_id(
             self.next_link_id(),
@@ -747,7 +764,6 @@ impl GraphView {
             node_to_id,
             port_from_id,
             port_to_id,
-            active,
         )
     }
 
@@ -766,7 +782,7 @@ impl GraphView {
     pub fn set_link_state(&self, link_id: u32, active: bool) {
         let private = imp::GraphView::from_obj(self);
         if let Some(link) = private.links.borrow_mut().get_mut(&link_id) {
-            link.active = active;
+            link.set_active(active);
             self.queue_draw();
         } else {
             warn!("Link state changed on unknown link (id={})", link_id);
@@ -781,10 +797,35 @@ impl GraphView {
         let links = private.links.borrow();
         let links_list: Vec<_> = links
             .iter()
-            .filter(|(_, link)| link.active == link_state)
+            .filter(|(_, link)| link.active() == link_state)
             .map(|(_, node)| node.clone())
             .collect();
         links_list
+    }
+
+    /// Get the link with the specified link id inside the graphview.
+    ///
+    /// Returns `None` if the link is not in the graphview.
+    pub fn link(&self, id: u32) -> Option<Link> {
+        let private = imp::GraphView::from_obj(self);
+        private.links.borrow().get(&id).cloned()
+    }
+
+    /// Set the link state with ink id and link state (boolean)
+    ///
+    pub fn set_link_name(&self, link_id: u32, name: &str) {
+        let private = imp::GraphView::from_obj(self);
+        let mut updated = false;
+        if let Some(link) = private.links.borrow_mut().get_mut(&link_id) {
+            link.set_name(name);
+            self.queue_draw();
+            updated = true;
+        } else {
+            warn!("Link name changed on unknown link (id={})", link_id);
+        }
+        if updated {
+            self.graph_updated();
+        }
     }
 
     /// Retrieves the node/port id connected to the input port id
@@ -794,6 +835,18 @@ impl GraphView {
         for (_id, link) in private.links.borrow().iter() {
             if port_id == link.port_from {
                 return Some((link.port_to, link.node_to));
+            }
+        }
+        None
+    }
+
+    /// Retrieves the link connected to the port id
+    ///
+    pub fn port_link(&self, port_id: u32) -> Option<Link> {
+        let private = imp::GraphView::from_obj(self);
+        for (_id, link) in private.links.borrow().iter() {
+            if port_id == link.port_from {
+                return Some(link.clone());
             }
         }
         None
@@ -891,7 +944,8 @@ impl GraphView {
                     .attr("node_to", &link.node_to.to_string())
                     .attr("port_from", &link.port_from.to_string())
                     .attr("port_to", &link.port_to.to_string())
-                    .attr("active", &link.active.to_string()),
+                    .attr("name", &link.name())
+                    .attr("active", &link.active().to_string()),
             )?;
             writer.write(XMLWEvent::end_element())?;
         }
@@ -1022,14 +1076,21 @@ impl GraphView {
                             let active: &String = attrs
                                 .get::<String>(&String::from("active"))
                                 .expect("Unable to find link state");
-                            current_link = Some(self.create_link_with_id(
+                            let default_value = String::from("");
+                            let name: &String = attrs
+                                .get::<String>(&String::from("name"))
+                                .unwrap_or(&default_value);
+                            let link = self.create_link_with_id(
                                 id.parse::<u32>().unwrap(),
                                 node_from.parse::<u32>().unwrap(),
                                 node_to.parse::<u32>().unwrap(),
                                 port_from.parse::<u32>().unwrap(),
                                 port_to.parse::<u32>().unwrap(),
-                                active.parse::<bool>().unwrap(),
-                            ));
+                            );
+
+                            link.set_active(active.parse::<bool>().unwrap());
+                            link.set_name(name.parse::<String>().unwrap().as_str());
+                            current_link = Some(link);
                         }
                         _ => warn!("name unknown: {}", name),
                     }
@@ -1113,17 +1174,8 @@ impl GraphView {
         node_to_id: u32,
         port_from_id: u32,
         port_to_id: u32,
-        active: bool,
     ) -> Link {
-        Link::new(
-            link_id,
-            node_from_id,
-            node_to_id,
-            port_from_id,
-            port_to_id,
-            active,
-            false,
-        )
+        Link::new(link_id, node_from_id, node_to_id, port_from_id, port_to_id)
     }
 
     fn remove_link(&self, id: u32) {

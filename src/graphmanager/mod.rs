@@ -104,11 +104,15 @@ mod test {
             // Ports have been created by create_node_with_port
 
             //Create link between node1 and node 2
-            let link = graphview.create_link(1, 2, 1, 2, true);
+            let link = graphview.create_link(1, 2, 1, 2);
+            assert_eq!(&link.name(), "");
+            assert!(&link.active());
+            link.set_name("link1");
+            assert_eq!(&link.name(), "link1");
             graphview.add_link(link);
 
             //Create link between node2 and node 3
-            let link = graphview.create_link(2, 3, 3, 4, true);
+            let link = graphview.create_link(2, 3, 3, 4);
             graphview.add_link(link);
 
             // Save the graphview in XML into a buffer
