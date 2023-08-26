@@ -67,7 +67,9 @@ function lib_dependency_copy
           echo "Unsupport path: $lib"
         fi
       else
-        cp -n $lib $folder
+        if [[ $lib != $target ]]; then
+          cp -n $lib $folder
+        fi
       fi
     fi
   done
@@ -105,7 +107,7 @@ lib_dependency_copy ${TARGETDIR}/lib/libsoup-2.4.1.dylib "${TARGETDIR}/bin"
 for file in ${TARGETDIR}/lib/gstreamer-1.0/*.dylib
 do
     echo "${file}"
-    lib_dependency_copy ${file} "${TARGETDIR}/lib/gstreamer-1.0"
+    lib_dependency_copy ${file} "${TARGETDIR}/lib/"
 done
 
 test_ok cp -f "${PROJECTDIR}/macos/mac_launcher.sh" "${TARGETDIR}/bin/launcher.sh"
