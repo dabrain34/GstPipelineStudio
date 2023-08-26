@@ -83,3 +83,17 @@
 ### Graphview
 
 - [x] Update node description on property removal
+
+## 0.3.0
+### app
+ - [x] handle the caps setter element
+
+### CI/Infra
+- [x] Create a macos installer
+- [x] Create a windows installer
+
+### Graphview
+- [x] set/get the file format version
+
+### GStreamer
+- [x] Display GStreamer version in the about dialog

@@ -3,12 +3,11 @@
 ### Graphview
 
 - [ ] create a crate for graphview/node/port
-- [x] set/get the file format version
+
 
 ### GStreamer:
 
 - [ ] Implement pipeline unit test
-- [x] Display GStreamer version in the about dialog
 
 ### app
 
@@ -16,8 +15,8 @@
   - [ ] unable to connect element with incompatible caps.
 - [ ] Add multiple graphviews with tabs.
 - [ ] Implement graph dot render/load
-- [ ] Implement a command line parser to graph
-- [ ] handle the caps setter element
+
+
 - [ ] Add probes on each pad to monitor the pipeline
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
@@ -30,9 +29,7 @@
 - [ ] Filter the elements by class/rank etc.
 - [ ] double click on node/pad open the properties
 
-### CI/Infra
 
-- [ ] Create a macos/windows job
 
 ## bugs
 
