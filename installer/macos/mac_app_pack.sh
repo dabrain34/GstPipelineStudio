@@ -125,35 +125,7 @@ lib_change_paths \
   $APP_LIB_DIR \
   $APP_EXE_DIR/gst_pipeline_studio-real
 
-# lib_change_paths \
-#   @executable_path/../Resources/lib \
-#   $APP_LIB_DIR \
-#   $APP_EXE_DIR/gdbus
-
-# lib_change_paths \
-#   @executable_path/../Resources/lib \
-#   $APP_LIB_DIR \
-#   $APP_EXE_DIR/gdk-pixbuf-query-loaders
 
 lib_change_siblings $APP_LIB_DIR @loader_path
-
-# Gio modules
-# gio_modules="$(find $APP_LIB_DIR/gio/modules/ -name \*.dylib -o -name \*.so -type f)"
-# for gio_module in $gio_modules; do
-#   lib_change_paths \
-#     @executable_path/../Resources/lib \
-#     $APP_LIB_DIR \
-#     $gio_module
-# done
-
-# # Gdk-pixbuf plugins
-# pixbuf_plugins="$(find $APP_LIB_DIR/gdk-pixbuf-2.0/2.10.0/loaders/ -name \*.dylib -o -name \*.so -type f)"
-# for pixbuf_plugin in $pixbuf_plugins; do
-#   lib_change_paths \
-#     @executable_path/../Resources/lib \
-#     $APP_LIB_DIR \
-#     $pixbuf_plugin
-# done
-
 
 echo "Mac app bundled at '$APP_TOP_DIR'"

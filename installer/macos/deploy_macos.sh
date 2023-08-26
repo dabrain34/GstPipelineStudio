@@ -98,11 +98,6 @@ lib_dependency_copy ${TARGETDIR}/bin/gst_pipeline_studio "${TARGETDIR}/bin"
 lib_dependency_copy ${TARGETDIR}/lib/libgobject-2.0.0.dylib "${TARGETDIR}/bin"
 lib_dependency_copy ${TARGETDIR}/lib/libsoup-2.4.1.dylib "${TARGETDIR}/bin"
 
-# lib_dependency_copy ${TARGETDIR}/bin/libunistring.2.dylib "${TARGETDIR}/bin"
-# lib_dependency_copy /usr/local/lib/libcairo-script-interpreter.2.dylib "${TARGETDIR}/bin"
-# lib_dependency_copy /usr/local/lib/libgettextsrc-0.20.1.dylib "${TARGETDIR}/bin"
-# lib_dependency_copy /usr/local/lib/libharfbuzz-icu.0.dylib "${TARGETDIR}/bin"
-
 
 for file in ${TARGETDIR}/lib/gstreamer-1.0/*.dylib
 do
@@ -111,22 +106,11 @@ do
 done
 
 test_ok cp -f "${PROJECTDIR}/macos/mac_launcher.sh" "${TARGETDIR}/bin/launcher.sh"
-# cp -f /usr/local/lib/libgtk-gtk4.1.dylib "${TARGETDIR}/bin"
-# cp -f /usr/local/lib/libgirepository-1.0.1.dylib "${TARGETDIR}/bin"
-# cp -f /usr/local/lib/librsvg-2.2.dylib "${TARGETDIR}/bin"
-# cp -f /usr/local/lib/libgthread-2.0.0.dylib "${TARGETDIR}/bin"
-# echo "[done]"
+
 
 # copy GStreamer dependencies
 # cp -f /usr/local/lib/gstreamer-1.0/libgtk-gtk4.1.dylib "${TARGETDIR}/lib/gstreamer-1.0"
 
-# copy GDBus/Helper and dependencies files
-# echo -n "Copy GDBus/Helper and dependencies......"
-# cp -f /usr/local/bin/gdbus "${TARGETDIR}/bin"
-# cp -f /usr/local/bin/gdk-pixbuf-query-loaders "${TARGETDIR}/bin"
-# lib_dependency_copy ${TARGETDIR}/bin/gdbus "${TARGETDIR}/bin"
-# lib_dependency_copy ${TARGETDIR}/bin/gdk-pixbuf-query-loaders "${TARGETDIR}/bin"
-# echo "[done]"
 
 
 
