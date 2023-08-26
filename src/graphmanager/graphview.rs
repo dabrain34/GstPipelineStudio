@@ -477,7 +477,7 @@ impl GraphView {
         // Load CSS from the STYLE variable.
         let provider = gtk::CssProvider::new();
         provider.load_from_data(GRAPHVIEW_STYLE);
-        gtk::StyleContext::add_provider_for_display(
+        gtk::style_context_add_provider_for_display(
             &gtk::gdk::Display::default().expect("Error initializing gtk css provider."),
             &provider,
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
