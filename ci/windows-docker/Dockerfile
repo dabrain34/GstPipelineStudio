@@ -1,6 +1,6 @@
 # escape=`
 
-FROM "registry.freedesktop.org/gstreamer/gstreamer/amd64/windows:2023-03-20.0-main"
+FROM "registry.freedesktop.org/gstreamer/gstreamer/amd64/windows:2023-08-24.0-main"
 
 # Make sure any failure in PowerShell is fatal
 ENV ErrorActionPreference='Stop'
@@ -8,7 +8,6 @@ SHELL ["powershell","-NoLogo", "-NonInteractive", "-Command"]
 
 ARG DEFAULT_GST_BRANCH="1.22"
 ARG DEFAULT_GTK_BRANCH="4.8.2"
-ARG DEFAULT_PANGO_BRANCH="1.50.14"
 ARG RUST_VERSION="invalid"
 
 RUN choco install -y pkgconfiglite nasm llvm
@@ -17,8 +16,7 @@ RUN choco install -y pkgconfiglite nasm llvm
 RUN setx PATH '%PATH%;C:\Program Files\NASM;C:\gst-install\bin;c:\Program Files\gettext-iconv\bin'
 ENV PKG_CONFIG_PATH="C:\gst-install\lib\pkgconfig"
 
-COPY install_pango.ps1 install_gst.ps1 install_gtk.ps1 C:\
-RUN C:\install_pango.ps1
+COPY install_gst.ps1 install_gtk.ps1 C:\
 RUN C:\install_gst.ps1
 RUN C:\install_gtk.ps1
 

@@ -188,7 +188,7 @@ impl GPSApp {
         let app_weak = app.downgrade();
         let timeout_id =
             glib::timeout_add_local(std::time::Duration::from_millis(500), move || {
-                let app = upgrade_weak!(app_weak, glib::Continue(false));
+                let app = upgrade_weak!(app_weak, glib::ControlFlow::Break);
                 let player = app.player.borrow();
 
                 let label: gtk::Label = app
@@ -211,7 +211,7 @@ impl GPSApp {
                 // Display the playing position in the gui.
                 label.set_text(&position_desc);
                 // Tell the callback to continue calling this closure.
-                glib::Continue(true)
+                glib::ControlFlow::Continue
             });
 
         let timeout_id = RefCell::new(Some(timeout_id));
@@ -448,7 +448,7 @@ impl GPSApp {
         drawing_area_window.set_child(Some(&*self.graphview.borrow()));
 
         // Setup the logger to get messages into the TreeView
-        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
         let app_weak = self.downgrade();
         logger::init_logger(
             ready_tx,
@@ -458,9 +458,9 @@ impl GPSApp {
         );
         GPSUI::logger::setup_logger_list(self);
         let _ = ready_rx.attach(None, move |msg: String| {
-            let app = upgrade_weak!(app_weak, glib::Continue(false));
+            let app = upgrade_weak!(app_weak, glib::ControlFlow::Break);
             GPSUI::logger::add_to_logger_list(&app, &msg);
-            glib::Continue(true)
+            glib::ControlFlow::Continue
         });
 
         let window = &self.window;

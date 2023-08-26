@@ -121,10 +121,10 @@ impl Player {
         self.check_for_gtk4sink(pipeline.as_ref().unwrap());
         // GPSApp is not Send(trait) ready , so we use a channel to exchange the given data with the main thread and use
         // GPSApp.
-        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
         let player_weak = self.downgrade();
         let _ = ready_rx.attach(None, move |element: gst::Element| {
-            let player = upgrade_weak!(player_weak, glib::Continue(false));
+            let player = upgrade_weak!(player_weak, glib::ControlFlow::Break);
             let paintable = element.property::<gdk::Paintable>("paintable");
             let n_sink = player.n_video_sink.get();
             player
@@ -134,7 +134,7 @@ impl Player {
                 .expect("App should be available")
                 .set_app_preview(&paintable, n_sink);
             player.n_video_sink.set(n_sink + 1);
-            glib::Continue(true)
+            glib::ControlFlow::Continue
         });
         let bin = pipeline.unwrap().dynamic_cast::<gst::Bin>();
         if let Ok(bin) = bin.as_ref() {
@@ -180,10 +180,10 @@ impl Player {
 
             let bus = pipeline.bus().expect("Pipeline had no bus");
             let pipeline_weak = self.downgrade();
-            bus.add_watch_local(move |_bus, msg| {
-                let pipeline = upgrade_weak!(pipeline_weak, glib::Continue(false));
+            let _ = bus.add_watch_local(move |_bus, msg| {
+                let pipeline = upgrade_weak!(pipeline_weak, glib::ControlFlow::Break);
                 pipeline.on_pipeline_message(msg);
-                glib::Continue(true)
+                glib::ControlFlow::Continue
             })?;
             *self.pipeline.borrow_mut() = Some(pipeline);
         }
@@ -529,15 +529,9 @@ impl Player {
 
 impl Drop for PlayerInner {
     fn drop(&mut self) {
-        // TODO: If a recording is currently running we would like to finish that first
-        // before quitting the pipeline and shutting down the pipeline.
         if let Some(pipeline) = self.pipeline.borrow().to_owned() {
             // We ignore any errors here
             let _ = pipeline.set_state(gst::State::Null);
-
-            // Remove the message watch from the bus
-            let bus = pipeline.bus().expect("Pipeline had no bus");
-            let _ = bus.remove_watch();
         }
     }
 }

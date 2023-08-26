@@ -1,7 +1,7 @@
 {
   "app-id": "org.freedesktop.dabrain34.GstPipelineStudio.Devel",
   "runtime": "org.gnome.Platform",
-  "runtime-version": "44",
+  "runtime-version": "master",
   "sdk": "org.gnome.Sdk",
   "sdk-extensions": [
     "org.freedesktop.Sdk.Extension.rust-stable"

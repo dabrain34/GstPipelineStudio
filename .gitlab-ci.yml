@@ -12,16 +12,16 @@ stages:
 
 variables:
   FDO_UPSTREAM_REPO: "dabrain34/GstPipelineStudio"
-  GNOME_RUNTIME_IMAGE: 'quay.io/gnome_infrastructure/gnome-runtime-images:gnome-44'
-  WINDOWS_RUST_STABLE_IMAGE: "$CI_REGISTRY_IMAGE/windows:$GST_RS_IMG_TAG-main-$GST_RS_STABLE"
-  WINDOWS_RUST_STABLE_UPSTREAM_IMAGE: "$CI_REGISTRY/$FDO_UPSTREAM_REPO/windows:$GST_RS_IMG_TAG-main-$GST_RS_STABLE"
+  GNOME_RUNTIME_IMAGE: "quay.io/gnome_infrastructure/gnome-runtime-images:gnome-master"
+  WINDOWS_RUST_STABLE_IMAGE: "$CI_REGISTRY_IMAGE/windows:$GST_RS_WIN_IMG_TAG"
+  WINDOWS_RUST_STABLE_UPSTREAM_IMAGE: "$CI_REGISTRY/$FDO_UPSTREAM_REPO/windows:$GST_RS_WIN_IMG_TAG"
 
 # Version and tag for our current container
 .fedora:
   variables:
     FDO_DISTRIBUTION_VERSION: "38"
     # Update this to trigger a container rebuild
-    FDO_DISTRIBUTION_TAG: "2023-08-25.0"
+    FDO_DISTRIBUTION_TAG: "2023-08-25.1"
   before_script:
     - source ./ci/env.sh
     - mkdir .cargo && echo -e "[net]\ngit-fetch-with-cli = true" > .cargo/config
@@ -70,12 +70,12 @@ build-fedora-container:
     #
     # We also don't need a CONTEXT_DIR var as its also
     # hardcoded to be windows-docker/
-    DOCKERFILE: 'ci/windows-docker/Dockerfile'
-    GST_UPSTREAM_BRANCH: '1.22'
+    DOCKERFILE: "ci/windows-docker/Dockerfile"
+    GST_UPSTREAM_BRANCH: "1.22"
   tags:
-    - 'windows'
-    - 'shell'
-    - '2022'
+    - "windows"
+    - "shell"
+    - "2022"
   script:
     # We need to pass an array and to resolve the env vars, so we can't use a variable:
     - $DOCKER_BUILD_ARGS = @("--build-arg", "DEFAULT_GST_BRANCH=$GST_UPSTREAM_BRANCH", "--build-arg", "RUST_VERSION=$RUST_VERSION")
@@ -87,35 +87,37 @@ build-fedora-container:
       }
 
 windows rust docker stable:
-  extends: '.windows rust docker build'
+  extends: ".windows rust docker build"
   variables:
     RUST_IMAGE: !reference [variables, "WINDOWS_RUST_STABLE_IMAGE"]
-    RUST_UPSTREAM_IMAGE: !reference [variables, "WINDOWS_RUST_STABLE_UPSTREAM_IMAGE"]
+    RUST_UPSTREAM_IMAGE:
+      !reference [variables, "WINDOWS_RUST_STABLE_UPSTREAM_IMAGE"]
     RUST_VERSION: !reference [variables, "GST_RS_STABLE"]
 
 .msvc2019 build:
   stage: test
   tags:
-    - 'docker'
-    - 'windows'
-    - '2022'
+    - "docker"
+    - "windows"
+    - "2022"
 
 windows installer stable:
   needs:
-    - job: 'windows rust docker stable'
+    - job: "windows rust docker stable"
       artifacts: false
   image: "$WINDOWS_RUST_STABLE_IMAGE"
-  extends: '.msvc2019 build'
+  extends: ".msvc2019 build"
   script:
+    - rustc --version
     - git fetch --tags
     - "& ./ci/build_gps.ps1"
     - "& ./installer/wix/prepare_gstreamer.ps1"
     - "& ./installer/wix/build_installer.ps1"
   artifacts:
-        paths:
-            - installer/wix/*.msi
-        expire_in: 10 days
-  when: 'manual'
+    paths:
+      - installer/wix/*.msi
+    expire_in: 10 days
+  when: "manual"
 
 rustfmt-clippy:
   extends:
@@ -130,15 +132,15 @@ rustfmt-clippy:
     - cargo clippy --color=always --all-targets -- -D warnings
 
 windows installer release:
-  extends: 'windows installer stable'
+  extends: "windows installer stable"
   stage: release
   only:
     - flatpak
     - tags
   artifacts:
-        paths:
-            - installer/wix/*.msi
-  when: 'always'
+    paths:
+      - installer/wix/*.msi
+  when: "always"
 
 test-stable:
   extends:
@@ -204,8 +206,7 @@ flatpak:
       - .flatpak-builder/git/
       - target/
       - target_test/
-  when: 'manual'
-
+  when: "manual"
 
 macos installer stable:
   stage: test
@@ -234,10 +235,10 @@ macos installer stable:
       - installer/**/GstPipelineStudio*.dmg
       - installer/**/GstPipelineStudio*.tar.gz
     expire_in: 14 days
-  when: 'manual'
+  when: "manual"
 
 macos installer release:
-  extends: 'macos installer stable'
+  extends: "macos installer stable"
   stage: release
   only:
     - flatpak
@@ -247,5 +248,4 @@ macos installer release:
     paths:
       - installer/**/GstPipelineStudio*.dmg
       - installer/**/GstPipelineStudio*.tar.gz
-  when: 'always'
-
+  when: "always"
