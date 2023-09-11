@@ -359,7 +359,7 @@ mod imp {
 
             let from_node = nodes
                 .get(&node_from)
-                .unwrap_or_else(|| panic!("Unable to get node from {}", node_from));
+                .unwrap_or_else(|| (panic!("Unable to get node from {}", node_from)));
 
             let from_port = from_node
                 .port(port_from)
@@ -452,7 +452,7 @@ mod imp {
             if let Err(e) = link_cr.stroke() {
                 warn!("Failed to draw graphview links: {}", e);
             };
-            warn!("the link name is {}", name);
+            trace!("the link name is {}", name);
             if !name.is_empty() {
                 let x = (point_from.x() + point_to.x()) / 2.0 + 20.0;
                 let y = (point_from.y() + point_to.y()) / 2.0 + 20.0;
