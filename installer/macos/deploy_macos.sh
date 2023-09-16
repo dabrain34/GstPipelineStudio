@@ -16,7 +16,7 @@ test_ok() {
 BUILD_DIR=builddir
 PROJECTDIR="$( cd "$(dirname "$0")/../" ; pwd -P )"
 TARGETDIR="${PROJECTDIR}/${BUILD_DIR}/INSTALL_GPS"
-VERSION="$(date +%y%m%d)"
+VERSION="$(git describe --always --abbrev=0)"
 export VERSION
 echo "VERSION=$VERSION"
 
