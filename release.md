@@ -3,9 +3,11 @@
 - Update to the given version:
   - meson.build
   - cargo.toml
+  - installer/wix/build_installer.ps1
+
 - create a tag on gitlab
 - meson builddir -Dbuildtype=release
-- ninja -C buiddir dist
+- ninja -C builddir dist
 - upload the package and the sha256 to gitlab for Flatpak in the release notes
 
 # flathub

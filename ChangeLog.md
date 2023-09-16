@@ -85,9 +85,6 @@
 - [x] Update node description on property removal
 
 ## 0.3.0
-### app
- - [x] handle the caps setter element
- - [x] Add multiple graphviews with tabs.
 
 ### CI/Infra
 - [x] Create a macos installer
@@ -98,3 +95,8 @@
 
 ### GStreamer
 - [x] Display GStreamer version in the about dialog
+
+## 0.3.1
+### app
+ - [x] Add multiple graphviews with tabs.
+ - [x] handle the caps setter element

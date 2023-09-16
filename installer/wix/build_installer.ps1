@@ -16,9 +16,10 @@ $heatToolPath = Join-Path $wixFolder -ChildPath heat.exe
 
 $GPSUpgradeCode = "9B87C8FF-599C-4F20-914E-AF5E68CB3DC0"
 $GPSVersion = $(git describe --always --abbrev=0)
+Write-Output "Version:"
 Write-Output $GPSVersion
-$GPSVersion = "0.3.0"
-
+$GPSVersion = "0.3.1"
+Write-Output $GPSVersion
 try
 {
     Push-Location $PSScriptRoot
@@ -58,7 +59,7 @@ try
             throw "Compilation of $wxsFileName failed with exit code $LASTEXITCODE"
         }
     }
-    
+
     $AllArgs = $obj_files + @('-out', $msiFileName)
 
     & $lightToolPath $AllArgs -ext WixUIExtension
