@@ -14,9 +14,9 @@ current_date = run_command(python3, '-c', 'import datetime; print(datetime.datet
 i18n = import('i18n')
 host_system = host_machine.system()
 
-dependency('gstreamer-1.0', version: '>= 1.22', fallback: ['gstreamer-1.0'])
-dependency('gstreamer-base-1.0', version: '>= 1.22', fallback: ['gstreamer-1.0'])
-dependency('gstreamer-video-1.0', version: '>= 1.12', fallback: ['gstreamer-1.0'])
+dependency('gstreamer-1.0', version: '>= 1.20', fallback: ['gstreamer-1.0'])
+dependency('gstreamer-base-1.0', version: '>= 1.20', fallback: ['gstreamer-1.0'])
+dependency('gstreamer-video-1.0', version: '>= 1.20', fallback: ['gstreamer-1.0'])
 dependency('glib-2.0', version: '>= 2.66')
 dependency('gio-2.0', version: '>= 2.66')
 dependency('gtk4', version: '>= 4.0.0', fallback: ['gtk'])
