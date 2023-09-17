@@ -142,6 +142,22 @@ windows installer release:
       - installer/wix/*.msi
   when: "always"
 
+linux release:
+  extends:
+    - .fedora
+    - .fdo.distribution-image@fedora
+  stage: release
+  only:
+    - flatpak
+    - tags
+  script:
+    - meson builddir -Dbuildtype=release
+    - ninja -C builddir/ dist
+  artifacts:
+    paths:
+      - builddir/meson-dist/*
+  when: "always"
+
 test-stable:
   extends:
     - .fedora
