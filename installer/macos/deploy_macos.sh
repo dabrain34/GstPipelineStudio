@@ -16,7 +16,7 @@ test_ok() {
 BUILD_DIR=builddir
 PROJECTDIR="$( cd "$(dirname "$0")/../" ; pwd -P )"
 TARGETDIR="${PROJECTDIR}/${BUILD_DIR}/INSTALL_GPS"
-VERSION="$(git describe --always --abbrev=0)"
+VERSION="$(cat VERSION)"
 export VERSION
 echo "VERSION=$VERSION"
 
@@ -171,8 +171,8 @@ fi
 echo "make macos installer(.dmg)......"
 cp "${PROJECTDIR}/macos/installers/dmg.json" gps_dmg.json
 cp "${PROJECTDIR}/macos/installers/background.png" "${PROJECTDIR}/${BUILD_DIR}/gps_dmg_background.png"
-rm -f ${PROJECTDIR}/GstPipelineStudio-${VERSION}-macos.dmg
-appdmg gps_dmg.json "${PROJECTDIR}/GstPipelineStudio-${VERSION}-macos.dmg"
+rm -f ${PROJECTDIR}/GstPipelineStudio-${VERSION}.dmg
+appdmg gps_dmg.json "${PROJECTDIR}/GstPipelineStudio-${VERSION}.dmg"
 if [ $? -eq 0 ]; then
   echo "[done]"
   else
@@ -181,7 +181,7 @@ fi
 
 # make portable package
 echo -n "make macos portable......"
-tar czf "${PROJECTDIR}/GstPipelineStudio-${VERSION}-macos.tar.gz" -C "${PROJECTDIR}" ${BUILD_DIR}/GstPipelineStudio.app
+tar czf "${PROJECTDIR}/GstPipelineStudio-${VERSION}.tar.gz" -C "${PROJECTDIR}" ${BUILD_DIR}/GstPipelineStudio.app
 if [ $? -eq 0 ]; then
   echo "[done]"
   else

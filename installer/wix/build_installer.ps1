@@ -15,10 +15,8 @@ $lightToolPath = Join-Path $wixFolder -ChildPath light.exe
 $heatToolPath = Join-Path $wixFolder -ChildPath heat.exe
 
 $GPSUpgradeCode = "9B87C8FF-599C-4F20-914E-AF5E68CB3DC0"
-$GPSVersion = $(git describe --always --abbrev=0)
-Write-Output "Version:"
-Write-Output $GPSVersion
-$GPSVersion = "0.3.1"
+
+$GPSVersion = Get-Content $PSScriptRoot\..\..\VERSION -Raw
 Write-Output $GPSVersion
 try
 {
