@@ -46,6 +46,19 @@ impl ElementInfo {
         Ok(elements)
     }
 
+    pub fn element_factory_exists(element_name: &str) -> bool {
+        match ElementInfo::element_feature(element_name) {
+            Some(_feature) => {
+                GPS_DEBUG!("Found element factory name {}", element_name);
+                true
+            }
+            None => {
+                GPS_ERROR!("Unable to find element factory name {}", element_name);
+                false
+            }
+        }
+    }
+
     pub fn element_feature(element_name: &str) -> Option<gst::PluginFeature> {
         let registry = gst::Registry::get();
         gst::Registry::find_feature(&registry, element_name, gst::ElementFactory::static_type())
@@ -60,58 +73,67 @@ impl ElementInfo {
 
     pub fn element_description(element_name: &str) -> anyhow::Result<String> {
         let mut desc = String::from("");
-        let feature = ElementInfo::element_feature(element_name)
-            .ok_or_else(|| glib::bool_error!("Failed get element feature"))?;
-        let rank = feature.rank();
-        if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
+        if !ElementInfo::element_factory_exists(element_name) {
             desc.push_str("<b>Factory details:</b>\n");
-            desc.push_str("<b>Rank:</b>");
-            let _ = write!(desc, "{rank:?}",);
-            desc.push('\n');
             desc.push_str("<b>Name:</b>");
-            desc.push_str(&factory.name());
+            desc.push_str(element_name);
             desc.push('\n');
+            desc.push('\n');
+            desc.push_str("Factory unavailable.");
+        } else {
+            let feature = ElementInfo::element_feature(element_name)
+                .ok_or_else(|| glib::bool_error!("Failed get element feature"))?;
+            let rank = feature.rank();
+            if let Ok(factory) = feature.downcast::<gst::ElementFactory>() {
+                desc.push_str("<b>Factory details:</b>\n");
+                desc.push_str("<b>Rank:</b>");
+                let _ = write!(desc, "{rank:?}",);
+                desc.push('\n');
+                desc.push_str("<b>Name:</b>");
+                desc.push_str(&factory.name());
+                desc.push('\n');
 
-            let element_keys = factory.metadata_keys();
-            for key in element_keys {
-                let val = factory.metadata(&key);
-                if let Some(val) = val {
-                    desc.push_str("<b>");
-                    desc.push_str(&key);
-                    desc.push_str("</b>:");
-                    desc.push_str(&gtk::glib::markup_escape_text(val));
+                let element_keys = factory.metadata_keys();
+                for key in element_keys {
+                    let val = factory.metadata(&key);
+                    if let Some(val) = val {
+                        desc.push_str("<b>");
+                        desc.push_str(&key);
+                        desc.push_str("</b>:");
+                        desc.push_str(&gtk::glib::markup_escape_text(val));
+                        desc.push('\n');
+                    }
+                }
+                let feature = factory.upcast::<gst::PluginFeature>();
+                let plugin = gst::PluginFeature::plugin(&feature);
+                if let Some(plugin) = plugin {
+                    desc.push('\n');
+                    desc.push_str("<b>Plugin details:</b>");
+                    desc.push('\n');
+                    desc.push_str("<b>Name:");
+                    desc.push_str("</b>");
+                    desc.push_str(gst::Plugin::plugin_name(&plugin).as_str());
+                    desc.push('\n');
+                    desc.push_str("<b>Description:");
+                    desc.push_str("</b>");
+                    desc.push_str(&gtk::glib::markup_escape_text(&plugin.description()));
+                    desc.push('\n');
+                    desc.push_str("<b>Filename:");
+                    desc.push_str("</b>");
+                    desc.push_str(&gtk::glib::markup_escape_text(
+                        &plugin
+                            .filename()
+                            .unwrap_or_default()
+                            .as_path()
+                            .display()
+                            .to_string(),
+                    ));
+                    desc.push('\n');
+                    desc.push_str("<b>Version:");
+                    desc.push_str("</b>");
+                    desc.push_str(&gtk::glib::markup_escape_text(&plugin.version()));
                     desc.push('\n');
                 }
-            }
-            let feature = factory.upcast::<gst::PluginFeature>();
-            let plugin = gst::PluginFeature::plugin(&feature);
-            if let Some(plugin) = plugin {
-                desc.push('\n');
-                desc.push_str("<b>Plugin details:</b>");
-                desc.push('\n');
-                desc.push_str("<b>Name:");
-                desc.push_str("</b>");
-                desc.push_str(gst::Plugin::plugin_name(&plugin).as_str());
-                desc.push('\n');
-                desc.push_str("<b>Description:");
-                desc.push_str("</b>");
-                desc.push_str(&gtk::glib::markup_escape_text(&plugin.description()));
-                desc.push('\n');
-                desc.push_str("<b>Filename:");
-                desc.push_str("</b>");
-                desc.push_str(&gtk::glib::markup_escape_text(
-                    &plugin
-                        .filename()
-                        .unwrap_or_default()
-                        .as_path()
-                        .display()
-                        .to_string(),
-                ));
-                desc.push('\n');
-                desc.push_str("<b>Version:");
-                desc.push_str("</b>");
-                desc.push_str(&gtk::glib::markup_escape_text(&plugin.version()));
-                desc.push('\n');
             }
         }
         Ok(desc)

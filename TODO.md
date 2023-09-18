@@ -15,7 +15,6 @@
 - [ ] unable to connect element with incompatible caps.
 - [ ] Implement graph dot render/load
 
-
 - [ ] Add probes on each pad to monitor the pipeline
 - [ ] Render a media file
 - [ ] Offer compatible element to a pad (autorender)
@@ -32,7 +31,6 @@
 
 ## bugs
 
-- [ ] check that element exists before creating it on file load.
 - [ ] Combo box is not well selected if the value is not linear such as flags. See flags in playbin
 - [ ] opening a graph file can lead a different behavior in the pipeline. See videomixer graph where the zorder
       on pads is not correctly set to right one.

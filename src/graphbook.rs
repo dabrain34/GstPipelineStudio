@@ -242,6 +242,10 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
                 let description = GPS::ElementInfo::element_description(&node.name()).ok();
                 node.set_tooltip_markup(description.as_deref());
+                if  !GPS::ElementInfo::element_factory_exists(&node.name()) {
+                    node.set_light(true);
+                    node.set_tooltip_markup(description.as_deref());
+                }
                 for port in node.all_ports(GM::PortDirection::All) {
                     let caps = PropertyExt::property(&port,"_caps");
                     GPS_DEBUG!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
@@ -382,6 +386,8 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
                 let app = upgrade_weak!(app_weak, None);
                 let node_id = values[1].get::<u32>().expect("node id args[1]");
+                let node = current_graphtab(&app).graphview().node(node_id).unwrap();
+                let element_exists = GPS::ElementInfo::element_factory_exists(&node.name());
                 let point = values[2].get::<graphene::Point>().expect("point in args[2]");
                 let pop_menu = app.app_pop_menu_at_position(&*current_graphtab(&app).graphview(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
                 let menu: gio::MenuModel = app
@@ -390,16 +396,6 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                     .expect("Couldn't get menu model for node");
                 pop_menu.set_menu_model(Some(&menu));
 
-                let app_weak = app.downgrade();
-                app.connect_app_menu_action("node.add-to-favorite",
-                    move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_DEBUG!("node.add-to-favorite id: {}", node_id);
-                        if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
-                            GPSUI::elements::add_to_favorite_list(&app, node.name());
-                        };
-                    }
-                );
 
                 let app_weak = app.downgrade();
                 app.connect_app_menu_action("node.delete",
@@ -409,42 +405,56 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                         current_graphtab(&app).graphview().remove_node(node_id);
                     }
                 );
-                let node = app.node(node_id);
-                if let Some(input) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Input) {
+                if element_exists {
                     let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.request-pad-input",
+                    app.connect_app_menu_action("node.add-to-favorite",
                         move |_,_| {
                             let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.request-pad-input id: {}", node_id);
-                            app.create_port_with_caps(node_id, GM::PortDirection::Input, GM::PortPresence::Sometimes, input.caps().to_string());
+                            GPS_DEBUG!("node.add-to-favorite id: {}", node_id);
+                            if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
+                                GPSUI::elements::add_to_favorite_list(&app, node.name());
+                            };
                         }
                     );
-                } else {
-                    app.disconnect_app_menu_action("node.request-pad-input");
-                }
-                let node = app.node(node_id);
-                if let Some(output) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Output) {
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.request-pad-output",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.request-pad-output id: {}", node_id);
-                            app.create_port_with_caps(node_id, GM::PortDirection::Output, GM::PortPresence::Sometimes, output.caps().to_string());
-                        }
-                    );
-                } else {
-                    app.disconnect_app_menu_action("node.request-pad-output");
-                }
 
-                let app_weak = app.downgrade();
-                app.connect_app_menu_action("node.properties",
-                    move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_DEBUG!("node.properties id {}", node_id);
-                        let node = current_graphtab(&app).graphview().node(node_id).unwrap();
-                        GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
+
+                    let node = app.node(node_id);
+                    if let Some(input) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Input) {
+                        let app_weak = app.downgrade();
+                        app.connect_app_menu_action("node.request-pad-input",
+                            move |_,_| {
+                                let app = upgrade_weak!(app_weak);
+                                GPS_DEBUG!("node.request-pad-input id: {}", node_id);
+                                app.create_port_with_caps(node_id, GM::PortDirection::Input, GM::PortPresence::Sometimes, input.caps().to_string());
+                            }
+                        );
+                    } else {
+                        app.disconnect_app_menu_action("node.request-pad-input");
                     }
-                );
+                    let node = app.node(node_id);
+                    if let Some(output) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Output) {
+                        let app_weak = app.downgrade();
+                        app.connect_app_menu_action("node.request-pad-output",
+                            move |_,_| {
+                                let app = upgrade_weak!(app_weak);
+                                GPS_DEBUG!("node.request-pad-output id: {}", node_id);
+                                app.create_port_with_caps(node_id, GM::PortDirection::Output, GM::PortPresence::Sometimes, output.caps().to_string());
+                            }
+                        );
+                    } else {
+                        app.disconnect_app_menu_action("node.request-pad-output");
+                    }
+
+                    let app_weak = app.downgrade();
+                    app.connect_app_menu_action("node.properties",
+                        move |_,_| {
+                            let app = upgrade_weak!(app_weak);
+                            GPS_DEBUG!("node.properties id {}", node_id);
+                            let node = current_graphtab(&app).graphview().node(node_id).unwrap();
+                            GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
+                        }
+                    );
+                }
                 pop_menu.show();
                 None
             }),
@@ -459,7 +469,9 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             let node_id = values[1].get::<u32>().expect("node id args[1]");
             GPS_TRACE!("Node double clicked id={}", node_id);
             let node = current_graphtab(&app).graphview().node(node_id).unwrap();
-            GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
+            if GPS::ElementInfo::element_factory_exists(&node.name()) {
+                GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
+            }
             None
         }),
     );

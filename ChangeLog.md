@@ -100,3 +100,7 @@
 ### app
  - [x] Add multiple graphviews with tabs.
  - [x] handle the caps setter element
+
+## 0.3.2
+### app
+- [x] check that element exists before creating it on file load.
