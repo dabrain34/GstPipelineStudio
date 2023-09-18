@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "gst_pipeline_studio"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "futures-channel",
