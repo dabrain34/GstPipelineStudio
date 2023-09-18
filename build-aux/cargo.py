@@ -22,11 +22,11 @@ if BUILDTYPE  == "release":
     print("RELEASE MODE")
     CMD = ['cargo', 'build', '--manifest-path', os.path.join(MESON_SOURCE_ROOT, 'Cargo.toml'), '--release']
     subprocess.run(CMD, env=env)
-    shutil.copyfile(os.path.join(CARGO_TARGET_DIR, "release", APP_BIN), OUTPUT)
+    shutil.copy2(os.path.join(CARGO_TARGET_DIR, "release", APP_BIN), OUTPUT)
 else:
     print("DEBUG MODE")
     CMD = ['cargo', 'build', '--manifest-path', os.path.join(MESON_SOURCE_ROOT, 'Cargo.toml')]
     subprocess.run(CMD, env=env)
-    shutil.copyfile(os.path.join(CARGO_TARGET_DIR, "debug", APP_BIN), OUTPUT)
+    shutil.copy2(os.path.join(CARGO_TARGET_DIR, "debug", APP_BIN), OUTPUT)
 
 
