@@ -244,7 +244,6 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                 node.set_tooltip_markup(description.as_deref());
                 if  !GPS::ElementInfo::element_factory_exists(&node.name()) {
                     node.set_light(true);
-                    node.set_tooltip_markup(description.as_deref());
                 }
                 for port in node.all_ports(GM::PortDirection::All) {
                     let caps = PropertyExt::property(&port,"_caps");
