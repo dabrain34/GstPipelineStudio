@@ -9,6 +9,7 @@ stages:
   - lint
   - test
   - release
+  - deploy
 
 variables:
   FDO_UPSTREAM_REPO: "dabrain34/GstPipelineStudio"
@@ -265,3 +266,32 @@ macos installer release:
       - installer/**/GstPipelineStudio*.dmg
       - installer/**/GstPipelineStudio*.tar.gz
   when: "always"
+
+pages:
+  image: ruby:2.7
+  stage: deploy
+  script:
+    - gem install bundler
+    - bundle install
+    - bundle exec jekyll build -d public
+  artifacts:
+    paths:
+      # The folder that contains the files to be exposed at the Page URL
+      - public
+  rules:
+    # This ensures that only pushes to the default branch will trigger
+    # a pages deploy
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+
+pages_test:
+  image: ruby:2.7
+  stage: test
+  script:
+    - gem install bundler
+    - bundle install
+    - bundle exec jekyll build -d test
+  artifacts:
+    paths:
+      - test
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
