@@ -106,7 +106,12 @@ impl GPSApp {
         let settings = Settings::load_settings();
 
         app.window
-            .set_size_request(settings.app_width, settings.app_height);
+            .set_default_size(settings.app_width, settings.app_height);
+
+        #[cfg(not(target_os = "macos"))]
+        if settings.app_maximized {
+            app.window.maximize();
+        }
 
         app.set_paned_position(&settings, "graph_dashboard-paned", 100);
         app.set_paned_position(&settings, "graph_logs-paned", 100);
@@ -224,8 +229,8 @@ impl GPSApp {
                 .expect("Couldn't get the main window");
             let mut settings = Settings::load_settings();
             settings.app_maximized = window.is_maximized();
-            settings.app_width = window.width();
-            settings.app_height = window.height();
+            settings.app_width = window.default_width();
+            settings.app_height = window.default_height();
             app.save_paned_position(&mut settings, "graph_dashboard-paned");
             app.save_paned_position(&mut settings, "graph_logs-paned");
             app.save_paned_position(&mut settings, "elements_preview-paned");
