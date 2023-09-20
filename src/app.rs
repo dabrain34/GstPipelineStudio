@@ -105,12 +105,9 @@ impl GPSApp {
         }));
         let settings = Settings::load_settings();
 
-        if settings.app_maximized {
-            app.window.maximize();
-        } else {
-            app.window
-                .set_size_request(settings.app_width, settings.app_height);
-        }
+        app.window
+            .set_size_request(settings.app_width, settings.app_height);
+
         app.set_paned_position(&settings, "graph_dashboard-paned", 100);
         app.set_paned_position(&settings, "graph_logs-paned", 100);
         app.set_paned_position(&settings, "elements_preview-paned", 100);
