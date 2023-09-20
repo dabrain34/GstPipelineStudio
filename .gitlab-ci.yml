@@ -283,15 +283,3 @@ pages:
     # a pages deploy
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
 
-pages_test:
-  image: ruby:2.7
-  stage: test
-  script:
-    - gem install bundler
-    - bundle install
-    - bundle exec jekyll build -d test
-  artifacts:
-    paths:
-      - test
-  rules:
-    - if: $CI_COMMIT_BRANCH != "main"
