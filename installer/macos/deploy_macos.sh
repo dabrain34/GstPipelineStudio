@@ -93,10 +93,10 @@ function lib_dependency_analyze
 # copy app dependency library to target dir
 echo -n "Copy app dependency library......"
 
-
 lib_dependency_copy ${TARGETDIR}/bin/gst_pipeline_studio "${TARGETDIR}/bin"
 lib_dependency_copy ${TARGETDIR}/lib/libgobject-2.0.0.dylib "${TARGETDIR}/bin"
 lib_dependency_copy ${TARGETDIR}/lib/libsoup-2.4.1.dylib "${TARGETDIR}/bin"
+lib_dependency_copy "${TARGETDIR}/bin/libgtk-4.1.dylib" "${TARGETDIR}/bin"
 
 
 for file in ${TARGETDIR}/lib/gstreamer-1.0/*.dylib
@@ -107,12 +107,7 @@ done
 
 test_ok cp -f "${PROJECTDIR}/macos/mac_launcher.sh" "${TARGETDIR}/bin/launcher.sh"
 
-
-# copy GStreamer dependencies
-# cp -f /usr/local/lib/gstreamer-1.0/libgtk-gtk4.1.dylib "${TARGETDIR}/lib/gstreamer-1.0"
-
-
-
+# FIXME should build and install gtk4 instead of using homebrew
 
 # copy GTK runtime dependencies resource
 # echo -n "Copy GTK runtime resource......"
@@ -122,8 +117,9 @@ test_ok cp -f "${PROJECTDIR}/macos/mac_launcher.sh" "${TARGETDIR}/bin/launcher.s
 # cp -rf /usr/local/lib/girepository-1.0 "${TARGETDIR}/lib/"
 # cp -rf /usr/local/lib/libgda-5.0 "${TARGETDIR}/lib/"
 # # Avoid override the latest locale file
-# cp -r /usr/local/share/locale "${TARGETDIR}/share/"
-# cp -rf /usr/local/share/icons "${TARGETDIR}/share/"
+cp -r  /opt/homebrew/share/locale "${TARGETDIR}/share/"
+cp -rf /opt/homebrew/share/icons "${TARGETDIR}/share/"
+cp -rf /opt/homebrew/share/gtk4-0 "${TARGETDIR}/share/"
 # cp -rf /usr/local/share/fontconfig "${TARGETDIR}/share/"
 # cp -rf /usr/local/share/themes/Mac "${TARGETDIR}/share/themes/"
 # cp -rf /usr/local/share/themes/Default "${TARGETDIR}/share/themes/"
@@ -131,9 +127,9 @@ test_ok cp -f "${PROJECTDIR}/macos/mac_launcher.sh" "${TARGETDIR}/bin/launcher.s
 # glib-compile-schemas /usr/local/share/glib-2.0/schemas
 # cp -f /usr/local/share/glib-2.0/schemas/gschema* "${TARGETDIR}/share/glib-2.0/schemas"
 # # find "${TARGETDIR}/bin" -type f -path '*.dll.a' -exec rm '{}' \;
-# lib_dependency_analyze ${TARGETDIR}/lib ${TARGETDIR}/bin
-# lib_dependency_analyze ${TARGETDIR}/bin ${TARGETDIR}/bin
-# echo "[done]"
+lib_dependency_analyze ${TARGETDIR}/lib ${TARGETDIR}/bin
+lib_dependency_analyze ${TARGETDIR}/bin ${TARGETDIR}/bin
+echo "[done]"
 
 # copy app icons and license files to target dir
 echo -n "Copy app icon(svg) files......"
