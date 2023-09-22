@@ -108,6 +108,6 @@
 ## 0.3.3
 
 ### app
- - [x] Fix MacOs GTK runtime depedencies
+ - [x] Fix MacOs GTK runtime dependencies
  - [x] Fix the maximize call with MacOS
  - [x] Fix the default size at GTK save/load state
