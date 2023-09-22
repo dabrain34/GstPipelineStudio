@@ -104,3 +104,10 @@
 ## 0.3.2
 ### app
 - [x] check that element exists before creating it on file load.
+
+## 0.3.3
+
+### app
+ - [x] Fix MacOs GTK runtime depedencies
+ - [x] Fix the maximize call with MacOS
+ - [x] Fix the default size at GTK save/load state
