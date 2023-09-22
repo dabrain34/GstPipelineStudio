@@ -9,7 +9,7 @@ configure_file(
 )
 
 # Copy the config.rs output to the source directory.
-run_command(python3, '-c', 'import shutil; shutil.copyfile("@0@", "@1@")'.format(join_paths(meson.build_root(), 'src', 'config.rs'), join_paths(meson.source_root(), 'src', 'config.rs')))
+run_command(python3, '-c', 'import shutil; shutil.copyfile("@0@", "@1@")'.format(join_paths(meson.project_build_root(), 'src', 'config.rs'), join_paths(meson.project_source_root(), 'src', 'config.rs')))
 
 rust_sources = files(
   'gps/player.rs',
@@ -38,7 +38,7 @@ rust_sources = files(
 
 sources = [cargo_sources, rust_sources]
 
-cargo_script = find_program(join_paths(meson.source_root(), 'build-aux/cargo.py'))
+cargo_script = find_program(join_paths(meson.project_source_root(), 'build-aux/cargo.py'))
 
 app_name = meson.project_name()
 if host_system == 'windows'
@@ -55,8 +55,8 @@ cargo_release = custom_target(
   install_dir: get_option('bindir'),
   command: [
     cargo_script,
-    meson.build_root(),
-    meson.source_root(),
+    meson.project_build_root(),
+    meson.project_source_root(),
     '@OUTPUT@',
     get_option('buildtype'),
     app_name,

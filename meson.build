@@ -1,6 +1,6 @@
 project('gst_pipeline_studio',
           version: '0.3.2',
-    meson_version: '>= 0.50.0',
+    meson_version: '>= 0.63.0',
   default_options: [ 'warning_level=2',
                    ],
           license: 'GPL-3.0-or-later',
@@ -36,7 +36,7 @@ localedir = prefix / get_option('localedir')
 datadir = prefix / get_option('datadir')
 pkgdatadir = datadir / meson.project_name()
 iconsdir = datadir / 'icons'
-podir = meson.source_root () / 'po'
+podir = meson.project_source_root () / 'po'
 gettext_package = meson.project_name()
 base_id = 'org.freedesktop.dabrain34.GstPipelineStudio'
 
@@ -70,8 +70,8 @@ subdir('po')
 
 meson.add_dist_script(
   'build-aux/dist-vendor.sh',
-  meson.source_root(),
-  join_paths(meson.build_root(), 'meson-dist', meson.project_name() + '-' + version)
+  meson.project_source_root(),
+  join_paths(meson.project_build_root(), 'meson-dist', meson.project_name() + '-' + version)
 )
 if host_system == 'linux'
   meson.add_install_script('build-aux/meson/postinstall.py')
