@@ -5,6 +5,7 @@
   - cargo.toml
   - VERSION
   - index.html
+  - And rebuild to regenerate the cargo.lock
 
 - create a tag on gitlab
 - Fetch the package from the `linux release` job or you can make it manually with:

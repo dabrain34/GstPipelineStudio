@@ -1,3 +1,3 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pub static APP_ID: &str = @APP_ID@;
-pub static VERSION: &str = @VERSION@;
+pub static VERSION: &str = env!("CARGO_PKG_VERSION");

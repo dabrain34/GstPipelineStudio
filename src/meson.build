@@ -1,6 +1,5 @@
 conf = configuration_data()
 conf.set_quoted('APP_ID', application_id)
-conf.set_quoted('VERSION', version + version_suffix)
 
 configure_file(
     input: 'config.rs.in',
