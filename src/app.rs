@@ -458,7 +458,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         logger::init_logger(
             ready_tx,
-            Settings::default_log_file_path()
+            Settings::log_file_path()
                 .to_str()
                 .expect("Unable to convert log file path to a string"),
         );
@@ -607,7 +607,7 @@ impl GPSApp {
 
         let _ = self
             .load_graph(
-                Settings::default_graph_file_path()
+                Settings::graph_file_path()
                     .to_str()
                     .expect("Unable to convert to string"),
                 true,

@@ -221,7 +221,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             GPS_DEBUG!("Graph updated id={}", id);
             let _ = app
                 .save_graph(
-                    Settings::default_graph_file_path()
+                    Settings::graph_file_path()
                         .to_str()
                         .expect("Unable to convert to string"),
                 )

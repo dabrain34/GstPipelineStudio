@@ -31,41 +31,41 @@ pub struct Settings {
 }
 
 impl Settings {
-    fn settings_file_exist() {
-        let s = Settings::settings_file_path();
-
+    fn create_path_if_not(s: &PathBuf) {
         if !s.exists() {
-            if let Some(parent_dir) = s.parent() {
-                if !parent_dir.exists() {
-                    if let Err(e) = create_dir_all(parent_dir) {
-                        GPS_ERROR!(
-                            "Error while trying to build settings snapshot_directory '{}': {}",
-                            parent_dir.display(),
-                            e
-                        );
-                    }
-                }
+            if let Err(e) = create_dir_all(s) {
+                GPS_ERROR!(
+                    "Error while trying to build settings snapshot_directory '{}': {}",
+                    s.display(),
+                    e
+                );
             }
         }
     }
 
-    fn settings_file_path() -> PathBuf {
+    fn default_app_folder() -> PathBuf {
         let mut path = glib::user_config_dir();
         path.push(config::APP_ID);
+        path
+    }
+
+    fn settings_file_path() -> PathBuf {
+        let mut path = Settings::default_app_folder();
+        Settings::create_path_if_not(&path);
         path.push("settings.toml");
         path
     }
     // Public methods
-    pub fn default_graph_file_path() -> PathBuf {
-        let mut path = glib::user_config_dir();
-        path.push(config::APP_ID);
+    pub fn graph_file_path() -> PathBuf {
+        let mut path = Settings::default_app_folder();
+        Settings::create_path_if_not(&path);
         path.push("default_graph.toml");
         path
     }
 
-    pub fn default_log_file_path() -> PathBuf {
-        let mut path = glib::user_config_dir();
-        path.push(config::APP_ID);
+    pub fn log_file_path() -> PathBuf {
+        let mut path = Settings::default_app_folder();
+        Settings::create_path_if_not(&path);
         path.push("gstpipelinestudio.log");
         path
     }
@@ -105,7 +105,6 @@ impl Settings {
 
     // Save the provided settings to the settings path
     pub fn save_settings(settings: &Settings) {
-        Settings::settings_file_exist();
         let s = Settings::settings_file_path();
         if let Err(e) = serde_any::to_file(&s, settings) {
             GPS_ERROR!("Error while trying to save file: {} {}", s.display(), e);
