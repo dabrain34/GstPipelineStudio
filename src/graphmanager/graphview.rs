@@ -25,7 +25,7 @@ use once_cell::sync::Lazy;
 use std::io::Cursor;
 
 use gtk::{
-    gdk::{BUTTON_PRIMARY, BUTTON_SECONDARY},
+    gdk,
     glib::{self, clone, subclass::Signal},
     graphene, gsk,
     prelude::*,
@@ -39,26 +39,38 @@ use std::{cmp::Ordering, collections::HashMap};
 static GRAPHVIEW_STYLE: &str = include_str!("graphview.css");
 pub static GRAPHVIEW_XML_VERSION: &str = "0.1";
 
+const CANVAS_SIZE: f64 = 5000.0;
+
 mod imp {
     use super::*;
 
-    use std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    };
+    use std::cell::{Cell, RefCell};
 
     use log::warn;
+
+    pub struct DragState {
+        node: glib::WeakRef<Node>,
+        /// This stores the offset of the pointer to the origin of the node,
+        /// so that we can keep the pointer over the same position when moving the node
+        ///
+        /// The offset is normalized to the default zoom-level of 1.0.
+        offset: graphene::Point,
+    }
 
     #[derive(Default)]
     pub struct GraphView {
         pub(super) id: Cell<u32>,
-        pub(super) nodes: RefCell<HashMap<u32, Node>>,
+        pub(super) nodes: RefCell<HashMap<u32, (Node, graphene::Point)>>,
         pub(super) links: RefCell<HashMap<u32, Link>>,
         pub(super) current_node_id: Cell<u32>,
         pub(super) current_port_id: Cell<u32>,
         pub(super) current_link_id: Cell<u32>,
         pub(super) port_selected: RefCell<Option<Port>>,
         pub(super) mouse_position: Cell<(f64, f64)>,
+        pub dragged_node: RefCell<Option<DragState>>,
+        pub hadjustment: RefCell<Option<gtk::Adjustment>>,
+        pub vadjustment: RefCell<Option<gtk::Adjustment>>,
+        pub zoom_factor: Cell<f64>,
     }
 
     #[glib::object_subclass]
@@ -66,10 +78,11 @@ mod imp {
         const NAME: &'static str = "GraphView";
         type Type = super::GraphView;
         type ParentType = gtk::Widget;
+        type Interfaces = (gtk::Scrollable,);
 
         fn class_init(klass: &mut Self::Class) {
             // The layout manager determines how child widgets are laid out.
-            klass.set_layout_manager_type::<gtk::FixedLayout>();
+            //klass.set_layout_manager_type::<gtk::FixedLayout>();
             klass.set_css_name("graphview");
         }
     }
@@ -79,65 +92,83 @@ mod imp {
             let obj = self.obj();
             self.parent_constructed();
 
-            let drag_state = Rc::new(RefCell::new(None));
+            self.obj().set_overflow(gtk::Overflow::Hidden);
+
             let drag_controller = gtk::GestureDrag::new();
 
-            drag_controller.connect_drag_begin(
-                clone!(@strong drag_state => move |drag_controller, x, y| {
-                    let mut drag_state = drag_state.borrow_mut();
-                    let widget = drag_controller
-                        .widget()
-                        .dynamic_cast::<Self::Type>()
-                        .expect("drag-begin event is not on the GraphView");
-                    // pick() should at least return the widget itself.
-                    let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("drag-begin pick() did not return a widget");
-                    *drag_state = if target.ancestor(Port::static_type()).is_some() {
-                        // The user targeted a port, so the dragging should be handled by the Port
-                        // component instead of here.
-                        None
-                    } else if let Some(target) = target.ancestor(Node::static_type()) {
-                        // The user targeted a Node without targeting a specific Port.
-                        // Drag the Node around the screen.
-                        if let Some((x, y)) = widget.node_position(&target) {
-                            Some((target, x, y))
-                        } else {
-                            error!("Failed to obtain position of dragged node, drag aborted.");
-                            None
-                        }
-                    } else {
-                        None
-                    }
+            drag_controller.connect_drag_begin(|drag_controller, x, y| {
+                let widget = drag_controller
+                    .widget()
+                    .dynamic_cast::<super::GraphView>()
+                    .expect("drag-begin event is not on the GraphView");
+                let mut dragged_node = widget.imp().dragged_node.borrow_mut();
+
+                // pick() should at least return the widget itself.
+                let target = widget
+                    .pick(x, y, gtk::PickFlags::DEFAULT)
+                    .expect("drag-begin pick() did not return a widget");
+                *dragged_node = if target.ancestor(Port::static_type()).is_some() {
+                    // The user targeted a port, so the dragging should be handled by the Port
+                    // component instead of here.
+                    None
+                } else if let Some(target) = target.ancestor(Node::static_type()) {
+                    // The user targeted a Node without targeting a specific Port.
+                    // Drag the Node around the screen.
+                    let node = target.dynamic_cast_ref::<Node>().unwrap();
+
+                    let Some(canvas_node_pos) = widget.node_position(node) else {
+                        return;
+                    };
+                    let canvas_cursor_pos = widget
+                        .imp()
+                        .screen_space_to_canvas_space_transform()
+                        .transform_point(&graphene::Point::new(x as f32, y as f32));
+
+                    Some(DragState {
+                        node: node.clone().downgrade(),
+                        offset: graphene::Point::new(
+                            canvas_cursor_pos.x() - canvas_node_pos.x(),
+                            canvas_cursor_pos.y() - canvas_node_pos.y(),
+                        ),
+                    })
+                } else {
+                    None
                 }
-            ));
-            drag_controller.connect_drag_update(
-                clone!(@strong drag_state => move |drag_controller, x, y| {
-                    let widget = drag_controller
-                        .widget()
-                        .dynamic_cast::<Self::Type>()
-                        .expect("drag-update event is not on the GraphView");
-                    let drag_state = drag_state.borrow();
-                    if let Some((ref node, x1, y1)) = *drag_state {
-                        widget.move_node(node, x1 + x as f32, y1 + y as f32);
-                    }
-                }
-                ),
-            );
-            drag_controller.connect_drag_end(
-                clone!(@strong drag_state => move |drag_controller, _x, _y| {
-                    let widget = drag_controller
-                        .widget()
-                        .dynamic_cast::<Self::Type>()
-                        .expect("drag-end event is not on the GraphView");
-                    widget.graph_updated();
-                }
-                ),
-            );
+            });
+            drag_controller.connect_drag_update(|drag_controller, x, y| {
+                let widget = drag_controller
+                    .widget()
+                    .dynamic_cast::<super::GraphView>()
+                    .expect("drag-update event is not on the GraphView");
+                let dragged_node = widget.imp().dragged_node.borrow();
+                let Some(DragState { node, offset }) = dragged_node.as_ref() else {
+                    return;
+                };
+                let Some(node) = node.upgrade() else { return };
+
+                let (start_x, start_y) = drag_controller
+                    .start_point()
+                    .expect("Drag has no start point");
+
+                let onscreen_node_origin =
+                    graphene::Point::new((start_x + x) as f32, (start_y + y) as f32);
+                let transform = widget.imp().screen_space_to_canvas_space_transform();
+                let canvas_node_origin = transform.transform_point(&onscreen_node_origin);
+
+                widget.move_node(
+                    &node,
+                    &graphene::Point::new(
+                        canvas_node_origin.x() - offset.x(),
+                        canvas_node_origin.y() - offset.y(),
+                    ),
+                );
+            });
 
             let gesture = gtk::GestureClick::new();
             gesture.set_button(0);
             gesture.connect_pressed(
                 clone!(@weak obj, @weak drag_controller => move |gesture, _n_press, x, y| {
-                    if gesture.current_button() == BUTTON_SECONDARY {
+                    if gesture.current_button() == gdk::BUTTON_SECONDARY {
                         let widget = drag_controller.widget()
                         .dynamic_cast::<Self::Type>()
                         .expect("click event is not on the GraphView");
@@ -155,7 +186,7 @@ mod imp {
                             widget.unselect_all();
                             obj.emit_by_name::<()>("graph-right-clicked", &[&graphene::Point::new(x as f32,y as f32)]);
                         }
-                    } else if gesture.current_button() == BUTTON_PRIMARY {
+                    } else if gesture.current_button() == gdk::BUTTON_PRIMARY {
                         let widget = drag_controller.widget()
                         .dynamic_cast::<Self::Type>()
                         .expect("click event is not on the GraphView");
@@ -177,7 +208,7 @@ mod imp {
             );
 
             gesture.connect_released(clone!(@weak gesture, @weak obj, @weak drag_controller => move |_gesture, _n_press, x, y| {
-                if gesture.current_button() == BUTTON_PRIMARY {
+                if gesture.current_button() == gdk::BUTTON_PRIMARY {
                     let widget = drag_controller
                             .widget()
                             .dynamic_cast::<Self::Type>()
@@ -229,6 +260,8 @@ mod imp {
                                     info!("double clicked link id {}", link.id());
                                     obj.emit_by_name::<()>("link-double-clicked", &[&link.id(), &graphene::Point::new(x as f32,y as f32)]);
                                 }
+                            } else {
+                                info!("double click {}",widget.width());
                             }
 
                             // Click to something else than a port
@@ -237,27 +270,49 @@ mod imp {
                     }
                 }
             }));
+            obj.add_controller(drag_controller);
+            obj.add_controller(gesture);
 
             let event_motion = gtk::EventControllerMotion::new();
             event_motion.connect_motion(glib::clone!(@weak obj => move |_e, x, y| {
                 let graphview = obj;
                 if graphview.selected_port().is_some() {
                     graphview.set_mouse_position(x,y);
-                    graphview.queue_draw();
+                    graphview.queue_allocate();
                 }
 
             }));
-
-            obj.add_controller(drag_controller);
-            obj.add_controller(gesture);
             obj.add_controller(event_motion);
+
+            let scroll_controller =
+                gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::BOTH_AXES);
+
+            scroll_controller.connect_scroll(|eventcontroller, _, delta_y| {
+                let event = eventcontroller.current_event().unwrap(); // We are inside the event handler, so it must have an event
+
+                if event
+                    .modifier_state()
+                    .contains(gdk::ModifierType::CONTROL_MASK)
+                {
+                    let widget = eventcontroller
+                        .widget()
+                        .downcast::<super::GraphView>()
+                        .unwrap();
+                    widget.set_zoom_factor(widget.zoom_factor() + (0.1 * -delta_y), None);
+
+                    glib::Propagation::Stop
+                } else {
+                    glib::Propagation::Proceed
+                }
+            });
+            self.obj().add_controller(scroll_controller);
         }
 
         fn dispose(&self) {
             self.nodes
                 .borrow()
                 .values()
-                .for_each(|node| node.unparent())
+                .for_each(|(node, _)| node.unparent())
         }
 
         fn signals() -> &'static [Signal] {
@@ -301,18 +356,97 @@ mod imp {
             });
             SIGNALS.as_ref()
         }
+        fn properties() -> &'static [glib::ParamSpec] {
+            static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| {
+                vec![
+                    glib::ParamSpecOverride::for_interface::<gtk::Scrollable>("hadjustment"),
+                    glib::ParamSpecOverride::for_interface::<gtk::Scrollable>("vadjustment"),
+                    glib::ParamSpecOverride::for_interface::<gtk::Scrollable>("hscroll-policy"),
+                    glib::ParamSpecOverride::for_interface::<gtk::Scrollable>("vscroll-policy"),
+                    glib::ParamSpecDouble::builder("zoom-factor")
+                        .minimum(0.3)
+                        .maximum(4.0)
+                        .default_value(1.0)
+                        .flags(glib::ParamFlags::CONSTRUCT | glib::ParamFlags::READWRITE)
+                        .build(),
+                ]
+            });
+
+            PROPERTIES.as_ref()
+        }
+
+        fn property(&self, _id: usize, pspec: &glib::ParamSpec) -> glib::Value {
+            match pspec.name() {
+                "hadjustment" => self.hadjustment.borrow().to_value(),
+                "vadjustment" => self.vadjustment.borrow().to_value(),
+                "hscroll-policy" | "vscroll-policy" => gtk::ScrollablePolicy::Natural.to_value(),
+                "zoom-factor" => self.zoom_factor.get().to_value(),
+                _ => unimplemented!(),
+            }
+        }
+
+        fn set_property(&self, _id: usize, value: &glib::Value, pspec: &glib::ParamSpec) {
+            let obj = self.obj();
+
+            match pspec.name() {
+                "hadjustment" => {
+                    obj.set_adjustment(&obj, value.get().ok(), gtk::Orientation::Horizontal)
+                }
+                "vadjustment" => {
+                    obj.set_adjustment(&obj, value.get().ok(), gtk::Orientation::Vertical)
+                }
+                "hscroll-policy" | "vscroll-policy" => {}
+                "zoom-factor" => {
+                    self.zoom_factor.set(value.get().unwrap());
+                    obj.queue_allocate();
+                }
+                _ => unimplemented!(),
+            }
+        }
     }
 
     impl WidgetImpl for GraphView {
+        fn size_allocate(&self, _width: i32, _height: i32, baseline: i32) {
+            let widget = &*self.obj();
+
+            let zoom_factor = self.zoom_factor.get();
+
+            for (node, point) in self.nodes.borrow().values() {
+                let (_, natural_size) = node.preferred_size();
+
+                let transform = self
+                    .canvas_space_to_screen_space_transform()
+                    .translate(point);
+
+                node.allocate(
+                    (natural_size.width() as f64 * zoom_factor).ceil() as i32,
+                    (natural_size.height() as f64 * zoom_factor).ceil() as i32,
+                    baseline,
+                    Some(transform),
+                );
+            }
+
+            if let Some(ref hadjustment) = *self.hadjustment.borrow() {
+                widget.set_adjustment_values(widget, hadjustment, gtk::Orientation::Horizontal);
+            }
+            if let Some(ref vadjustment) = *self.vadjustment.borrow() {
+                widget.set_adjustment_values(widget, vadjustment, gtk::Orientation::Vertical);
+            }
+        }
+
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
             /* FIXME: A lot of hardcoded values in here.
             Try to use relative units (em) and colours from the theme as much as possible. */
-
+            let widget = &*self.obj();
+            let alloc = widget.allocation();
             // Draw all children
+            // Draw all visible children
             self.nodes
                 .borrow()
                 .values()
-                .for_each(|node| self.obj().snapshot_child(node, snapshot));
+                // Cull nodes from rendering when they are outside the visible canvas area
+                .filter(|(node, _)| alloc.intersect(&node.allocation()).is_some())
+                .for_each(|(node, _)| widget.snapshot_child(node, snapshot));
 
             for link in self.links.borrow().values() {
                 if let Some((from_x, from_y, to_x, to_y)) = self.link_coordinates(link) {
@@ -353,56 +487,77 @@ mod imp {
         }
     }
 
+    impl ScrollableImpl for GraphView {}
+
     impl GraphView {
+        /// Returns a [`gsk::Transform`] matrix that can translate from canvas space to screen space.
+        ///
+        /// Canvas space is non-zoomed, and (0, 0) is fixed at the middle of the graph. \
+        /// Screen space is zoomed and adjusted for scrolling, (0, 0) is at the top-left corner of the window.
+        ///
+        /// This is the inverted form of [`Self::screen_space_to_canvas_space_transform()`].
+        fn canvas_space_to_screen_space_transform(&self) -> gsk::Transform {
+            let hadj = self.hadjustment.borrow().as_ref().unwrap().value();
+            let vadj = self.vadjustment.borrow().as_ref().unwrap().value();
+            let zoom_factor = self.zoom_factor.get();
+
+            gsk::Transform::new()
+                .translate(&graphene::Point::new(-hadj as f32, -vadj as f32))
+                .scale(zoom_factor as f32, zoom_factor as f32)
+        }
+
+        /// Returns a [`gsk::Transform`] matrix that can translate from screen space to canvas space.
+        ///
+        /// This is the inverted form of [`Self::canvas_space_to_screen_space_transform()`], see that function for a more detailed explanation.
+        fn screen_space_to_canvas_space_transform(&self) -> gsk::Transform {
+            self.canvas_space_to_screen_space_transform()
+                .invert()
+                .unwrap()
+        }
+
         fn link_from_coordinates(&self, node_from: u32, port_from: u32) -> (f64, f64) {
             let nodes = self.nodes.borrow();
-
+            let widget = &*self.obj();
             let from_node = nodes
                 .get(&node_from)
                 .unwrap_or_else(|| (panic!("Unable to get node from {}", node_from)));
 
             let from_port = from_node
+                .0
                 .port(port_from)
                 .unwrap_or_else(|| panic!("Unable to get port from {}", port_from));
-            let (mut from_x, mut from_y, fw, fh) = (
-                from_port.allocation().x(),
-                from_port.allocation().y(),
-                from_port.allocation().width(),
-                from_port.allocation().height(),
-            );
-            let (fnx, fny) = (from_node.allocation().x(), from_node.allocation().y());
 
-            if let Some((port_x, port_y)) = from_port.translate_coordinates(from_node, 0.0, 0.0) {
-                from_x = fnx + fw + port_x as i32;
-                from_y = fny + (fh / 2) + port_y as i32;
-            }
+            let (x, y) = from_port
+                .translate_coordinates(
+                    widget,
+                    (from_port.width() / 2) as f64,
+                    (from_port.height() / 2) as f64,
+                )
+                .unwrap();
 
-            (from_x as f64, from_y as f64)
+            (x, y)
         }
 
         fn link_to_coordinates(&self, node_to: u32, port_to: u32) -> (f64, f64) {
             let nodes = self.nodes.borrow();
+            let widget = &*self.obj();
 
             let to_node = nodes
                 .get(&node_to)
                 .unwrap_or_else(|| panic!("Unable to get node to {}", node_to));
             let to_port = to_node
+                .0
                 .port(port_to)
                 .unwrap_or_else(|| panic!("Unable to get port to {}", port_to));
-            let (mut to_x, mut to_y, th) = (
-                to_port.allocation().x(),
-                to_port.allocation().y(),
-                to_port.allocation().height(),
-            );
+            let (x, y) = to_port
+                .translate_coordinates(
+                    widget,
+                    (to_port.width() / 2) as f64,
+                    (to_port.height() / 2) as f64,
+                )
+                .unwrap();
 
-            let (tnx, tny) = (to_node.allocation().x(), to_node.allocation().y());
-
-            if let Some((port_x, port_y)) = to_port.translate_coordinates(to_node, 0.0, 0.0) {
-                to_x += tnx + port_x as i32;
-                to_y = tny + (th / 2) + port_y as i32;
-            }
-            //trace!("{} {} -> {} {}", fx, fy, tx, ty);
-            (to_x.into(), to_y.into())
+            (x, y)
         }
         /// Retrieves coordinates for the drawn link to start at and to end at.
         ///
@@ -469,6 +624,8 @@ glib::wrapper! {
 }
 
 impl GraphView {
+    pub const ZOOM_MIN: f64 = 0.3;
+    pub const ZOOM_MAX: f64 = 4.0;
     /// Create a new graphview
     ///
     /// # Returns
@@ -482,6 +639,7 @@ impl GraphView {
             &provider,
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
+
         glib::Object::new::<Self>()
     }
 
@@ -503,6 +661,40 @@ impl GraphView {
     ///
     pub fn clear(&self) {
         self.remove_all_nodes();
+    }
+
+    pub fn zoom_factor(&self) -> f64 {
+        self.property("zoom-factor")
+    }
+
+    pub fn set_zoom_factor(&self, zoom_factor: f64, anchor: Option<(f64, f64)>) {
+        let private = imp::GraphView::from_obj(self);
+        let zoom_factor = zoom_factor.clamp(Self::ZOOM_MIN, Self::ZOOM_MAX);
+
+        let (anchor_x_screen, anchor_y_screen) = anchor.unwrap_or_else(|| {
+            (
+                self.allocation().width() as f64 / 2.0,
+                self.allocation().height() as f64 / 2.0,
+            )
+        });
+
+        let old_zoom = private.zoom_factor.get();
+        let hadjustment_ref = private.hadjustment.borrow();
+        let vadjustment_ref = private.vadjustment.borrow();
+        let hadjustment = hadjustment_ref.as_ref().unwrap();
+        let vadjustment = vadjustment_ref.as_ref().unwrap();
+
+        let x_total = (anchor_x_screen + hadjustment.value()) / old_zoom;
+        let y_total = (anchor_y_screen + vadjustment.value()) / old_zoom;
+
+        let new_hadjustment = x_total * zoom_factor - anchor_x_screen;
+        let new_vadjustment = y_total * zoom_factor - anchor_y_screen;
+
+        hadjustment.set_value(new_hadjustment);
+        vadjustment.set_value(new_vadjustment);
+
+        self.set_property("zoom-factor", zoom_factor);
+        info!("zoom factor {}", zoom_factor);
     }
 
     // Node
@@ -560,9 +752,10 @@ impl GraphView {
             .nodes
             .borrow()
             .values()
-            .filter_map(|node| {
-                // Map nodes to locations, discard nodes without location
-                self.node_position(&node.clone().upcast())
+            .map(|node| {
+                // Map nodes to their locations
+                let point = self.node_position(&node.0.clone().upcast()).unwrap();
+                (point.x(), point.y())
             })
             .filter(|(x2, _)| {
                 // Only look for other nodes that have a similar x coordinate
@@ -572,11 +765,13 @@ impl GraphView {
                 // Get max in column
                 y1.partial_cmp(y2).unwrap_or(Ordering::Equal)
             })
-            .map_or(20_f32, |(_x, y)| y + 100.0);
+            .map_or(20_f32, |(_x, y)| y + 120.0);
 
-        self.move_node(&node.clone().upcast(), x, y);
         let node_id = node.id();
-        private.nodes.borrow_mut().insert(node.id(), node);
+        private
+            .nodes
+            .borrow_mut()
+            .insert(node.id(), (node, graphene::Point::new(x, y)));
         self.emit_by_name::<()>("node-added", &[&private.id.get(), &node_id]);
         self.graph_updated();
     }
@@ -585,17 +780,16 @@ impl GraphView {
     ///
     pub fn remove_node(&self, id: u32) {
         let private = imp::GraphView::from_obj(self);
-        let mut nodes = private.nodes.borrow_mut();
-        if let Some(node) = nodes.remove(&id) {
-            while let Some(link_id) = self.node_is_linked(node.id()) {
+
+        if let Some(node) = private.nodes.borrow_mut().remove(&id) {
+            while let Some(link_id) = self.node_is_linked(node.0.id()) {
                 info!("Remove link id {}", link_id);
                 private.links.borrow_mut().remove(&link_id);
             }
-            node.unparent();
+            node.0.unparent();
         } else {
             warn!("Tried to remove non-existent node (id={}) from graph", id);
         }
-        self.queue_draw();
     }
 
     /// Select all nodes according to the NodeType
@@ -607,9 +801,9 @@ impl GraphView {
         let nodes_list: Vec<_> = nodes
             .iter()
             .filter(|(_, node)| {
-                *node.node_type().unwrap() == node_type || node_type == NodeType::All
+                *node.0.node_type().unwrap() == node_type || node_type == NodeType::All
             })
-            .map(|(_, node)| node.clone())
+            .map(|(_, node)| node.0.clone())
             .collect();
         nodes_list
     }
@@ -619,7 +813,12 @@ impl GraphView {
     /// Returns `None` if the node is not in the graphview.
     pub fn node(&self, id: u32) -> Option<Node> {
         let private = imp::GraphView::from_obj(self);
-        private.nodes.borrow().get(&id).cloned()
+
+        if let Some(node) = private.nodes.borrow().get(&id).cloned() {
+            Some(node.0)
+        } else {
+            None
+        }
     }
 
     /// Get the node with the specified node name inside the graphview.
@@ -628,8 +827,8 @@ impl GraphView {
     pub fn node_by_unique_name(&self, unique_name: &str) -> Option<Node> {
         let private = imp::GraphView::from_obj(self);
         for node in private.nodes.borrow().values() {
-            if node.unique_name() == unique_name {
-                return Some(node.clone());
+            if node.0.unique_name() == unique_name {
+                return Some(node.0.clone());
             }
         }
         None
@@ -646,7 +845,6 @@ impl GraphView {
         private.current_node_id.set(0);
         private.current_port_id.set(0);
         private.current_link_id.set(0);
-        self.queue_draw();
     }
 
     /// Check if the node is linked
@@ -665,21 +863,12 @@ impl GraphView {
     /// Get the position of the specified node inside the graphview.
     ///
     /// Returns `None` if the node is not in the graphview.
-    pub(super) fn node_position(&self, node: &gtk::Widget) -> Option<(f32, f32)> {
-        let layout_manager = self
-            .layout_manager()
-            .expect("Failed to get layout manager")
-            .dynamic_cast::<gtk::FixedLayout>()
-            .expect("Failed to cast to FixedLayout");
-
-        let node = layout_manager
-            .layout_child(node)
-            .dynamic_cast::<gtk::FixedLayoutChild>()
-            .expect("Could not cast to FixedLayoutChild");
-        let transform = node
-            .transform()
-            .expect("Failed to obtain transform from layout child");
-        Some(transform.to_translate())
+    pub(super) fn node_position(&self, node: &Node) -> Option<graphene::Point> {
+        self.imp()
+            .nodes
+            .borrow()
+            .get(&node.id())
+            .map(|(_, point)| *point)
     }
 
     // Port
@@ -713,9 +902,8 @@ impl GraphView {
     /// Return true if the port presence is not always.
     pub fn can_remove_port(&self, node_id: u32, port_id: u32) -> bool {
         let private = imp::GraphView::from_obj(self);
-        let nodes = private.nodes.borrow();
-        if let Some(node) = nodes.get(&node_id) {
-            return node.can_remove_port(port_id);
+        if let Some(node) = private.nodes.borrow().get(&node_id) {
+            return node.0.can_remove_port(port_id);
         }
         warn!("Unable to find a node with the id {}", node_id);
         false
@@ -725,12 +913,11 @@ impl GraphView {
     ///
     pub fn remove_port(&self, node_id: u32, port_id: u32) {
         let private = imp::GraphView::from_obj(self);
-        let nodes = private.nodes.borrow();
-        if let Some(node) = nodes.get(&node_id) {
+        if let Some(node) = private.nodes.borrow().get(&node_id) {
             if let Some(link_id) = self.port_is_linked(port_id) {
                 self.remove_link(link_id);
             }
-            node.remove_port(port_id);
+            node.0.remove_port(port_id);
         }
     }
 
@@ -864,8 +1051,8 @@ impl GraphView {
             }
         }
         for node in private.nodes.borrow_mut().values() {
-            if node.selected() {
-                node_id = Some(node.id());
+            if node.0.selected() {
+                node_id = Some(node.0.id());
             }
         }
         if let Some(id) = link_id {
@@ -895,8 +1082,8 @@ impl GraphView {
         )?;
 
         //Get the nodes
-        let nodes = self.all_nodes(NodeType::All);
-        for node in nodes {
+
+        for node in self.all_nodes(NodeType::All) {
             writer.write(
                 XMLWEvent::start_element("Node")
                     .attr("name", &node.name())
@@ -1104,12 +1291,13 @@ impl GraphView {
                         "Node" => {
                             if let Some(node) = current_node {
                                 let id = node.id();
-                                let position = node.position();
+                                let position =
+                                    graphene::Point::new(node.position().0, node.position().1);
                                 node.update_properties(&current_node_properties);
                                 current_node_properties.clear();
                                 self.add_node(node);
                                 if let Some(node) = self.node(id) {
-                                    self.move_node(&node.upcast(), position.0, position.1);
+                                    self.move_node(&node, &position);
                                 }
 
                                 self.update_current_node_id(id);
@@ -1207,38 +1395,31 @@ impl GraphView {
         false
     }
 
-    fn move_node(&self, widget: &gtk::Widget, x: f32, y: f32) {
-        let node = widget
-            .clone()
-            .dynamic_cast::<Node>()
-            .expect("Unable to convert to Node");
-        node.set_position(x, y);
-        let layout_manager = self
-            .layout_manager()
-            .expect("Failed to get layout manager")
-            .dynamic_cast::<gtk::FixedLayout>()
-            .expect("Failed to cast to FixedLayout");
+    fn move_node(&self, widget: &Node, point: &graphene::Point) {
+        let mut nodes = self.imp().nodes.borrow_mut();
+        let node = nodes
+            .get_mut(&widget.id())
+            .expect("Node is not on the graph");
+        node.1 = graphene::Point::new(
+            point.x().clamp(
+                -(CANVAS_SIZE / 2.0) as f32,
+                (CANVAS_SIZE / 2.0) as f32 - widget.width() as f32,
+            ),
+            point.y().clamp(
+                -(CANVAS_SIZE / 2.0) as f32,
+                (CANVAS_SIZE / 2.0) as f32 - widget.height() as f32,
+            ),
+        );
 
-        let transform = gsk::Transform::new()
-            // Nodes should not be able to be dragged out of the view, so we use `max(coordinate, 0.0)` to prevent that.
-            .translate(&graphene::Point::new(f32::max(x, 0.0), f32::max(y, 0.0)));
-
-        layout_manager
-            .layout_child(widget)
-            .dynamic_cast::<gtk::FixedLayoutChild>()
-            .expect("Could not cast to FixedLayoutChild")
-            .set_transform(&transform);
-
-        // FIXME: If links become proper widgets,
         // we don't need to redraw the full graph everytime.
-        self.queue_draw();
+        self.queue_allocate();
     }
 
     fn unselect_nodes(&self) {
         let private = imp::GraphView::from_obj(self);
         for node in private.nodes.borrow_mut().values() {
-            node.set_selected(false);
-            node.unselect_all_ports();
+            node.0.set_selected(false);
+            node.0.unselect_all_ports();
         }
     }
 
@@ -1286,7 +1467,7 @@ impl GraphView {
 
     fn graph_updated(&self) {
         let private = imp::GraphView::from_obj(self);
-        self.queue_draw();
+        self.queue_allocate();
         self.emit_by_name::<()>("graph-updated", &[&private.id.get()]);
     }
 
@@ -1361,6 +1542,47 @@ impl GraphView {
         if port_id > private.current_port_id.get() {
             private.current_port_id.set(port_id);
         }
+    }
+    fn set_adjustment(
+        &self,
+        obj: &super::GraphView,
+        adjustment: Option<&gtk::Adjustment>,
+        orientation: gtk::Orientation,
+    ) {
+        let private = imp::GraphView::from_obj(self);
+        match orientation {
+            gtk::Orientation::Horizontal => *private.hadjustment.borrow_mut() = adjustment.cloned(),
+            gtk::Orientation::Vertical => *private.vadjustment.borrow_mut() = adjustment.cloned(),
+            _ => unimplemented!(),
+        }
+
+        if let Some(adjustment) = adjustment {
+            adjustment.connect_value_changed(clone!(@weak obj => move |_|  obj.queue_allocate() ));
+        }
+    }
+
+    fn set_adjustment_values(
+        &self,
+        obj: &super::GraphView,
+        adjustment: &gtk::Adjustment,
+        orientation: gtk::Orientation,
+    ) {
+        let private = imp::GraphView::from_obj(self);
+        let size = match orientation {
+            gtk::Orientation::Horizontal => obj.width(),
+            gtk::Orientation::Vertical => obj.height(),
+            _ => unimplemented!(),
+        };
+        let zoom_factor = private.zoom_factor.get();
+
+        adjustment.configure(
+            adjustment.value(),
+            -(CANVAS_SIZE / 2.0) * zoom_factor,
+            (CANVAS_SIZE / 2.0) * zoom_factor,
+            (f64::from(size) * 0.1) * zoom_factor,
+            (f64::from(size) * 0.9) * zoom_factor,
+            f64::from(size) * zoom_factor,
+        );
     }
 }
 

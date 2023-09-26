@@ -209,17 +209,11 @@
                 <property name="orientation">vertical</property>
                 <property name="position">400</property>
                 <child>
-                  <object class="GtkScrolledWindow" id="drawing_area-window">
-                    <property name="hexpand">True</property>
-                    <property name="vexpand">True</property>
-                    <property name="child">
                       <object class="GtkNotebook" id="graphbook">
                         <child>
                           <placeholder/>
                         </child>
                       </object>
-                    </property>
-                  </object>
                 </child>
                 <child>
                 <object class="GtkNotebook" id="notebook-debug">
