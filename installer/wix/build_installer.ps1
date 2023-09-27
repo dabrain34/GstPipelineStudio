@@ -33,13 +33,15 @@ try
     # GST and GTK are installed in this folder by prepare_gstreamer.ps1.
     # GST and GTK are built by the docker image.
     $gstreamerInstallDir="c:\gst-install-clean"
-    $gstreamerBinInstallDir= Join-Path $gstreamerInstallDir -ChildPath "bin/"
-    $gstreamerPluginInstallDir= Join-Path $gstreamerInstallDir -ChildPath "lib\gstreamer-1.0"
+    $gstreamerBinInstallDir= Join-Path $gstreamerInstallDir -ChildPath "bin"
+    $gstreamerPluginInstallDir= Join-Path $gstreamerInstallDir -ChildPath "lib"
+    $gstreamerShareInstallDir= Join-Path $gstreamerInstallDir -ChildPath "share"
 
     & "$heatToolPath" dir "$gstreamerBinInstallDir" -gg -sfrag -template:fragment -out gstreamer-1.0.wxs -cg "_gstreamer" -var var.gstreamerBinInstallDir -dr INSTALLFOLDER
     & "$heatToolPath" dir "$gstreamerPluginInstallDir" -gg -sfrag -template:fragment -out gstreamer-plugins-1.0.wxs -cg "_gstreamer_plugins" -var var.gstreamerPluginInstallDir -dr INSTALLFOLDER
+    & "$heatToolPath" dir "$gstreamerShareInstallDir" -v -ke -gg -sfrag -template:fragment -out gstreamer-share-1.0.wxs -cg "_gstreamer_share" -var var.gstreamerShareInstallDir -dr INSTALLFOLDER
 
-    $files = "gps gstreamer-1.0 gstreamer-plugins-1.0"
+    $files = "gps gstreamer-1.0 gstreamer-plugins-1.0 gstreamer-share-1.0"
     $wxs_files = @()
     $obj_files = @()
     foreach ($f in $files.split(" ")){
@@ -51,7 +53,7 @@ try
     # compiling wxs file into wixobj
     $msiFileName = "GstPipelineStudio-$GPSVersion.msi"
     foreach ($f in $wxs_files){
-        & "$candleToolPath" "$f" -dPlatform=x64 -dGPSUpgradeCode="$GPSUpgradeCode" -dGPSVersion="$GPSVersion" -dgstreamerBinInstallDir="$gstreamerBinInstallDir" -dgstreamerPluginInstallDir="$gstreamerPluginInstallDir"
+        & "$candleToolPath" "$f" -dPlatform=x64 -dGPSUpgradeCode="$GPSUpgradeCode" -dGPSVersion="$GPSVersion" -dgstreamerBinInstallDir="$gstreamerBinInstallDir" -dgstreamerPluginInstallDir="$gstreamerPluginInstallDir" -dgstreamerShareInstallDir="$gstreamerShareInstallDir"
         if($LASTEXITCODE -ne 0)
         {
             throw "Compilation of $wxsFileName failed with exit code $LASTEXITCODE"

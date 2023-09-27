@@ -59,6 +59,7 @@
       <ComponentRef Id="ProductComponent" />
       <ComponentGroupRef Id="_gstreamer" />
       <ComponentGroupRef Id="_gstreamer_plugins" />
+      <ComponentGroupRef Id="_gstreamer_share" />
       <ComponentRef Id="UninstallShortcut" />
     </Feature>
 

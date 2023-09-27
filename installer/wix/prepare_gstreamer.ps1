@@ -9,3 +9,4 @@ Copy-Item -Path C:\gst-install\bin\*.exe -Destination c:\gst-install-clean\bin\
 New-Item c:\gst-install-clean\lib\gstreamer-1.0 -ItemType Directory
 Copy-Item -Path C:\gst-install\lib\gstreamer-1.0\*.dll -Destination c:\gst-install-clean\lib\gstreamer-1.0
 
+Copy-Item -Path C:\gst-install\share -Destination c:\gst-install-clean\ -Recurse
