@@ -111,3 +111,9 @@
  - [x] Fix MacOs GTK runtime dependencies
  - [x] Fix the maximize call with MacOS
  - [x] Fix the default size at GTK save/load state
+
+ ## 0.3.4
+
+ ### app
+  - [x] Fix first run when application folder has not been created, fixes #23
+  - [x] Fix windows installer to bring share folder and let filesrc work properly, fixes #24
