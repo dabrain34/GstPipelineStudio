@@ -20,6 +20,13 @@
         <attribute name="action">app.open_pipeline</attribute>
         <attribute name="accel">&lt;primary&gt;p</attribute>
       </item>
+      <submenu>
+        <attribute name="label" translatable="yes" comments="Primary menu entry for remote pipeline connection">_Remote Pipeline</attribute>
+        <item>
+          <attribute name="label" translatable="yes" comments="Listen for incoming pipeline connections">_Listen...</attribute>
+          <attribute name="action">app.listen_pipeline</attribute>
+        </item>
+      </submenu>
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save</attribute>
         <attribute name="action">app.save</attribute>

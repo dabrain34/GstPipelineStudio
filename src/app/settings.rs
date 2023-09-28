@@ -17,6 +17,10 @@ use crate::config;
 use crate::logger;
 use crate::GPS_ERROR;
 
+fn default_ws_desc() -> String {
+    String::from("ws://127.0.0.1:8444")
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Settings {
@@ -27,6 +31,8 @@ pub struct Settings {
     pub dark_theme: bool,
     pub clean_shutdown: bool,
     pub session_count: u32,
+    #[serde(default = "default_ws_desc")]
+    pub ws_desc: String,
 
     // values must be emitted before tables
     pub favorites: Vec<String>,
@@ -126,6 +132,17 @@ impl Settings {
         settings.dark_theme
     }
 
+    pub fn websocket_description() -> String {
+        let settings = Settings::load_settings();
+        settings.ws_desc
+    }
+
+    pub fn set_websocket_description(ws_desc: &str) {
+        let mut settings = Settings::load_settings();
+        settings.ws_desc = ws_desc.to_string();
+        Settings::save_settings(&settings);
+    }
+
     pub fn add_favorite(favorite: &str) {
         let mut settings = Settings::load_settings();
         settings.favorites.sort();
@@ -207,6 +224,7 @@ impl Settings {
                 app_maximized: true,
                 app_width: 800,
                 app_height: 600,
+                ws_desc: String::from("ws://127.0.0.1:8444"),
                 ..Default::default()
             };
             settings

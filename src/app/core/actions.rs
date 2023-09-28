@@ -78,6 +78,7 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("open_pipeline", None));
         application.set_accels_for_action("app.open_pipeline", &["<primary>p"]);
 
+        application.add_action(&gio::SimpleAction::new("listen_pipeline", None));
         application.add_action(&gio::SimpleAction::new("save", None));
         application.set_accels_for_action("app.save", &["<primary>s"]);
         application.add_action(&gio::SimpleAction::new("save_as", None));

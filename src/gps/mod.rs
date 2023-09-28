@@ -2,6 +2,7 @@ mod dot_parser;
 mod element;
 mod pad;
 mod player;
+pub mod websocket;
 
 #[cfg(test)]
 mod test;

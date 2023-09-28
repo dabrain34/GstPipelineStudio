@@ -16,6 +16,11 @@ use std::collections::HashMap;
 use std::ops;
 use std::rc::{Rc, Weak};
 
+use crate::logger;
+use crate::ui as GPSUI;
+use crate::GPS_DEBUG;
+use crate::GPS_ERROR;
+use crate::GPS_INFO;
 use std::fmt;
 
 // Submodules
@@ -302,6 +307,86 @@ impl GPSApp {
     // Downgrade to a weak reference
     pub fn downgrade(&self) -> GPSAppWeak {
         GPSAppWeak(Rc::downgrade(&self.0))
+    }
+
+    /// Start GPS as WebSocket server for pipeline-snapshot tracer.
+    /// The tracer connects to GPS and GPS sends Snapshot request to get DOT.
+    /// Use with: GST_TRACERS="pipeline-snapshot(dots-viewer-ws-url=ws://HOST:PORT)"
+    pub fn start_websocket_server(&self, ws_addr: &str) {
+        use crate::gps::websocket::WebSocketError;
+
+        // Shared handle - set immediately when run_server returns (before thread spawns)
+        let server_handle: Rc<RefCell<Option<crate::gps::websocket::ServerHandle>>> =
+            Rc::new(RefCell::new(None));
+        let server_handle_for_cancel = server_handle.clone();
+
+        // Show waiting dialog with Cancel button
+        let waiting_dialog = GPSUI::dialog::show_waiting(
+            self,
+            "Listen for Pipeline",
+            &format!("Listening on {}...", ws_addr),
+            move || {
+                GPS_DEBUG!("Cancel callback triggered");
+                // Cancel the server if handle exists
+                if let Some(handle) = server_handle_for_cancel.borrow().as_ref() {
+                    GPS_DEBUG!("Cancelling server...");
+                    handle.cancel();
+                } else {
+                    GPS_DEBUG!("No server handle to cancel yet");
+                }
+            },
+        );
+
+        // Clone for the completion callback
+        let dialog_for_completion = waiting_dialog.clone();
+
+        // run_server now returns synchronously with the handle, fixing the race condition
+        match crate::gps::websocket::run_server(ws_addr, self.downgrade(), move |result| {
+            // Close dialog when server completes
+            dialog_for_completion.close();
+
+            match result {
+                Ok(()) => {
+                    GPS_INFO!("WebSocket server completed successfully");
+                }
+                Err(WebSocketError::Cancelled) => {
+                    // User cancelled, no need to log as error
+                    GPS_DEBUG!("WebSocket server cancelled by user");
+                }
+                Err(e) => {
+                    GPS_ERROR!("WebSocket server error: {}", e);
+                }
+            }
+        }) {
+            Ok(handle) => {
+                // Store handle immediately so cancel button can use it
+                *server_handle.borrow_mut() = Some(handle);
+            }
+            Err(e) => {
+                waiting_dialog.close();
+                GPS_ERROR!("Failed to start WebSocket server: {}", e);
+            }
+        }
+    }
+
+    /// Load DOT content string into the current graph view
+    pub fn load_dot_content(&self, dot_content: &str) {
+        use crate::gps::GstDotLoader;
+
+        let graphtab = core::graphbook::current_graphtab(self);
+        let graphview = graphtab.graphview();
+
+        // Clear the current graph before loading new content
+        graphview.clear();
+
+        // Load the DOT content using GstDotLoader
+        if let Err(e) = graphview.load_from_dot(dot_content, &GstDotLoader) {
+            GPS_ERROR!("Failed to load DOT content: {}", e);
+            GPSUI::message::display_error_dialog(
+                false,
+                &format!("Failed to load pipeline graph: {}", e),
+            );
+        }
     }
 
     // Called when the application shuts down. We drop our app struct here

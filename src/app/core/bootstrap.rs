@@ -200,6 +200,23 @@ impl GPSApp {
                 },
             );
         });
+
+        // Listen: GPS as WebSocket server (for pipeline-snapshot tracer)
+        let app_weak = self.downgrade();
+        self.connect_app_menu_action("listen_pipeline", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            GPSUI::dialog::get_input(
+                &app,
+                "Listen for Pipeline",
+                "WebSocket address",
+                &Settings::websocket_description(),
+                |app, ws_addr| {
+                    Settings::set_websocket_description(&ws_addr);
+                    app.start_websocket_server(&ws_addr);
+                },
+            );
+        });
+
         let app_weak = self.downgrade();
         self.connect_app_menu_action("save", move |_, _| {
             let app = upgrade_weak!(app_weak);

@@ -145,6 +145,67 @@ pub fn get_input<F: Fn(GPSApp, String) + 'static>(
     window.present();
 }
 
+/// Creates a waiting dialog with a spinner and Cancel button.
+/// Returns the window so caller can close it when operation completes.
+pub fn show_waiting<F: Fn() + 'static>(
+    app: &GPSApp,
+    title: &str,
+    message: &str,
+    on_cancel: F,
+) -> gtk::Window {
+    let window = gtk::Window::builder()
+        .title(title)
+        .transient_for(&app.window)
+        .modal(true)
+        .default_width(350)
+        .default_height(120)
+        .resizable(false)
+        .build();
+
+    let header_bar = gtk::HeaderBar::new();
+    let cancel_button = gtk::Button::with_label("Cancel");
+
+    let on_cancel = std::rc::Rc::new(on_cancel);
+    cancel_button.connect_clicked(glib::clone!(
+        #[weak]
+        window,
+        move |_| {
+            on_cancel();
+            window.close();
+        }
+    ));
+
+    header_bar.pack_end(&cancel_button);
+    window.set_titlebar(Some(&header_bar));
+
+    let content_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .spacing(12)
+        .margin_start(20)
+        .margin_end(20)
+        .margin_top(20)
+        .margin_bottom(20)
+        .valign(gtk::Align::Center)
+        .halign(gtk::Align::Center)
+        .build();
+
+    let spinner = gtk::Spinner::new();
+    spinner.start();
+    spinner.set_size_request(32, 32);
+
+    let label = gtk::Label::builder()
+        .label(message)
+        .halign(gtk::Align::Start)
+        .build();
+
+    content_box.append(&spinner);
+    content_box.append(&label);
+    window.set_child(Some(&content_box));
+
+    window.present();
+    window
+}
+
 pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDialogType, f: F) {
     let window: ApplicationWindow = app
         .builder

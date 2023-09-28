@@ -1823,3 +1823,280 @@ mod auto_connect_test {
         });
     }
 }
+
+// =============================================================================
+// WebSocket tests
+// =============================================================================
+
+#[cfg(test)]
+mod websocket_test {
+    use crate::gps::websocket::{
+        run_server_blocking, ServerHandle, SnapshotPipeline, SnapshotRequest, SnapshotResponse,
+        TypedMessage, WebSocketError, WsAddress,
+    };
+    use std::net::TcpListener;
+    use std::thread;
+    use std::time::Duration;
+    use tungstenite::{connect, Message};
+
+    // ========================================================================
+    // Protocol structure tests
+    // ========================================================================
+
+    #[test]
+    fn test_snapshot_request_serialization_without_id() {
+        let req = SnapshotRequest {
+            id: None,
+            msg_type: "Snapshot".to_string(),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert_eq!(json, r#"{"type":"Snapshot"}"#);
+    }
+
+    #[test]
+    fn test_snapshot_request_serialization_with_id() {
+        let req = SnapshotRequest {
+            id: Some("test-id-1".to_string()),
+            msg_type: "Snapshot".to_string(),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert_eq!(json, r#"{"id":"test-id-1","type":"Snapshot"}"#);
+    }
+
+    #[test]
+    fn test_typed_message_deserialization() {
+        let json = r#"{"type":"Hello"}"#;
+        let msg: TypedMessage = serde_json::from_str(json).unwrap();
+        assert_eq!(msg.msg_type, "Hello");
+    }
+
+    // ========================================================================
+    // URL parsing tests
+    // ========================================================================
+
+    #[test]
+    fn test_ws_address_parse_valid_localhost() {
+        let addr = WsAddress::parse("ws://localhost:8080").unwrap();
+        assert_eq!(addr.host, "localhost");
+        assert_eq!(addr.port, 8080);
+        assert_eq!(addr.bind_addr(), "localhost:8080");
+    }
+
+    #[test]
+    fn test_ws_address_parse_default_port() {
+        // ws:// scheme has a standard default port of 80
+        let addr = WsAddress::parse("ws://localhost").unwrap();
+        assert_eq!(addr.host, "localhost");
+        assert_eq!(addr.port, 80);
+    }
+
+    #[test]
+    fn test_ws_address_parse_wss_scheme_rejected() {
+        // wss:// is not supported (TLS not implemented)
+        let result = WsAddress::parse("wss://secure.example.com:443");
+        assert!(result.is_err());
+        if let Err(WebSocketError::InvalidUrl(_, msg)) = result {
+            assert!(msg.contains("TLS not implemented"));
+        } else {
+            panic!("Expected InvalidUrl error");
+        }
+    }
+
+    #[test]
+    fn test_ws_address_parse_invalid_scheme() {
+        let result = WsAddress::parse("http://localhost:8080");
+        assert!(result.is_err());
+        if let Err(WebSocketError::InvalidUrl(url, msg)) = result {
+            assert!(url.contains("http://"));
+            assert!(msg.contains("scheme"));
+        } else {
+            panic!("Expected InvalidUrl error");
+        }
+    }
+
+    #[test]
+    fn test_ws_address_parse_missing_host() {
+        let result = WsAddress::parse("ws://");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_snapshot_response_deserialization() {
+        let json = r#"{
+            "type": "SnapshotResponse",
+            "pipelines": [
+                {"name": "pipeline0", "dot": "digraph { a -> b }"}
+            ]
+        }"#;
+        let response: SnapshotResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.msg_type, "SnapshotResponse");
+        assert_eq!(response.pipelines.len(), 1);
+        assert_eq!(response.pipelines[0].name, Some("pipeline0".to_string()));
+        assert_eq!(
+            response.pipelines[0].dot,
+            Some("digraph { a -> b }".to_string())
+        );
+    }
+
+    #[test]
+    fn test_snapshot_pipeline_without_dot() {
+        let json = r#"{"name": "pipeline0"}"#;
+        let pipeline: SnapshotPipeline = serde_json::from_str(json).unwrap();
+        assert_eq!(pipeline.name, Some("pipeline0".to_string()));
+        assert!(pipeline.dot.is_none());
+    }
+
+    // ========================================================================
+    // Integration tests - Server mode (GPS listens for connections)
+    // ========================================================================
+
+    /// Helper to find an available port for testing
+    fn find_available_port() -> u16 {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap().port()
+    }
+
+    /// Creates a mock tracer client that sends Hello and responds with DOT
+    fn start_mock_tracer_client(
+        port: u16,
+        dot_content: &str,
+    ) -> thread::JoinHandle<Result<(), String>> {
+        let dot_content = dot_content.to_string();
+        thread::spawn(move || {
+            // Give server time to start listening
+            thread::sleep(Duration::from_millis(200));
+
+            let ws_url = format!("ws://127.0.0.1:{}", port);
+            let (mut socket, _) = connect(&ws_url).map_err(|e| e.to_string())?;
+
+            // Send Hello
+            socket
+                .send(Message::Text(r#"{"type":"Hello"}"#.to_string()))
+                .map_err(|e| e.to_string())?;
+
+            // Wait for Snapshot request
+            loop {
+                let msg = socket.read().map_err(|e| e.to_string())?;
+                if let Message::Text(text) = msg {
+                    if let Ok(typed) = serde_json::from_str::<TypedMessage>(&text) {
+                        if typed.msg_type == "Snapshot" {
+                            // Send SnapshotResponse
+                            let response = format!(
+                                r#"{{"type":"SnapshotResponse","pipelines":[{{"name":"test","dot":"{}"}}]}}"#,
+                                dot_content.replace('"', "\\\"")
+                            );
+                            socket
+                                .send(Message::Text(response))
+                                .map_err(|e| e.to_string())?;
+                            break;
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_server_mode_receives_dot_from_tracer() {
+        let port = find_available_port();
+        let expected_dot = "digraph { videosrc -> videosink }";
+
+        // Start mock tracer client (will connect after server starts)
+        let client_handle = start_mock_tracer_client(port, expected_dot);
+
+        // Run server blocking (this simulates run_server_blocking)
+        let bind_addr = format!("127.0.0.1:{}", port);
+        let handle = ServerHandle::new();
+        let result = run_server_blocking(&bind_addr, &handle);
+
+        // Verify we got the DOT content
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected_dot);
+
+        // Wait for client to finish
+        let client_result = client_handle.join().unwrap();
+        assert!(client_result.is_ok());
+    }
+
+    #[test]
+    fn test_server_mode_handles_extra_messages_before_hello() {
+        let port = find_available_port();
+        let expected_dot = "digraph { a -> b }";
+
+        // Start a custom client that sends extra messages before Hello
+        let client_handle = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(200));
+
+            let ws_url = format!("ws://127.0.0.1:{}", port);
+            let (mut socket, _) = connect(&ws_url).unwrap();
+
+            // Send some non-Hello messages first
+            socket
+                .send(Message::Text(r#"{"type":"Ping"}"#.to_string()))
+                .unwrap();
+            socket
+                .send(Message::Text(
+                    r#"{"type":"Status","ready":true}"#.to_string(),
+                ))
+                .unwrap();
+
+            // Now send Hello
+            socket
+                .send(Message::Text(r#"{"type":"Hello"}"#.to_string()))
+                .unwrap();
+
+            // Wait for Snapshot request and respond
+            loop {
+                let msg = socket.read().unwrap();
+                if let Message::Text(text) = msg {
+                    if let Ok(typed) = serde_json::from_str::<TypedMessage>(&text) {
+                        if typed.msg_type == "Snapshot" {
+                            let response = format!(
+                                r#"{{"type":"SnapshotResponse","pipelines":[{{"name":"test","dot":"{}"}}]}}"#,
+                                expected_dot
+                            );
+                            socket.send(Message::Text(response)).unwrap();
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        let bind_addr = format!("127.0.0.1:{}", port);
+        let handle = ServerHandle::new();
+        let result = run_server_blocking(&bind_addr, &handle);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), expected_dot);
+
+        client_handle.join().unwrap();
+    }
+
+    // ========================================================================
+    // Cancellation tests
+    // ========================================================================
+
+    #[test]
+    fn test_server_cancellation_while_waiting_for_connection() {
+        let port = find_available_port();
+        let bind_addr = format!("127.0.0.1:{}", port);
+
+        let handle = ServerHandle::new();
+        let handle_clone = handle.clone();
+
+        // Spawn server in a thread
+        let server_thread = thread::spawn(move || run_server_blocking(&bind_addr, &handle_clone));
+
+        // Give server time to start listening
+        thread::sleep(Duration::from_millis(100));
+
+        // Cancel the server
+        handle.cancel();
+
+        // Server should return Cancelled error
+        let result = server_thread.join().unwrap();
+        assert!(matches!(result, Err(WebSocketError::Cancelled)));
+    }
+}
