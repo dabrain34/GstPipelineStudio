@@ -6,6 +6,7 @@
   - VERSION
   - index.html
   - And rebuild to regenerate the cargo.lock
+  - update the changelog in org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in within release/description
 
 - create a tag on gitlab
 - Fetch the package from the `linux release` job or you can make it manually with:

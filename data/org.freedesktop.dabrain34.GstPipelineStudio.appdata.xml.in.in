@@ -27,7 +27,14 @@
   <translation type="gettext">@gettext-package@</translation>
   <launchable type="desktop-id">@app-id@.desktop</launchable>
     <releases>
-    <release version="@version@" date="@current_date@"/>
+    <release version="@version@" date="@current_date@">
+    <description>
+        <p>Welcome to GstPipelineStudio</p>
+        <ul>
+          <li>Support a new websocket service</li>
+        </ul>
+      </description>
+    </release>
   </releases>
   <content_rating type="oars-1.1">
     <content_attribute id="violence-cartoon">none</content_attribute>
