@@ -9,6 +9,9 @@ test_ok() {
 
 }
 
+# To have m4 in the path
+source ~/.zshrc
+eval "$(/opt/homebrew/bin/brew shellenv)"
 # dependency library:
 # Make a .app file: https://gist.github.com/oubiwann/453744744da1141ccc542ff75b47e0cf
 # Make a .dmg file: https://github.com/LinusU/node-appdmg
@@ -20,20 +23,32 @@ VERSION="$(cat VERSION)"
 export VERSION
 echo "VERSION=$VERSION"
 
+pip3 install docutils
 
 GSTREAMER_OPTS="
-        -Dforce_fallback_for=gstreamer-1.0,libffi,pcre2 \
+        -Dforce_fallback_for=gstreamer-1.0,gtk \
         -Dgstreamer-1.0:libav=disabled \
         -Dgstreamer-1.0:examples=disabled \
         -Dgstreamer-1.0:introspection=disabled \
         -Dgstreamer-1.0:rtsp_server=disabled \
         -Dgstreamer-1.0:devtools=disabled \
+        -Dgstreamer-1.0:ges=disabled \
         -Dgst-plugins-base:tests=disabled \
         -Dgstreamer-1.0:tests=disabled \
         -Dgst-plugins-bad:openexr=disabled -Dgstreamer-1.0:gst-examples=disabled \
+        -Dgst-plugins-bad:vulkan=disabled \
         -Dorc:gtk_doc=disabled \
-        -Dgstreamer-1.0:ges=disabled \
-        -Dgstreamer-1.0:python=disabled"
+        -Dgstreamer-1.0:python=disabled \
+        -Dgtk:introspection=disabled \
+        -Dgtk:build-examples=false \
+        -Dgtkl:build-tests=false \
+        -Dgtk:media-gstreamer=disabled \
+        -Dgtk:x11-backend=false \
+        -Dgtk:macos-backend=true \
+        -Dgtk:print-cups=disabled \
+        -Djson-glib:introspection=disabled \
+        "
+
 
 # rebuild app release version
 rm -rf "${TARGETDIR}"

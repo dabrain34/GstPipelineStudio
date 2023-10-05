@@ -2,7 +2,7 @@
 directory=gtk
 url=https://gitlab.gnome.org/GNOME/gtk.git
 push-url=ssh://git@gitlab.gnome.org:GNOME/gtk.git
-revision=4.8.2
+revision=4.13.9
 depth=1
 
 [provide]

@@ -1,0 +1,45 @@
+From 6ce72488face35277643d3781d3da7c4f95d5e1e Mon Sep 17 00:00:00 2001
+From: Nirbheek Chauhan <nirbheek@centricular.com>
+Date: Fri, 19 Jul 2024 20:14:29 +0530
+Subject: [PATCH] Revert "meson: Fix invalid include flag in uninstalled gl pc
+ file"
+
+This reverts commit 9d719b9937e2ef476cf18f800f54ccac1feea8ee.
+
+The old pkg-config implementation errors out if a variable specified
+in the pkgconfig file is not defined, so this actually broke
+uninstalled pc files.
+
+Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7191>
+---
+ subprojects/gst-plugins-base/gst-libs/gst/gl/meson.build | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/subprojects/gst-plugins-base/gst-libs/gst/gl/meson.build b/subprojects/gst-plugins-base/gst-libs/gst/gl/meson.build
+index 751967be83..57af08ced3 100644
+--- a/subprojects/gst-plugins-base/gst-libs/gst/gl/meson.build
++++ b/subprojects/gst-plugins-base/gst-libs/gst/gl/meson.build
+@@ -1113,18 +1113,15 @@ if build_gstgl
+     'gl_winsys=' + ' '.join(enabled_gl_winsys),
+     'gl_apis=' + ' '.join(enabled_gl_apis),
+   ]
+-  pkgconfig_installed_variables = [
+-    'libinc=-I${libdir}/gstreamer-1.0/include',
+-  ]
+
+   library_def = {'lib': gstgl}
+   pkg_name = 'gstreamer-gl-1.0'
+   pkgconfig.generate(gstgl,
+     libraries : [gstvideo, gst_base_dep, gst_dep],
+-    variables : pkgconfig_variables + pkgconfig_gl_variables + pkgconfig_installed_variables,
++    variables : pkgconfig_variables + pkgconfig_gl_variables,
+     uninstalled_variables : pkgconfig_gl_variables,
+     subdirs : pkgconfig_subdirs,
+-    extra_cflags : ['${libinc}'],
++    extra_cflags : ['-I${libdir}/gstreamer-1.0/include'],
+     name : pkg_name,
+     description : 'Streaming media framework, OpenGL plugins libraries',
+   )
+--
+2.39.5 (Apple Git-154)
+
