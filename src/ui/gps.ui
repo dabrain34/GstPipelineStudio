@@ -222,11 +222,56 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkScrolledWindow">
-                    <property name="child">
-                      <object class="GtkTreeView" id="treeview-logger"/>
-                    </property>
-                  </object>
+                <object class="GtkNotebook" id="notebook-debug">
+                  <child>
+                    <object class="GtkNotebookPage">
+                      <property name="child">
+                        <object class="GtkScrolledWindow">
+                          <property name="child">
+                            <object class="GtkTreeView" id="treeview-app-logger"/>
+                          </property>
+                        </object>
+                      </property>
+                      <property name="tab">
+                          <object class="GtkLabel" id="label-app-logger">
+                            <property name="label" translatable="1">App</property>
+                          </object>
+                      </property>
+                    </object>
+                  </child>
+                  <child>
+                    <object class="GtkNotebookPage">
+                      <property name="child">
+                        <object class="GtkScrolledWindow">
+                          <property name="child">
+                            <object class="GtkTreeView" id="treeview-gst-logger"/>
+                          </property>
+                        </object>
+                      </property>
+                      <property name="tab">
+                          <object class="GtkLabel" id="label-gst-logger">
+                            <property name="label" translatable="1">GST</property>
+                          </object>
+                      </property>
+                    </object>
+                  </child>
+                  <child>
+                    <object class="GtkNotebookPage">
+                      <property name="child">
+                        <object class="GtkScrolledWindow">
+                          <property name="child">
+                            <object class="GtkTreeView" id="treeview-msg-logger"/>
+                          </property>
+                        </object>
+                      </property>
+                      <property name="tab">
+                          <object class="GtkLabel" id="label-messages-logger">
+                            <property name="label" translatable="1">Messages</property>
+                          </object>
+                      </property>
+                    </object>
+                  </child>
+                 </object>
                 </child>
               </object>
             </child>
