@@ -67,6 +67,7 @@ pub struct PlayerInner {
     pipeline: RefCell<Option<gst::Pipeline>>,
     current_state: Cell<PipelineState>,
     n_video_sink: Cell<usize>,
+    bus_watch_guard: RefCell<Option<gst::bus::BusWatchGuard>>,
 }
 
 impl Player {
@@ -76,6 +77,7 @@ impl Player {
             pipeline: RefCell::new(None),
             current_state: Cell::new(PipelineState::Stopped),
             n_video_sink: Cell::new(0),
+            bus_watch_guard: RefCell::new(None),
         }));
 
         Ok(pipeline)
@@ -176,12 +178,13 @@ impl Player {
 
             let bus = pipeline.bus().expect("Pipeline had no bus");
             let pipeline_weak = self.downgrade();
-            let _ = bus.add_watch_local(move |_bus, msg| {
+            let bus_watch_guard = bus.add_watch_local(move |_bus, msg| {
                 let pipeline = upgrade_weak!(pipeline_weak, glib::ControlFlow::Break);
                 pipeline.on_pipeline_message(msg);
                 glib::ControlFlow::Continue
             })?;
             *self.pipeline.borrow_mut() = Some(pipeline);
+            *self.bus_watch_guard.borrow_mut() = Some(bus_watch_guard);
         }
 
         self.set_state(new_state).map_err(|error| {
