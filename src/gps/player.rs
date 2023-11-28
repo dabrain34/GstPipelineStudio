@@ -279,6 +279,7 @@ impl Player {
 
     fn on_pipeline_message(&self, msg: &gst::MessageRef) {
         use gst::MessageView;
+        GPS_MSG!("{:?}", msg.structure());
         match msg.view() {
             MessageView::Eos(_) => {
                 GPS_INFO!("EOS received");

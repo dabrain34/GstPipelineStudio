@@ -7,6 +7,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::app::GPSApp;
+use crate::logger;
 use crate::ui::treeview;
 use gtk::prelude::*;
 use gtk::{gio, glib};
@@ -18,18 +19,37 @@ fn reset_logger_list(logger_list: &TreeView) {
         String::static_type(),
         String::static_type(),
         String::static_type(),
+        String::static_type(),
+        String::static_type(),
     ]);
     logger_list.set_model(Some(&model));
 }
 
-pub fn setup_logger_list(app: &GPSApp) {
-    treeview::add_column_to_treeview(app, "treeview-logger", "TIME", 0, false);
-    treeview::add_column_to_treeview(app, "treeview-logger", "LEVEL", 1, false);
-    treeview::add_column_to_treeview(app, "treeview-logger", "LOG", 2, true);
+pub fn setup_logger_list(app: &GPSApp, logger_name: &str, log_type: logger::LogType) {
+    match log_type {
+        logger::LogType::App => {
+            treeview::add_column_to_treeview(app, logger_name, "TIME", 0, false);
+            treeview::add_column_to_treeview(app, logger_name, "LEVEL", 1, false);
+            treeview::add_column_to_treeview(app, logger_name, "LOG", 2, true);
+        }
+        logger::LogType::Gst => {
+            treeview::add_column_to_treeview(app, logger_name, "TIME", 0, false);
+            treeview::add_column_to_treeview(app, logger_name, "LEVEL", 1, false);
+            treeview::add_column_to_treeview(app, logger_name, "CATEGORY", 2, false);
+            treeview::add_column_to_treeview(app, logger_name, "FILE", 3, false);
+            treeview::add_column_to_treeview(app, logger_name, "LOG", 4, true);
+        }
+        logger::LogType::Message => {
+            treeview::add_column_to_treeview(app, logger_name, "TIME", 0, false);
+            treeview::add_column_to_treeview(app, logger_name, "LEVEL", 1, false);
+            treeview::add_column_to_treeview(app, logger_name, "LOG", 2, true);
+        }
+    }
+
     let logger_list: TreeView = app
         .builder
-        .object("treeview-logger")
-        .expect("Couldn't get treeview-logger");
+        .object(logger_name)
+        .expect("Couldn't get treeview-app-logger");
     reset_logger_list(&logger_list);
 
     let gesture = gtk::GestureClick::new();
@@ -59,17 +79,40 @@ pub fn setup_logger_list(app: &GPSApp) {
     logger_list.add_controller(gesture);
 }
 
-pub fn add_to_logger_list(app: &GPSApp, log_entry: &str) {
+fn log_tree_id_from_log_type(log_type: logger::LogType) -> String {
+    match log_type {
+        logger::LogType::App => String::from("treeview-app-logger"),
+        logger::LogType::Gst => String::from("treeview-gst-logger"),
+        logger::LogType::Message => String::from("treeview-msg-logger"),
+    }
+}
+
+pub fn add_to_logger_list(app: &GPSApp, log_type: logger::LogType, log_entry: &str) {
+    let log_tree_name = log_tree_id_from_log_type(log_type.clone());
     let logger_list: TreeView = app
         .builder
-        .object("treeview-logger")
-        .expect("Couldn't get treeview-logger");
+        .object(log_tree_name.as_str())
+        .expect("Couldn't get treeview");
     if let Some(model) = logger_list.model() {
         let list_store = model
             .dynamic_cast::<ListStore>()
             .expect("Could not cast to ListStore");
-        let log: Vec<&str> = log_entry.splitn(3, ' ').collect();
-        list_store.insert_with_values(Some(0), &[(0, &log[0]), (1, &log[1]), (2, &log[2])]);
+        if log_type == logger::LogType::Gst {
+            let log: Vec<&str> = log_entry.splitn(5, '\t').collect();
+            list_store.insert_with_values(
+                Some(0),
+                &[
+                    (0, &log[0]),
+                    (1, &log[1]),
+                    (2, &log[2]),
+                    (3, &log[3]),
+                    (4, &log[4]),
+                ],
+            );
+        } else {
+            let log: Vec<&str> = log_entry.splitn(3, ' ').collect();
+            list_store.insert_with_values(Some(0), &[(0, &log[0]), (1, &log[1]), (2, &log[2])]);
+        }
         // Scroll to the first element.
         if let Some(model) = logger_list.model() {
             if let Some(iter) = model.iter_first() {

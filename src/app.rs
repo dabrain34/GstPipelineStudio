@@ -457,15 +457,18 @@ impl GPSApp {
         let (ready_tx, ready_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
         let app_weak = self.downgrade();
         logger::init_logger(
-            ready_tx,
+            ready_tx.clone(),
             Settings::log_file_path()
                 .to_str()
                 .expect("Unable to convert log file path to a string"),
         );
-        GPSUI::logger::setup_logger_list(self);
-        let _ = ready_rx.attach(None, move |msg: String| {
+        logger::init_msg_logger(ready_tx);
+        GPSUI::logger::setup_logger_list(self, "treeview-app-logger", logger::LogType::App);
+        GPSUI::logger::setup_logger_list(self, "treeview-msg-logger", logger::LogType::Message);
+        GPSUI::logger::setup_logger_list(self, "treeview-gst-logger", logger::LogType::Gst);
+        let _ = ready_rx.attach(None, move |msg: (logger::LogType, String)| {
             let app = upgrade_weak!(app_weak, glib::ControlFlow::Break);
-            GPSUI::logger::add_to_logger_list(&app, &msg);
+            GPSUI::logger::add_to_logger_list(&app, msg.0, &msg.1);
             glib::ControlFlow::Continue
         });
 

@@ -14,6 +14,13 @@ use std::io;
 
 use std::fs::File;
 
+use chrono::Local;
+use std::sync::Mutex;
+
+lazy_static::lazy_static! {
+    static ref MSG_LOGGER: Mutex<Option<MessageLogger>> = Mutex::new(None);
+}
+
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 
 pub enum LogLevel {
@@ -23,6 +30,13 @@ pub enum LogLevel {
     Info,
     Debug,
     Trace,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LogType {
+    App,
+    Gst,
+    Message,
 }
 
 impl LogLevel {
@@ -78,6 +92,22 @@ macro_rules! GPS_DEBUG (
 );
 
 #[macro_export]
+macro_rules! GPS_MSG (
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ({
+        logger::pring_msg_logger(logger::LogType::Message, format_args!($($arg)*).to_string());
+    })
+);
+
+#[macro_export]
+macro_rules! GPS_GST_LOG (
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ({
+        logger::pring_msg_logger(logger::LogType::Gst, format_args!($($arg)*).to_string());
+    })
+);
+
+#[macro_export]
 macro_rules! GPS_TRACE (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
@@ -86,7 +116,7 @@ macro_rules! GPS_TRACE (
 );
 
 struct WriteAdapter {
-    sender: Sender<String>,
+    sender: Sender<(LogType, String)>,
     buffer: String,
 }
 
@@ -97,7 +127,9 @@ impl io::Write for WriteAdapter {
             .push_str(&String::from_utf8(buf.to_vec()).unwrap());
         if self.buffer.ends_with('\n') {
             self.buffer.pop();
-            self.sender.send(self.buffer.clone()).unwrap();
+            self.sender
+                .send((LogType::App, self.buffer.clone()))
+                .unwrap();
             self.buffer = String::from("");
         }
 
@@ -120,7 +152,7 @@ fn translate_to_simple_logger(log_level: LogLevel) -> LevelFilter {
     }
 }
 
-pub fn init_logger(sender: Sender<String>, log_file: &str) {
+pub fn init_logger(sender: Sender<(LogType, String)>, log_file: &str) {
     simplelog::CombinedLogger::init(vec![
         WriteLogger::new(
             translate_to_simple_logger(LogLevel::Trace),
@@ -168,4 +200,35 @@ pub fn print_log(log_level: LogLevel, msg: String) {
         }
         _ => {}
     };
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageLogger {
+    sender: Sender<(LogType, String)>,
+}
+
+impl MessageLogger {
+    pub fn new(sender: Sender<(LogType, String)>) -> Self {
+        Self { sender }
+    }
+
+    pub fn print_log(&self, log_type: LogType, msg: String) {
+        let to_send = format!("{}\t{}", Local::now().format("%H:%M:%S"), msg);
+        self.sender.send((log_type.clone(), to_send)).unwrap();
+    }
+}
+
+pub fn init_msg_logger(sender: Sender<(LogType, String)>) {
+    let mut msg_logger = MSG_LOGGER.lock().unwrap();
+    if msg_logger.is_none() {
+        // Initialize the variable
+        *msg_logger = Some(MessageLogger::new(sender));
+    }
+}
+
+pub fn pring_msg_logger(log_type: LogType, msg: String) {
+    let msg_logger = MSG_LOGGER.lock().unwrap();
+    if let Some(logger) = msg_logger.as_ref() {
+        logger.print_log(log_type, msg);
+    }
 }

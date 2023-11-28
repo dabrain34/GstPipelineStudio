@@ -18,6 +18,8 @@ serde = "1.0"
 serde_any = "0.5"
 simplelog = "0.11.2"
 futures-channel = "0.3"
+lazy_static = "1.4"
+chrono = "0.4"
 
 [dev-dependencies]
 futures-executor = "0.3"
