@@ -61,6 +61,28 @@ impl PlayerWeak {
     }
 }
 
+fn gst_log_handler(
+    category: gst::DebugCategory,
+    level: gst::DebugLevel,
+    file: &glib::GStr,
+    function: &glib::GStr,
+    line: u32,
+    _obj: Option<&gst::LoggedObject>,
+    message: &gst::DebugMessage,
+) {
+    let log_message = format!(
+        "{}\t{}\t{}:{}:{}\t{}",
+        level,
+        category.name(),
+        line,
+        file.as_str(),
+        function.as_str(),
+        message.get().unwrap().as_str()
+    );
+
+    GPS_GST_LOG!("{}", log_message);
+}
+
 #[derive(Debug)]
 pub struct PlayerInner {
     app: RefCell<Option<GPSApp>>,
@@ -79,7 +101,7 @@ impl Player {
             n_video_sink: Cell::new(0),
             bus_watch_guard: RefCell::new(None),
         }));
-
+        gst::debug_add_log_function(gst_log_handler);
         Ok(pipeline)
     }
 
@@ -105,7 +127,7 @@ impl Player {
         } else {
             ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::Marginal);
         }
-
+        gst::debug_set_threshold_from_string(settings::Settings::gst_log_level().as_str(), true);
         // Create pipeline from the description
         let pipeline = gst::parse_launch(description)?;
         let pipeline = pipeline.downcast::<gst::Pipeline>();
@@ -282,7 +304,9 @@ impl Player {
 
     fn on_pipeline_message(&self, msg: &gst::MessageRef) {
         use gst::MessageView;
-        GPS_MSG!("{:?}", msg.structure());
+        if let Some(message) = msg.structure() {
+            GPS_MSG_LOG!("{:?}", message);
+        }
         match msg.view() {
             MessageView::Eos(_) => {
                 GPS_INFO!("EOS received");

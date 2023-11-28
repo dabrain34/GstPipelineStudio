@@ -82,5 +82,16 @@ pub fn display_settings(app: &GPSApp) {
         dialog.close();
     });
 
+    let widget = gtk::Entry::new();
+    widget.set_text(settings::Settings::gst_log_level().as_str());
+    widget.connect_changed(glib::clone!(@weak widget => move |c| {
+        let mut settings = settings::Settings::load_settings();
+        settings.preferences.insert("gst_log_level".to_string(), c.text().to_string());
+        settings::Settings::save_settings(&settings);
+    }));
+    let widget = widget
+        .dynamic_cast::<gtk::Widget>()
+        .expect("Should be a widget");
+    add_settings_widget(&grid, "GST Log level", &widget, 2);
     dialog.show();
 }

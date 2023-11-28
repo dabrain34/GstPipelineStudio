@@ -70,6 +70,16 @@ impl Settings {
         path
     }
 
+    pub fn gst_log_level() -> String {
+        let settings = Settings::load_settings();
+        let binding = "0".to_string();
+        let level = settings
+            .preferences
+            .get("gst_log_level")
+            .unwrap_or(&binding);
+        level.clone()
+    }
+
     pub fn set_recent_pipeline_description(pipeline: &str) {
         let mut settings = Settings::load_settings();
         settings.recent_pipeline = pipeline.to_string();

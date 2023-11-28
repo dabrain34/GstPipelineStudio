@@ -92,7 +92,7 @@ macro_rules! GPS_DEBUG (
 );
 
 #[macro_export]
-macro_rules! GPS_MSG (
+macro_rules! GPS_MSG_LOG (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
         logger::pring_msg_logger(logger::LogType::Message, format_args!($($arg)*).to_string());
