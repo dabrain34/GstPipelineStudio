@@ -10,6 +10,8 @@
     <Package InstallScope="perMachine" Compressed="yes" />
 
     <MajorUpgrade DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit." />
+    <WixVariable Id="WixUIBannerBmp" Value="wixbanner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="wixdialog.bmp" />
 
     <MediaTemplate EmbedCab="yes" />
 
