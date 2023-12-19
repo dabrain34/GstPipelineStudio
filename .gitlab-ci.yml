@@ -274,7 +274,7 @@ pages:
   image: ruby:2.7
   stage: deploy
   script:
-    - gem install bundler
+    - gem install bundler -v 2.4.22
     - bundle install
     - bundle exec jekyll build -d public
   artifacts:
