@@ -15,7 +15,7 @@
 
     <MediaTemplate EmbedCab="yes" />
 
-    <UIRef Id="WixUI_Mondo" />
+    <UIRef Id="WixUI_InstallDir" />
     <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
