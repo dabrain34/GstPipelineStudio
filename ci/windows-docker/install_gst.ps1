@@ -26,7 +26,7 @@ if (!$?) {
   Exit 1
 }
 
-$env:MESON_ARGS = "--prefix=C:\gst-install\ " +
+$env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release " +
     "-Dglib:installed_tests=false " +
     "-Dlibnice:tests=disabled " +
     "-Dlibnice:examples=disabled " +
