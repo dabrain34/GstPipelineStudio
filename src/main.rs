@@ -22,14 +22,29 @@ use gtk::prelude::*;
 
 use crate::app::GPSApp;
 use crate::common::init;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+struct Command {
+    #[structopt(about = "Sets the pipeline description", default_value = "")]
+    pipeline: String,
+}
 
 fn main() {
     //    gio::resources_register_include!("compiled.gresource").unwrap();
     init().expect("Unable to init app");
-    let application = gtk::Application::new(Some(config::APP_ID), Default::default());
+    let application = gtk::Application::new(
+        Some(config::APP_ID),
+        gtk::gio::ApplicationFlags::HANDLES_COMMAND_LINE,
+    );
     application.connect_startup(|application| {
-        GPSApp::on_startup(application);
+        let args = Command::from_args();
+        GPSApp::on_startup(application, &args.pipeline);
     });
 
+    application.connect_command_line(|_app, _cmd_line| {
+        // structopt already handled arguments
+        0
+    });
     application.run();
 }

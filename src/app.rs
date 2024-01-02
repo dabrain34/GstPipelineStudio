@@ -150,7 +150,7 @@ impl GPSApp {
             .insert(paned_name.to_string(), paned.position());
     }
 
-    pub fn on_startup(application: &gtk::Application) {
+    pub fn on_startup(application: &gtk::Application, pipeline_desc: &String) {
         // Create application and error out if that fails for whatever reason
         let app = match GPSApp::new(application) {
             Ok(app) => app,
@@ -160,13 +160,7 @@ impl GPSApp {
             }
         };
 
-        // When the application is activated show the UI. This happens when the first process is
-        // started, and in the first process whenever a second process is started
-        let app_weak = app.downgrade();
-        application.connect_activate(glib::clone!(@weak application => move |_| {
-            let app = upgrade_weak!(app_weak);
-            app.build_ui(&application);
-        }));
+        app.build_ui(application, pipeline_desc);
 
         let app_weak = app.downgrade();
         let slider: gtk::Scale = app
@@ -449,7 +443,7 @@ impl GPSApp {
         notebook_preview.set_current_page(Some(n_video_sink as u32));
     }
 
-    pub fn build_ui(&self, application: &Application) {
+    pub fn build_ui(&self, application: &Application, pipeline_desc: &String) {
         graphbook::setup_graphbook(self);
         graphbook::create_graphtab(self, 0, None);
 
@@ -514,8 +508,9 @@ impl GPSApp {
                 &Settings::recent_pipeline_description(),
                 &app,
                 move |app, pipeline_desc| {
-                    app.load_pipeline(&pipeline_desc)
-                        .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", pipeline_desc));
+                    app.load_pipeline(&pipeline_desc).unwrap_or_else(|_| {
+                        GPS_ERROR!("Unable to open pipeline description {}", pipeline_desc)
+                    });
                     Settings::set_recent_pipeline_description(&pipeline_desc);
                 },
             );
@@ -607,17 +602,22 @@ impl GPSApp {
         GPSUI::elements::setup_favorite_list(self);
         // Setup the favorite list
         GPSUI::elements::setup_elements_list(self);
-
-        let _ = self
-            .load_graph(
-                Settings::graph_file_path()
-                    .to_str()
-                    .expect("Unable to convert to string"),
-                true,
-            )
-            .map_err(|_e| {
-                GPS_WARN!("Unable to load default graph");
+        if pipeline_desc.is_empty() {
+            let _ = self
+                .load_graph(
+                    Settings::graph_file_path()
+                        .to_str()
+                        .expect("Unable to convert to string"),
+                    true,
+                )
+                .map_err(|_e| {
+                    GPS_WARN!("Unable to load default graph");
+                });
+        } else {
+            self.load_pipeline(pipeline_desc).unwrap_or_else(|_| {
+                GPS_ERROR!("Unable to open pipeline description {}", pipeline_desc)
             });
+        }
     }
 
     // Downgrade to a weak reference
@@ -778,9 +778,10 @@ impl GPSApp {
 
     fn load_pipeline(&self, pipeline_desc: &str) -> anyhow::Result<()> {
         let graphtab = graphbook::current_graphtab(self);
+        let pd_parsed = pipeline_desc.replace('\\', "");
         graphtab
             .player()
-            .graphview_from_pipeline_description(&graphtab.graphview(), pipeline_desc);
+            .graphview_from_pipeline_description(&graphtab.graphview(), &pd_parsed);
         Ok(())
     }
 }
