@@ -214,7 +214,7 @@ impl MessageLogger {
 
     pub fn print_log(&self, log_type: LogType, msg: String) {
         let to_send = format!("{}\t{}", Local::now().format("%H:%M:%S"), msg);
-        self.sender.send((log_type.clone(), to_send)).unwrap();
+        self.sender.send((log_type, to_send)).unwrap();
     }
 }
 
