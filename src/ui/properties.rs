@@ -113,7 +113,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                 let param = param
                     .clone()
                     .downcast::<glib::ParamSpecFlags>()
-                    .expect("Should be a ParamSpecEnum");
+                    .expect("Should be a ParamSpecFlags");
                 let flags = param.flags_class();
                 for value in flags.values() {
                     combo.append_text(&format!(
