@@ -63,7 +63,7 @@ impl fmt::Display for LogLevel {
 macro_rules! GPS_ERROR (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
-        logger::print_log(logger::LogLevel::Error, format_args!($($arg)*).to_string());
+        logger::print_log(logger::LogLevel::Error, format!("{}\t{}",glib::function_name!(),format_args!($($arg)*).to_string()));
     })
 );
 
@@ -71,7 +71,7 @@ macro_rules! GPS_ERROR (
 macro_rules! GPS_WARN (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
-        logger::print_log(logger::LogLevel::Warning, format_args!($($arg)*).to_string());
+        logger::print_log(logger::LogLevel::Warning, format!("{}\t{}",glib::function_name!(),format_args!($($arg)*).to_string()));
     })
 );
 
@@ -79,7 +79,7 @@ macro_rules! GPS_WARN (
 macro_rules! GPS_INFO (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
-        logger::print_log(logger::LogLevel::Info, format_args!($($arg)*).to_string());
+        logger::print_log(logger::LogLevel::Info, format!("{}\t{}",glib::function_name!(),format_args!($($arg)*).to_string()));
     })
 );
 
@@ -87,7 +87,7 @@ macro_rules! GPS_INFO (
 macro_rules! GPS_DEBUG (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
-        logger::print_log(logger::LogLevel::Debug, format_args!($($arg)*).to_string());
+        logger::print_log(logger::LogLevel::Debug, format!("{}\t{}",glib::function_name!(),format_args!($($arg)*).to_string()));
     })
 );
 
