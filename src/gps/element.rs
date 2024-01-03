@@ -156,13 +156,24 @@ impl ElementInfo {
     }
 
     pub fn element_property(element: &gst::Element, property_name: &str) -> anyhow::Result<String> {
-        let value = element
-            .property_value(property_name)
-            .transform::<String>()
-            .expect("Unable to transform to string")
-            .get::<String>()
-            .unwrap_or_default();
-        Ok(value)
+        let value = element.property_value(property_name);
+        if value.type_().is_a(glib::Type::ENUM) {
+            let value = value.get::<&glib::EnumValue>().unwrap().nick().to_string();
+            Ok(value)
+        } else if value.type_().is_a(glib::Type::FLAGS) {
+            let value = value.get::<Vec<&glib::FlagsValue>>().unwrap();
+            let flags = value.iter().copied().fold(0, |acc, val| acc | val.value());
+
+            Ok(flags.to_string())
+        } else {
+            let value = value
+                .transform::<String>()
+                .expect("Unable to transform to string")
+                .get::<String>()
+                .unwrap_or_default()
+                .to_lowercase();
+            Ok(value)
+        }
     }
 
     pub fn element_property_by_feature_name(
@@ -181,7 +192,7 @@ impl ElementInfo {
         element: &gst::Element,
     ) -> anyhow::Result<HashMap<String, glib::ParamSpec>> {
         let mut properties_list = HashMap::new();
-        let params = element.class().list_properties();
+        let params = element.list_properties();
 
         for param in params.iter() {
             GPS_INFO!("Property_name {}", param.name());
