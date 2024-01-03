@@ -163,8 +163,15 @@ impl ElementInfo {
         } else if value.type_().is_a(glib::Type::FLAGS) {
             let value = value.get::<Vec<&glib::FlagsValue>>().unwrap();
             let flags = value.iter().copied().fold(0, |acc, val| acc | val.value());
-
             Ok(flags.to_string())
+        } else if value.type_().is_a(glib::Type::F64) || value.type_().is_a(glib::Type::F32) {
+            let value = value
+                .transform::<String>()
+                .expect("Unable to transform to string")
+                .get::<String>()
+                .unwrap()
+                .replace(',', ".");
+            Ok(value)
         } else {
             let value = value
                 .transform::<String>()
