@@ -111,7 +111,12 @@ pub fn add_to_logger_list(app: &GPSApp, log_type: logger::LogType, log_entry: &s
             );
         } else {
             let log: Vec<&str> = log_entry.splitn(3, ' ').collect();
-            list_store.insert_with_values(Some(0), &[(0, &log[0]), (1, &log[1]), (2, &log[2])]);
+            let mut indexed_vec: Vec<(u32, &dyn ToValue)> = Vec::new();
+
+            for (index, item) in log.iter().enumerate() {
+                indexed_vec.push((index as u32, item));
+            }
+            list_store.insert_with_values(Some(0), &indexed_vec);
         }
         // Scroll to the first element.
         if let Some(model) = logger_list.model() {
