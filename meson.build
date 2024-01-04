@@ -1,4 +1,4 @@
-project('gst_pipeline_studio',
+project('gst-pipeline-studio',
           version: '0.3.4',
     meson_version: '>= 0.63.0',
   default_options: [ 'warning_level=2',

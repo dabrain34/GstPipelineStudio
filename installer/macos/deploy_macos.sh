@@ -93,7 +93,7 @@ function lib_dependency_analyze
 # copy app dependency library to target dir
 echo -n "Copy app dependency library......"
 
-lib_dependency_copy ${TARGETDIR}/bin/gst_pipeline_studio "${TARGETDIR}/bin"
+lib_dependency_copy ${TARGETDIR}/bin/gst-pipeline-studio "${TARGETDIR}/bin"
 lib_dependency_copy ${TARGETDIR}/lib/libgobject-2.0.0.dylib "${TARGETDIR}/bin"
 lib_dependency_copy ${TARGETDIR}/lib/libsoup-2.4.1.dylib "${TARGETDIR}/bin"
 lib_dependency_copy "${TARGETDIR}/bin/libgtk-4.1.dylib" "${TARGETDIR}/bin"

@@ -93,10 +93,10 @@ cp -rf "$APP_BUILD/etc" "$APP_RES_DIR"
 cp -rf "$APP_BUILD/lib" "$APP_RES_DIR"
 cp -rf "$APP_BUILD/share" "$APP_RES_DIR"
 cp -rf "$APP_BUILD/libexec" "$APP_RES_DIR"
-cp $APP_BUILD/bin/gst_pipeline_studio $APP_EXE_DIR/gst_pipeline_studio-real
-cp $APP_BUILD/bin/launcher.sh $APP_EXE_DIR/gst_pipeline_studio
-chmod 766 "$APP_EXE_DIR/gst_pipeline_studio"
-chmod 766 "$APP_EXE_DIR/gst_pipeline_studio-real"
+cp $APP_BUILD/bin/gst-pipeline-studio $APP_EXE_DIR/gst-pipeline-studio-real
+cp $APP_BUILD/bin/launcher.sh $APP_EXE_DIR/gst-pipeline-studio
+chmod 766 "$APP_EXE_DIR/gst-pipeline-studio"
+chmod 766 "$APP_EXE_DIR/gst-pipeline-studio-real"
 chmod -R 766 "$APP_RES_DIR"/libexec/gstreamer-1.0
 
 
@@ -123,7 +123,7 @@ done
 lib_change_paths \
   @executable_path/../Resources/lib \
   $APP_LIB_DIR \
-  $APP_EXE_DIR/gst_pipeline_studio-real
+  $APP_EXE_DIR/gst-pipeline-studio-real
 
 
 lib_change_siblings $APP_LIB_DIR @loader_path

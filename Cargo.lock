@@ -535,6 +535,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "gst-pipeline-studio"
+version = "0.3.4"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "futures-channel",
+ "futures-executor",
+ "gst-plugin-gtk4",
+ "gstreamer",
+ "gtk4",
+ "lazy_static",
+ "log 0.4.14",
+ "once_cell",
+ "serde",
+ "serde_any",
+ "simplelog",
+ "structopt",
+ "xml-rs 0.8.4",
+]
+
+[[package]]
 name = "gst-plugin-gtk4"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -557,27 +578,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a6a4dd1cb931cc6b49af354a68f21b3aee46b5b07370215d942f3a71542123f"
 dependencies = [
  "chrono",
-]
-
-[[package]]
-name = "gst_pipeline_studio"
-version = "0.3.4"
-dependencies = [
- "anyhow",
- "chrono",
- "futures-channel",
- "futures-executor",
- "gst-plugin-gtk4",
- "gstreamer",
- "gtk4",
- "lazy_static",
- "log 0.4.14",
- "once_cell",
- "serde",
- "serde_any",
- "simplelog",
- "structopt",
- "xml-rs 0.8.4",
 ]
 
 [[package]]

@@ -167,4 +167,4 @@ if /bin/expr "x$1" : '^x-psn_' > /dev/null; then
     shift 1
 fi
 
-$EXEC "$bundle_contents/MacOS/gst_pipeline_studio-real" "$@" $EXTRA_ARGS
+$EXEC "$bundle_contents/MacOS/gst-pipeline-studio-real" "$@" $EXTRA_ARGS

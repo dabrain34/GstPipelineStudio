@@ -1,5 +1,5 @@
 [package]
-name = "gst_pipeline_studio"
+name = "gst-pipeline-studio"
 version = "0.3.4"
 edition = "2018"
 rust-version = "1.70.0"

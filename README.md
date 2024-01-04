@@ -51,7 +51,7 @@ brew install gstreamer gst-plugins-base gst-plugins-bad
 ```sh
 $ meson builddir -Dbuildtype=release
 $ ninja -C builddir
-$ ./builddir/target/release/gst_pipeline_studio
+$ ./builddir/target/release/gst-pipeline-studio
 ```
 
 ## Flatpak

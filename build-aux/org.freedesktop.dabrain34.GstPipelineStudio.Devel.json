@@ -6,7 +6,7 @@
   "sdk-extensions": [
     "org.freedesktop.Sdk.Extension.rust-stable"
   ],
-  "command": "gst_pipeline_studio",
+  "command": "gst-pipeline-studio",
   "finish-args": [
     "--socket=fallback-x11",
     "--socket=wayland",
@@ -45,7 +45,7 @@
       ]
     },
     {
-      "name": "gst_pipeline_studio",
+      "name": "gst-pipeline-studio",
       "buildsystem": "meson",
       "run-tests": true,
       "config-opts": [
