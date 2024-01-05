@@ -31,7 +31,10 @@
     <description>
         <p>Welcome to GstPipelineStudio</p>
         <ul>
-          <li>Support a new websocket service</li>
+          <li>logs: receive multiple log sources such as GST logs and messages.</li>
+          <li>settings: add a log level selection</li>
+          <li>rename gst_pipeline_studio to gst-pipeline-studio</li>
+          <li>can open a pipeline from the command line</li>
         </ul>
       </description>
     </release>

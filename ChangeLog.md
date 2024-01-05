@@ -112,8 +112,16 @@
  - [x] Fix the maximize call with MacOS
  - [x] Fix the default size at GTK save/load state
 
- ## 0.3.4
+## 0.3.4
 
- ### app
+### app
   - [x] Fix first run when application folder has not been created, fixes #23
   - [x] Fix windows installer to bring share folder and let filesrc work properly, fixes #24
+
+## 0.3.5
+
+### app
+  - [x] logs: receive multiple log sources such as GST logs and messages.
+  - [x] settings: add a log level selection
+  - [x] rename gst_pipeline_studio to gst-pipeline-studio
+  - [x] can open a pipeline from the command line
