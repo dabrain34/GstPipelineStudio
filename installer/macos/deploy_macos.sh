@@ -25,14 +25,15 @@ GSTREAMER_OPTS="
         -Dforce_fallback_for=gstreamer-1.0,libffi,pcre2 \
         -Dgstreamer-1.0:libav=disabled \
         -Dgstreamer-1.0:examples=disabled \
-				-Dgstreamer-1.0:introspection=disabled \
+        -Dgstreamer-1.0:introspection=disabled \
         -Dgstreamer-1.0:rtsp_server=disabled \
         -Dgstreamer-1.0:devtools=disabled \
-				-Dgst-plugins-base:tests=disabled \
-				-Dgstreamer-1.0:tests=disabled \
-				-Dgst-plugins-bad:openexr=disabled -Dgstreamer-1.0:gst-examples=disabled \
-				-Dorc:gtk_doc=disabled \
-				-Dgstreamer-1.0:python=disabled"
+        -Dgst-plugins-base:tests=disabled \
+        -Dgstreamer-1.0:tests=disabled \
+        -Dgst-plugins-bad:openexr=disabled -Dgstreamer-1.0:gst-examples=disabled \
+        -Dorc:gtk_doc=disabled \
+        -Dgstreamer-1.0:ges=disabled \
+        -Dgstreamer-1.0:python=disabled"
 
 # rebuild app release version
 rm -rf "${TARGETDIR}"
