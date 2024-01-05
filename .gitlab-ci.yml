@@ -239,11 +239,8 @@ flatpak:
 
 macos installer stable:
   stage: test
-  needs:
-    - job: "windows rust docker stable"
-      artifacts: false
   tags:
-    - gst-macos-11.1
+    - gst-macos-13
   before_script:
     - pip3 install --upgrade pip
     # Make sure meson is up to date
