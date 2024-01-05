@@ -22,7 +22,7 @@ variables:
   variables:
     FDO_DISTRIBUTION_VERSION: "38"
     # Update this to trigger a container rebuild
-    FDO_DISTRIBUTION_TAG: "2023-08-25.1"
+    FDO_DISTRIBUTION_TAG: $GST_RS_FDO_IMG_TAG
   before_script:
     - source ./ci/env.sh
     - mkdir .cargo && echo -e "[net]\ngit-fetch-with-cli = true" > .cargo/config
@@ -60,7 +60,8 @@ build-fedora-container:
       bison
     FDO_DISTRIBUTION_EXEC: >-
       ci/install-rust.sh stable &&
-      pip3 install meson
+      pip3 install meson &&
+      pip3 install pre-commit
 
 .windows rust docker build:
   stage: prepare
@@ -120,15 +121,27 @@ windows installer stable:
     expire_in: 10 days
   when: "manual"
 
-rustfmt-clippy:
+pre-commit:
+  stage: "lint"
+  extends:
+    - .fedora
+    - .fdo.distribution-image@fedora
+  variables:
+    PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+  cache:
+    paths:
+      - ${PRE_COMMIT_HOME}
+  script:
+    - meson setup build
+    - pre-commit run --all-files
+
+clippy:
   extends:
     - .fedora
     - .fdo.distribution-image@fedora
   stage: lint
   script:
     - meson build
-    - cargo fmt --version
-    - cargo fmt -- --color=always --check
     - cargo clippy --version
     - cargo clippy --color=always --all-targets -- -D warnings
 
