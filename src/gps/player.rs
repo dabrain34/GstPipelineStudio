@@ -173,7 +173,7 @@ impl Player {
 
     pub fn check_for_gtk4sink(&self, pipeline: &gst::Pipeline) {
         let bin = pipeline.clone().dynamic_cast::<gst::Bin>().unwrap();
-        let gtksinks = ElementInfo::search_fo_element(&bin, "gtk4paintablesink");
+        let gtksinks = ElementInfo::search_for_element(&bin, "gtk4paintablesink");
 
         for (first_sink, gtksink) in gtksinks.into_iter().enumerate() {
             let paintable = gtksink.property::<gdk::Paintable>("paintable");
@@ -345,7 +345,7 @@ impl Player {
                 .unwrap()
                 .dynamic_cast::<gst::Bin>()
                 .unwrap();
-            let elements_name: Vec<String> = ElementInfo::search_fo_element(&bin, "")
+            let elements_name: Vec<String> = ElementInfo::search_for_element(&bin, "")
                 .iter()
                 .map(|e| e.factory().unwrap().name().to_string())
                 .collect();

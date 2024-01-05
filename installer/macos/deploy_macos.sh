@@ -9,7 +9,7 @@ test_ok() {
 
 }
 
-# depenency library:
+# dependency library:
 # Make a .app file: https://gist.github.com/oubiwann/453744744da1141ccc542ff75b47e0cf
 # Make a .dmg file: https://github.com/LinusU/node-appdmg
 # Can't find library: https://www.jianshu.com/p/441a7553700f
@@ -65,7 +65,7 @@ function lib_dependency_copy
         if [[ '@loader_path' == ${lib:0:12} ]]; then
           cp -n "${lib/@loader_path/$lib_dir}" $folder
         else
-          echo "Unsupport path: $lib"
+          echo "Unsupported path: $lib"
         fi
       else
         if [[ $lib != $target ]]; then

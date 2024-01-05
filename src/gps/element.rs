@@ -276,7 +276,7 @@ impl ElementInfo {
         None
     }
 
-    pub fn search_fo_element(bin: &gst::Bin, element_name: &str) -> Vec<gst::Element> {
+    pub fn search_for_element(bin: &gst::Bin, element_name: &str) -> Vec<gst::Element> {
         let mut iter = bin.iterate_elements();
         let mut elements: Vec<gst::Element> = Vec::new();
         elements = loop {
@@ -284,7 +284,7 @@ impl ElementInfo {
                 Ok(Some(element)) => {
                     if element.is::<gst::Bin>() {
                         let bin = element.dynamic_cast::<gst::Bin>().unwrap();
-                        let mut bin_elements = ElementInfo::search_fo_element(&bin, element_name);
+                        let mut bin_elements = ElementInfo::search_for_element(&bin, element_name);
                         elements.append(&mut bin_elements);
                     } else {
                         GPS_INFO!("Found factory: {}", element.factory().unwrap().name());

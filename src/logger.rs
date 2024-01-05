@@ -95,7 +95,7 @@ macro_rules! GPS_DEBUG (
 macro_rules! GPS_MSG_LOG (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
-        logger::pring_msg_logger(logger::LogType::Message, format_args!($($arg)*).to_string());
+        logger::print_msg_logger(logger::LogType::Message, format_args!($($arg)*).to_string());
     })
 );
 
@@ -103,7 +103,7 @@ macro_rules! GPS_MSG_LOG (
 macro_rules! GPS_GST_LOG (
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ({
-        logger::pring_msg_logger(logger::LogType::Gst, format_args!($($arg)*).to_string());
+        logger::print_msg_logger(logger::LogType::Gst, format_args!($($arg)*).to_string());
     })
 );
 
@@ -226,7 +226,7 @@ pub fn init_msg_logger(sender: Sender<(LogType, String)>) {
     }
 }
 
-pub fn pring_msg_logger(log_type: LogType, msg: String) {
+pub fn print_msg_logger(log_type: LogType, msg: String) {
     let msg_logger = MSG_LOGGER.lock().unwrap();
     if let Some(logger) = msg_logger.as_ref() {
         logger.print_log(log_type, msg);

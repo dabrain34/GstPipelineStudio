@@ -31,7 +31,7 @@ function lib_change_path
   # This is a simple wrapper around install_name_tool to reduce the
   # number of arguments (like $source does not have to be provided
   # here as it can be deducted from $target).
-  # Also, the requested change can be applied to multipe binaries
+  # Also, the requested change can be applied to multiple binaries
   # at once since 2-n arguments can be supplied.
 
   local target=$1         # new path to dynamically linked library
@@ -99,7 +99,7 @@ function lib_change_siblings
           lib_change_path $target/$(basename $linked_lib) $lib
         fi
       done
-    done  
+    done
   fi
 }
 
