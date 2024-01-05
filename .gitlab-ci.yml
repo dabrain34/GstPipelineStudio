@@ -91,10 +91,9 @@ build-fedora-container:
 windows rust docker stable:
   extends: ".windows rust docker build"
   variables:
-    RUST_IMAGE: !reference [variables, "WINDOWS_RUST_STABLE_IMAGE"]
-    RUST_UPSTREAM_IMAGE:
-      !reference [variables, "WINDOWS_RUST_STABLE_UPSTREAM_IMAGE"]
-    RUST_VERSION: !reference [variables, "GST_RS_STABLE"]
+    RUST_IMAGE: $WINDOWS_RUST_STABLE_IMAGE
+    RUST_UPSTREAM_IMAGE: $WINDOWS_RUST_STABLE_UPSTREAM_IMAGE"]
+    RUST_VERSION: $GST_RS_STABLE
 
 .msvc2019 build:
   stage: test
