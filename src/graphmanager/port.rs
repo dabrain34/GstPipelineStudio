@@ -48,7 +48,7 @@ impl PortDirection {
 /// Port's presence
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Copy)]
 pub enum PortPresence {
-    /// Can not be removed from his parent independantly
+    /// Can not be removed from his parent independently
     Always,
     /// Can be removed from a node
     Sometimes,

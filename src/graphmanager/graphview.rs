@@ -492,7 +492,7 @@ impl GraphView {
         private.id.set(id)
     }
 
-    /// Retrives the graphview id
+    /// Retrieves the graphview id
     ///
     pub fn id(&self) -> u32 {
         let private = imp::GraphView::from_obj(self);
@@ -544,7 +544,7 @@ impl GraphView {
         let private = imp::GraphView::from_obj(self);
         node.set_parent(self);
 
-        // Place widgets in colums of 3, growing down
+        // Place widgets in columns of 3, growing down
         let x = if let Some(node_type) = node.node_type() {
             match node_type {
                 NodeType::Source => 20.0,
@@ -593,7 +593,7 @@ impl GraphView {
             }
             node.unparent();
         } else {
-            warn!("Tried to remove non-existant node (id={}) from graph", id);
+            warn!("Tried to remove non-existent node (id={}) from graph", id);
         }
         self.queue_draw();
     }
