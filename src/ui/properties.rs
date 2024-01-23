@@ -57,6 +57,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             glib::ParamSpecInt64::static_type(),
             glib::ParamSpecUInt64::static_type(),
             glib::ParamSpecString::static_type(),
+            glib::ParamSpecFloat::static_type(),
         ]
         .contains(&t) =>
         {
