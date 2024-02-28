@@ -6,7 +6,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use gtk::glib::Sender;
 use log::{debug, error, info, trace, warn};
 use simplelog::*;
 use std::fmt;
@@ -116,7 +115,7 @@ macro_rules! GPS_TRACE (
 );
 
 struct WriteAdapter {
-    sender: Sender<(LogType, String)>,
+    sender: async_channel::Sender<(LogType, String)>,
     buffer: String,
 }
 
@@ -127,10 +126,8 @@ impl io::Write for WriteAdapter {
             .push_str(&String::from_utf8(buf.to_vec()).unwrap());
         if self.buffer.ends_with('\n') {
             self.buffer.pop();
-            self.sender
-                .send((LogType::App, self.buffer.clone()))
-                .unwrap();
-            self.buffer = String::from("");
+            let _ = self.sender.try_send((LogType::App, self.buffer.clone()));
+            self.buffer.clear();
         }
 
         Ok(buf.len())
@@ -152,7 +149,7 @@ fn translate_to_simple_logger(log_level: LogLevel) -> LevelFilter {
     }
 }
 
-pub fn init_logger(sender: Sender<(LogType, String)>, log_file: &str) {
+pub fn init_logger(sender: async_channel::Sender<(LogType, String)>, log_file: &str) {
     simplelog::CombinedLogger::init(vec![
         WriteLogger::new(
             translate_to_simple_logger(LogLevel::Trace),
@@ -204,21 +201,23 @@ pub fn print_log(log_level: LogLevel, msg: String) {
 
 #[derive(Debug, Clone)]
 pub struct MessageLogger {
-    sender: Sender<(LogType, String)>,
+    sender: async_channel::Sender<(LogType, String)>,
 }
 
 impl MessageLogger {
-    pub fn new(sender: Sender<(LogType, String)>) -> Self {
+    pub fn new(sender: async_channel::Sender<(LogType, String)>) -> Self {
         Self { sender }
     }
 
     pub fn print_log(&self, log_type: LogType, msg: String) {
         let to_send = format!("{}\t{}", Local::now().format("%H:%M:%S"), msg);
-        self.sender.send((log_type, to_send)).unwrap();
+        self.sender
+            .try_send((log_type, to_send))
+            .expect("Unable to send the log");
     }
 }
 
-pub fn init_msg_logger(sender: Sender<(LogType, String)>) {
+pub fn init_msg_logger(sender: async_channel::Sender<(LogType, String)>) {
     let mut msg_logger = MSG_LOGGER.lock().unwrap();
     if msg_logger.is_none() {
         // Initialize the variable

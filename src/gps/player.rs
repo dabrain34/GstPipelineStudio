@@ -101,7 +101,7 @@ impl Player {
             n_video_sink: Cell::new(0),
             bus_watch_guard: RefCell::new(None),
         }));
-        gst::debug_add_log_function(gst_log_handler);
+        gst::log::add_log_function(gst_log_handler);
         Ok(pipeline)
     }
 
@@ -123,13 +123,13 @@ impl Player {
             .parse::<bool>()
             .expect("Should a boolean value")
         {
-            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::Primary);
+            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::PRIMARY);
         } else {
-            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::Marginal);
+            ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::MARGINAL);
         }
-        gst::debug_set_threshold_from_string(settings::Settings::gst_log_level().as_str(), true);
+        gst::log::set_threshold_from_string(settings::Settings::gst_log_level().as_str(), true);
         // Create pipeline from the description
-        let pipeline = gst::parse_launch(description)?;
+        let pipeline = gst::parse::launch(description)?;
         let pipeline = pipeline.downcast::<gst::Pipeline>();
         /* start playing */
         if pipeline.is_err() {
@@ -141,19 +141,21 @@ impl Player {
         self.check_for_gtk4sink(pipeline.as_ref().unwrap());
         // GPSApp is not Send(trait) ready , so we use a channel to exchange the given data with the main thread and use
         // GPSApp.
-        let (ready_tx, ready_rx) = glib::MainContext::channel(glib::Priority::DEFAULT);
+        let (ready_tx, ready_rx) = async_channel::unbounded::<gst::Element>();
         let player_weak = self.downgrade();
-        let _ = ready_rx.attach(None, move |element: gst::Element| {
-            let player = upgrade_weak!(player_weak, glib::ControlFlow::Break);
-            let paintable = element.property::<gdk::Paintable>("paintable");
-            let n_sink = player.n_video_sink.get();
-            player
-                .app
-                .borrow()
-                .as_ref()
-                .expect("App should be available")
-                .set_app_preview(&paintable, n_sink);
-            player.n_video_sink.set(n_sink + 1);
+        glib::spawn_future_local(async move {
+            while let Ok(element) = ready_rx.recv().await {
+                let player = upgrade_weak!(player_weak, glib::ControlFlow::Break);
+                let paintable = element.property::<gdk::Paintable>("paintable");
+                let n_sink = player.n_video_sink.get();
+                player
+                    .app
+                    .borrow()
+                    .as_ref()
+                    .expect("App should be available")
+                    .set_app_preview(&paintable, n_sink);
+                player.n_video_sink.set(n_sink + 1);
+            }
             glib::ControlFlow::Continue
         });
         let bin = pipeline.unwrap().dynamic_cast::<gst::Bin>();
@@ -162,7 +164,7 @@ impl Player {
                 if let Some(factory) = element.factory() {
                     GPS_INFO!("Received the signal deep element added {}", factory.name());
                     if factory.name() == "gtk4paintablesink" {
-                        let _ = ready_tx.send(element.clone());
+                        let _ = ready_tx.try_send(element.clone());
                     }
                 }
             });
