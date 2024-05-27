@@ -19,13 +19,14 @@ use gtk::{gio, glib, graphene};
 use std::cell::{Cell, Ref, RefCell};
 use std::path::Path;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum TabState {
+    #[default]
     Undefined = 0,
     Modified,
     Saved,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct GraphTab {
     graphview: RefCell<GM::GraphView>,
     player: RefCell<GPS::Player>,
@@ -173,7 +174,7 @@ pub fn setup_graphbook(app: &GPSApp) {
     graphbook.connect_switch_page(move |_book, widget, page| {
         let graphview = widget
             .first_child()
-            .expect("Unable to get the child from the graphbook, ie the graphview");
+            .expect("Unable to get the child from the graphbook, ie the scrolledWindow");
         if let Ok(graphview) = graphview.dynamic_cast::<GM::GraphView>() {
             let app = upgrade_weak!(app_weak);
             GPS_TRACE!("graphview.id() {} graphbook page {}", graphview.id(), page);
@@ -191,8 +192,11 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
         .builder
         .object("graphbook")
         .expect("Couldn't get graphbook");
-    let drawing_area_window: gtk::Viewport = gtk::Viewport::builder().build();
-    drawing_area_window.set_child(Some(&*graphtab(app, id).graphview()));
+
+    let scrollwindow = gtk::ScrolledWindow::builder()
+        .name("graphview_scroll")
+        .child(&*graphtab(app, id).graphview())
+        .build();
 
     let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     let label = gt.widget_label();
@@ -209,8 +213,8 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
         graphbook.remove_page(Some(current_graphtab(&app).id()));
     }));
     tab_box.append(&close_button);
-    graphbook.append_page(&drawing_area_window, Some(&tab_box));
-    graphbook.set_tab_reorderable(&drawing_area_window, true);
+    graphbook.append_page(&scrollwindow, Some(&tab_box));
+    graphbook.set_tab_reorderable(&scrollwindow, true);
     let app_weak = app.downgrade();
     gt.graphview().connect_local(
         "graph-updated",
