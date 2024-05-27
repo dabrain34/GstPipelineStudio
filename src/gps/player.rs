@@ -26,10 +26,11 @@ use std::fmt::Write as _;
 use std::ops;
 use std::rc::{Rc, Weak};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PipelineState {
     Playing,
     Paused,
+    #[default]
     Stopped,
     Error,
 }
@@ -40,7 +41,7 @@ impl fmt::Display for PipelineState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Player(Rc<PlayerInner>);
 
 // Deref into the contained struct to make usage a bit more ergonomic
@@ -83,7 +84,7 @@ fn gst_log_handler(
     GPS_GST_LOG!("{}", log_message);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PlayerInner {
     app: RefCell<Option<GPSApp>>,
     pipeline: RefCell<Option<gst::Pipeline>>,
