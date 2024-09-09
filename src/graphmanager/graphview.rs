@@ -1400,6 +1400,7 @@ impl GraphView {
         let node = nodes
             .get_mut(&widget.id())
             .expect("Node is not on the graph");
+        node.0.set_position(point.x(), point.y());
         node.1 = graphene::Point::new(
             point.x().clamp(
                 -(CANVAS_SIZE / 2.0) as f32,
