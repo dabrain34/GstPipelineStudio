@@ -164,6 +164,14 @@ mod imp {
                 );
             });
 
+            drag_controller.connect_drag_end(|drag_controller, _x, _y| {
+                let widget = drag_controller
+                    .widget()
+                    .dynamic_cast::<super::GraphView>()
+                    .expect("drag-update event is not on the GraphView");
+                widget.graph_updated();
+            });
+
             let gesture = gtk::GestureClick::new();
             gesture.set_button(0);
             gesture.connect_pressed(
