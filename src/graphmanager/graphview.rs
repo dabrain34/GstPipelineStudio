@@ -409,8 +409,6 @@ mod imp {
         fn size_allocate(&self, _width: i32, _height: i32, baseline: i32) {
             let widget = &*self.obj();
 
-            let zoom_factor = self.zoom_factor.get();
-
             for (node, point) in self.nodes.borrow().values() {
                 let (_, natural_size) = node.preferred_size();
 
@@ -419,8 +417,8 @@ mod imp {
                     .translate(point);
 
                 node.allocate(
-                    (natural_size.width() as f64 * zoom_factor).ceil() as i32,
-                    (natural_size.height() as f64 * zoom_factor).ceil() as i32,
+                    natural_size.width(),
+                    natural_size.height(),
                     baseline,
                     Some(transform),
                 );
