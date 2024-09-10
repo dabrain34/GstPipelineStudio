@@ -208,10 +208,14 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
     close_button.add_css_class("image-button");
     close_button.add_css_class("flat");
     let app_weak = app.downgrade();
-    close_button.connect_clicked(glib::clone!(@weak graphbook => move |_| {
-        let app = upgrade_weak!(app_weak);
-        graphbook.remove_page(Some(current_graphtab(&app).id()));
-    }));
+    close_button.connect_clicked(glib::clone!(
+        #[weak]
+        graphbook,
+        move |_| {
+            let app = upgrade_weak!(app_weak);
+            graphbook.remove_page(Some(current_graphtab(&app).id()));
+        }
+    ));
     tab_box.append(&close_button);
     graphbook.append_page(&scrollwindow, Some(&tab_box));
     graphbook.set_tab_reorderable(&scrollwindow, true);
@@ -219,7 +223,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
     gt.graphview().connect_local(
         "graph-updated",
         false,
-        glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
+        glib::clone!(move |values: &[Value]| {
             let app = upgrade_weak!(app_weak, None);
             let id = values[1].get::<u32>().expect("id in args[1]");
             GPS_DEBUG!("Graph updated id={}", id);
@@ -238,7 +242,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
     gt.graphview().connect_local(
         "node-added",
         false,
-        glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
+        glib::clone!(move |values: &[Value]| {
             let app = upgrade_weak!(app_weak, None);
             let graph_id = values[1].get::<u32>().expect("graph id in args[1]");
             let node_id = values[2].get::<u32>().expect("node id in args[2]");
@@ -246,12 +250,16 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
                 let description = GPS::ElementInfo::element_description(&node.name()).ok();
                 node.set_tooltip_markup(description.as_deref());
-                if  !GPS::ElementInfo::element_factory_exists(&node.name()) {
+                if !GPS::ElementInfo::element_factory_exists(&node.name()) {
                     node.set_light(true);
                 }
                 for port in node.all_ports(GM::PortDirection::All) {
-                    let caps = PropertyExt::property(&port,"_caps");
-                    GPS_DEBUG!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
+                    let caps = PropertyExt::property(&port, "_caps");
+                    GPS_DEBUG!(
+                        "caps={} for port id {}",
+                        caps.clone().unwrap_or_else(|| "caps unknown".to_string()),
+                        port.id()
+                    );
                     port.set_tooltip_markup(caps.as_deref());
                 }
             }
@@ -263,16 +271,25 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
     gt.graphview().connect_local(
         "port-added",
         false,
-        glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
+        glib::clone!(move |values: &[Value]| {
             let app = upgrade_weak!(app_weak, None);
             let graph_id = values[1].get::<u32>().expect("graph id in args[1]");
             let node_id = values[2].get::<u32>().expect("node id in args[2]");
             let port_id = values[3].get::<u32>().expect("port id in args[3]");
-            GPS_DEBUG!("Port added port id={} to node id={} in graph id={}", port_id, node_id, graph_id);
+            GPS_DEBUG!(
+                "Port added port id={} to node id={} in graph id={}",
+                port_id,
+                node_id,
+                graph_id
+            );
             if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
                 if let Some(port) = node.port(port_id) {
                     let caps = PropertyExt::property(&port, "_caps");
-                    GPS_DEBUG!("caps={} for port id {}", caps.clone().unwrap_or_else(|| "caps unknown".to_string()), port.id());
+                    GPS_DEBUG!(
+                        "caps={} for port id {}",
+                        caps.clone().unwrap_or_else(|| "caps unknown".to_string()),
+                        port.id()
+                    );
                     port.set_tooltip_markup(caps.as_deref());
                 }
             }
@@ -281,49 +298,61 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
     );
     // When user clicks on port with right button
     let app_weak = app.downgrade();
-    gt.graphview()
-        .connect_local(
-            "graph-right-clicked",
-            false,
-            glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-                let point = values[1].get::<graphene::Point>().expect("point in args[2]");
-                let pop_menu = app.app_pop_menu_at_position(&*current_graphtab(&app).graphview(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
-                let menu: gio::MenuModel = app
+    gt.graphview().connect_local(
+        "graph-right-clicked",
+        false,
+        glib::clone!(move |values: &[Value]| {
+            let app = upgrade_weak!(app_weak, None);
+            let point = values[1]
+                .get::<graphene::Point>()
+                .expect("point in args[2]");
+            let pop_menu = app.app_pop_menu_at_position(
+                &*current_graphtab(&app).graphview(),
+                point.to_vec2().x() as f64,
+                point.to_vec2().y() as f64,
+            );
+            let menu: gio::MenuModel = app
                 .builder
                 .object("graph_menu")
                 .expect("Couldn't graph_menu");
-                pop_menu.set_menu_model(Some(&menu));
-                let app_weak = app.downgrade();
-                app.connect_app_menu_action("graph.clear",
-                    move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        current_graphtab(&app).graphview().clear();
-                    }
-                );
-                let app_weak = app.downgrade();
-                app.connect_app_menu_action("graph.check",
-                    move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        let render_parse_launch = current_graphtab(&app).player().pipeline_description_from_graphview(&current_graphtab(&app).graphview());
-                        if current_graphtab(&app).player().create_pipeline(&render_parse_launch).is_ok() {
-                            GPSUI::message::display_message_dialog(&render_parse_launch,gtk::MessageType::Info, |_| {});
-                        } else {
-                            GPSUI::message::display_error_dialog(false, &format!("Unable to render:\n\n{render_parse_launch}"));
-                        }
-                    }
-                );
-                let app_weak = app.downgrade();
-                app.connect_app_menu_action("graph.pipeline_details",
-                    move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPSUI::properties::display_pipeline_details(&app);
-                    }
-                );
-                pop_menu.show();
-                None
-            }),
-        );
+            pop_menu.set_menu_model(Some(&menu));
+            let app_weak = app.downgrade();
+            app.connect_app_menu_action("graph.clear", move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                current_graphtab(&app).graphview().clear();
+            });
+            let app_weak = app.downgrade();
+            app.connect_app_menu_action("graph.check", move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                let render_parse_launch = current_graphtab(&app)
+                    .player()
+                    .pipeline_description_from_graphview(&current_graphtab(&app).graphview());
+                if current_graphtab(&app)
+                    .player()
+                    .create_pipeline(&render_parse_launch)
+                    .is_ok()
+                {
+                    GPSUI::message::display_message_dialog(
+                        &render_parse_launch,
+                        gtk::MessageType::Info,
+                        |_| {},
+                    );
+                } else {
+                    GPSUI::message::display_error_dialog(
+                        false,
+                        &format!("Unable to render:\n\n{render_parse_launch}"),
+                    );
+                }
+            });
+            let app_weak = app.downgrade();
+            app.connect_app_menu_action("graph.pipeline_details", move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                GPSUI::properties::display_pipeline_details(&app);
+            });
+            pop_menu.show();
+            None
+        }),
+    );
 
     // When user clicks on port with right button
     let app_weak = app.downgrade();
@@ -382,92 +411,101 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
 
     // When user clicks on node with right button
     let app_weak = app.downgrade();
-    gt.graphview()
-        .connect_local(
-            "node-right-clicked",
-            false,
-            glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
-                let app = upgrade_weak!(app_weak, None);
-                let node_id = values[1].get::<u32>().expect("node id args[1]");
-                let node = current_graphtab(&app).graphview().node(node_id).unwrap();
-                let element_exists = GPS::ElementInfo::element_factory_exists(&node.name());
-                let point = values[2].get::<graphene::Point>().expect("point in args[2]");
-                let pop_menu = app.app_pop_menu_at_position(&*current_graphtab(&app).graphview(), point.to_vec2().x() as f64, point.to_vec2().y() as f64);
-                let menu: gio::MenuModel = app
-                    .builder
-                    .object("node_menu")
-                    .expect("Couldn't get menu model for node");
-                pop_menu.set_menu_model(Some(&menu));
+    gt.graphview().connect_local(
+        "node-right-clicked",
+        false,
+        glib::clone!(move |values: &[Value]| {
+            let app = upgrade_weak!(app_weak, None);
+            let node_id = values[1].get::<u32>().expect("node id args[1]");
+            let node = current_graphtab(&app).graphview().node(node_id).unwrap();
+            let element_exists = GPS::ElementInfo::element_factory_exists(&node.name());
+            let point = values[2]
+                .get::<graphene::Point>()
+                .expect("point in args[2]");
+            let pop_menu = app.app_pop_menu_at_position(
+                &*current_graphtab(&app).graphview(),
+                point.to_vec2().x() as f64,
+                point.to_vec2().y() as f64,
+            );
+            let menu: gio::MenuModel = app
+                .builder
+                .object("node_menu")
+                .expect("Couldn't get menu model for node");
+            pop_menu.set_menu_model(Some(&menu));
 
+            let app_weak = app.downgrade();
+            app.connect_app_menu_action("node.delete", move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                GPS_DEBUG!("node.delete id: {}", node_id);
+                current_graphtab(&app).graphview().remove_node(node_id);
+            });
+            if element_exists {
+                let app_weak = app.downgrade();
+                app.connect_app_menu_action("node.add-to-favorite", move |_, _| {
+                    let app = upgrade_weak!(app_weak);
+                    GPS_DEBUG!("node.add-to-favorite id: {}", node_id);
+                    if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
+                        GPSUI::elements::add_to_favorite_list(&app, node.name());
+                    };
+                });
+
+                let node = app.node(node_id);
+                if let Some(input) = GPS::ElementInfo::element_supports_new_pad_request(
+                    &node.name(),
+                    GM::PortDirection::Input,
+                ) {
+                    let app_weak = app.downgrade();
+                    app.connect_app_menu_action("node.request-pad-input", move |_, _| {
+                        let app = upgrade_weak!(app_weak);
+                        GPS_DEBUG!("node.request-pad-input id: {}", node_id);
+                        app.create_port_with_caps(
+                            node_id,
+                            GM::PortDirection::Input,
+                            GM::PortPresence::Sometimes,
+                            input.caps().to_string(),
+                        );
+                    });
+                } else {
+                    app.disconnect_app_menu_action("node.request-pad-input");
+                }
+                let node = app.node(node_id);
+                if let Some(output) = GPS::ElementInfo::element_supports_new_pad_request(
+                    &node.name(),
+                    GM::PortDirection::Output,
+                ) {
+                    let app_weak = app.downgrade();
+                    app.connect_app_menu_action("node.request-pad-output", move |_, _| {
+                        let app = upgrade_weak!(app_weak);
+                        GPS_DEBUG!("node.request-pad-output id: {}", node_id);
+                        app.create_port_with_caps(
+                            node_id,
+                            GM::PortDirection::Output,
+                            GM::PortPresence::Sometimes,
+                            output.caps().to_string(),
+                        );
+                    });
+                } else {
+                    app.disconnect_app_menu_action("node.request-pad-output");
+                }
 
                 let app_weak = app.downgrade();
-                app.connect_app_menu_action("node.delete",
-                    move |_,_| {
-                        let app = upgrade_weak!(app_weak);
-                        GPS_DEBUG!("node.delete id: {}", node_id);
-                        current_graphtab(&app).graphview().remove_node(node_id);
-                    }
-                );
-                if element_exists {
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.add-to-favorite",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.add-to-favorite id: {}", node_id);
-                            if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
-                                GPSUI::elements::add_to_favorite_list(&app, node.name());
-                            };
-                        }
-                    );
-
-
-                    let node = app.node(node_id);
-                    if let Some(input) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Input) {
-                        let app_weak = app.downgrade();
-                        app.connect_app_menu_action("node.request-pad-input",
-                            move |_,_| {
-                                let app = upgrade_weak!(app_weak);
-                                GPS_DEBUG!("node.request-pad-input id: {}", node_id);
-                                app.create_port_with_caps(node_id, GM::PortDirection::Input, GM::PortPresence::Sometimes, input.caps().to_string());
-                            }
-                        );
-                    } else {
-                        app.disconnect_app_menu_action("node.request-pad-input");
-                    }
-                    let node = app.node(node_id);
-                    if let Some(output) = GPS::ElementInfo::element_supports_new_pad_request(&node.name(),  GM::PortDirection::Output) {
-                        let app_weak = app.downgrade();
-                        app.connect_app_menu_action("node.request-pad-output",
-                            move |_,_| {
-                                let app = upgrade_weak!(app_weak);
-                                GPS_DEBUG!("node.request-pad-output id: {}", node_id);
-                                app.create_port_with_caps(node_id, GM::PortDirection::Output, GM::PortPresence::Sometimes, output.caps().to_string());
-                            }
-                        );
-                    } else {
-                        app.disconnect_app_menu_action("node.request-pad-output");
-                    }
-
-                    let app_weak = app.downgrade();
-                    app.connect_app_menu_action("node.properties",
-                        move |_,_| {
-                            let app = upgrade_weak!(app_weak);
-                            GPS_DEBUG!("node.properties id {}", node_id);
-                            let node = current_graphtab(&app).graphview().node(node_id).unwrap();
-                            GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
-                        }
-                    );
-                }
-                pop_menu.show();
-                None
-            }),
-        );
+                app.connect_app_menu_action("node.properties", move |_, _| {
+                    let app = upgrade_weak!(app_weak);
+                    GPS_DEBUG!("node.properties id {}", node_id);
+                    let node = current_graphtab(&app).graphview().node(node_id).unwrap();
+                    GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
+                });
+            }
+            pop_menu.show();
+            None
+        }),
+    );
 
     let app_weak = app.downgrade();
     gt.graphview().connect_local(
         "node-double-clicked",
         false,
-        glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
+        glib::clone!(move |values: &[Value]| {
             let app = upgrade_weak!(app_weak, None);
             let node_id = values[1].get::<u32>().expect("node id args[1]");
             GPS_TRACE!("Node double clicked id={}", node_id);
@@ -482,7 +520,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
     gt.graphview().connect_local(
         "link-double-clicked",
         false,
-        glib::clone!(@weak graphbook =>  @default-return None, move |values: &[Value]| {
+        glib::clone!(move |values: &[Value]| {
             let app = upgrade_weak!(app_weak, None);
             let link_id = values[1].get::<u32>().expect("link id args[1]");
             GPS_TRACE!("link double clicked id={}", link_id);
@@ -493,7 +531,9 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                 &link.name(),
                 &app,
                 move |app, link_desc| {
-                    current_graphtab(&app).graphview().set_link_name(link.id(), link_desc.as_str());
+                    current_graphtab(&app)
+                        .graphview()
+                        .set_link_name(link.id(), link_desc.as_str());
                     GPS_DEBUG!("link double clicked id={} name={}", link.id(), link.name());
                 },
             );

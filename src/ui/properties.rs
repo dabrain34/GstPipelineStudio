@@ -46,8 +46,8 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
             } else if let Some(value) = common::value_as_str(param.default_value()) {
                 check_button.set_active(value.parse::<bool>().unwrap_or(false));
             }
-            check_button.connect_toggled(glib::clone!(@weak check_button => move |c| {
-                f(c.widget_name().to_string(), c.is_active().to_string() );
+            check_button.connect_toggled(glib::clone!(move |c| {
+                f(c.widget_name().to_string(), c.is_active().to_string());
             }));
             Some(check_button.upcast::<gtk::Widget>())
         }
@@ -79,7 +79,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                 entry.set_text(&value);
             }
 
-            entry.connect_changed(glib::clone!(@weak entry=> move |e| {
+            entry.connect_changed(glib::clone!(move |e| {
                 f(e.widget_name().to_string(), e.text().to_string())
             }));
             Some(entry.upcast::<gtk::Widget>())
@@ -182,10 +182,14 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
             element_name,
             name,
             param,
-            glib::clone!(@strong update_properties => move |name, value| {
-                GPS_INFO!("property changed: {}:{}", name, value);
-                update_properties.borrow_mut().insert(name, value);
-            }),
+            glib::clone!(
+                #[strong]
+                update_properties,
+                move |name, value| {
+                    GPS_INFO!("property changed: {}:{}", name, value);
+                    update_properties.borrow_mut().insert(name, value);
+                }
+            ),
         );
         if let Some(widget) = widget {
             let label = gtk::Label::builder()
@@ -204,10 +208,14 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
         &format!("{element_name} properties"),
         app,
         &grid,
-        glib::clone!(@strong update_properties => move |app, dialog| {
-            app.update_element_properties(node_id, &update_properties.borrow());
-            dialog.close();
-        }),
+        glib::clone!(
+            #[strong]
+            update_properties,
+            move |app, dialog| {
+                app.update_element_properties(node_id, &update_properties.borrow());
+                dialog.close();
+            }
+        ),
     );
 
     dialog.show();
@@ -240,11 +248,20 @@ pub fn display_pad_properties(
         let property_value = gtk::Entry::new();
         property_value.set_width_request(150);
         property_value.set_text(&value);
-        property_value.connect_changed(
-            glib::clone!(@weak property_name, @weak property_value, @strong update_properties=> move |_| {
-                update_properties.borrow_mut().insert(property_name.text().to_string(), property_value.text().to_string());
-            }),
-        );
+        property_value.connect_changed(glib::clone!(
+            #[weak]
+            property_name,
+            #[weak]
+            property_value,
+            #[strong]
+            update_properties,
+            move |_| {
+                update_properties.borrow_mut().insert(
+                    property_name.text().to_string(),
+                    property_value.text().to_string(),
+                );
+            }
+        ));
         grid.attach(&property_name, 0, i, 1, 1);
         grid.attach(&property_value, 1, i, 1, 1);
         i += 1;
@@ -263,17 +280,35 @@ pub fn display_pad_properties(
     let property_value = gtk::Entry::new();
     property_value.set_width_request(150);
 
-    property_name.connect_changed(
-        glib::clone!(@weak property_name, @weak property_value, @strong update_properties=> move |_| {
-            update_properties.borrow_mut().insert(property_name.text().to_string(), property_value.text().to_string());
-        }),
-    );
+    property_name.connect_changed(glib::clone!(
+        #[weak]
+        property_name,
+        #[weak]
+        property_value,
+        #[strong]
+        update_properties,
+        move |_| {
+            update_properties.borrow_mut().insert(
+                property_name.text().to_string(),
+                property_value.text().to_string(),
+            );
+        }
+    ));
 
-    property_value.connect_changed(
-        glib::clone!(@weak property_name, @weak property_value, @strong update_properties=> move |_| {
-            update_properties.borrow_mut().insert(property_name.text().to_string(), property_value.text().to_string());
-        }),
-    );
+    property_value.connect_changed(glib::clone!(
+        #[weak]
+        property_name,
+        #[weak]
+        property_value,
+        #[strong]
+        update_properties,
+        move |_| {
+            update_properties.borrow_mut().insert(
+                property_name.text().to_string(),
+                property_value.text().to_string(),
+            );
+        }
+    ));
     grid.attach(&label, 0, i, 1, 1);
     grid.attach(&property_name, 1, i, 1, 1);
     grid.attach(&property_value, 2, i, 1, 1);
@@ -284,13 +319,17 @@ pub fn display_pad_properties(
         &format!("{port_name} properties from {element_name}"),
         app,
         &grid,
-        glib::clone!(@strong update_properties => move |app, dialog| {
-            for p in update_properties.borrow().values() {
-                GPS_INFO!("updated properties {}", p);
+        glib::clone!(
+            #[strong]
+            update_properties,
+            move |app, dialog| {
+                for p in update_properties.borrow().values() {
+                    GPS_INFO!("updated properties {}", p);
+                }
+                app.update_pad_properties(node_id, port_id, &update_properties.borrow());
+                dialog.close();
             }
-            app.update_pad_properties(node_id, port_id, &update_properties.borrow());
-            dialog.close();
-        }),
+        ),
     );
 
     dialog.show();

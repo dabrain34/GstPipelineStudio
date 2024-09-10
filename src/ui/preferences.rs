@@ -41,9 +41,11 @@ pub fn display_settings(app: &GPSApp) {
             .parse::<bool>()
             .expect("Should a boolean value"),
     );
-    widget.connect_toggled(glib::clone!(@weak widget => move |c| {
+    widget.connect_toggled(glib::clone!(move |c| {
         let mut settings = settings::Settings::load_settings();
-        settings.preferences.insert("use_gtk4_sink".to_string(), c.is_active().to_string());
+        settings
+            .preferences
+            .insert("use_gtk4_sink".to_string(), c.is_active().to_string());
         settings::Settings::save_settings(&settings);
     }));
 
@@ -66,9 +68,11 @@ pub fn display_settings(app: &GPSApp) {
             .parse::<f64>()
             .expect("Should a f64 value"),
     );
-    widget.connect_value_changed(glib::clone!(@weak widget => move |c| {
+    widget.connect_value_changed(glib::clone!(move |c| {
         let mut settings = settings::Settings::load_settings();
-        settings.preferences.insert("log_level".to_string(), c.value().to_string());
+        settings
+            .preferences
+            .insert("log_level".to_string(), c.value().to_string());
         logger::set_log_level(logger::LogLevel::from_u32(c.value() as u32));
         settings::Settings::save_settings(&settings);
     }));
@@ -84,9 +88,11 @@ pub fn display_settings(app: &GPSApp) {
 
     let widget = gtk::Entry::new();
     widget.set_text(settings::Settings::gst_log_level().as_str());
-    widget.connect_changed(glib::clone!(@weak widget => move |c| {
+    widget.connect_changed(glib::clone!(move |c| {
         let mut settings = settings::Settings::load_settings();
-        settings.preferences.insert("gst_log_level".to_string(), c.text().to_string());
+        settings
+            .preferences
+            .insert("gst_log_level".to_string(), c.text().to_string());
         settings::Settings::save_settings(&settings);
     }));
     let widget = widget

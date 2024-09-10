@@ -55,27 +55,27 @@ pub fn setup_logger_list(app: &GPSApp, logger_name: &str, log_type: logger::LogT
     let gesture = gtk::GestureClick::new();
     gesture.set_button(0);
     let app_weak = app.downgrade();
-    gesture.connect_pressed(
-        glib::clone!(@weak logger_list => move |gesture, _n_press, x, y| {
+    gesture.connect_pressed(glib::clone!(
+        #[weak]
+        logger_list,
+        move |gesture, _n_press, x, y| {
             let app = upgrade_weak!(app_weak);
             if gesture.current_button() == gtk::gdk::BUTTON_SECONDARY {
-                    let pop_menu = app.app_pop_menu_at_position(&logger_list, x, y);
-                    let menu: gio::MenuModel = app
+                let pop_menu = app.app_pop_menu_at_position(&logger_list, x, y);
+                let menu: gio::MenuModel = app
                     .builder
                     .object("logger_menu")
                     .expect("Couldn't get fav_menu model");
-                    pop_menu.set_menu_model(Some(&menu));
+                pop_menu.set_menu_model(Some(&menu));
 
-                    app.connect_app_menu_action("logger.clear",
-                        move |_,_| {
-                            reset_logger_list(&logger_list);
-                        }
-                    );
+                app.connect_app_menu_action("logger.clear", move |_, _| {
+                    reset_logger_list(&logger_list);
+                });
 
-                    pop_menu.show();
+                pop_menu.show();
             }
-        }),
-    );
+        }
+    ));
     logger_list.add_controller(gesture);
 }
 

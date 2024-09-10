@@ -54,36 +54,34 @@ pub fn setup_favorite_list(app: &GPSApp) {
     let gesture = gtk::GestureClick::new();
     gesture.set_button(0);
     let app_weak = app.downgrade();
-    gesture.connect_pressed(
-        glib::clone!(@weak favorite_list => move |gesture, _n_press, x, y| {
+    gesture.connect_pressed(glib::clone!(
+        #[weak]
+        favorite_list,
+        move |gesture, _n_press, x, y| {
             let app = upgrade_weak!(app_weak);
             if gesture.current_button() == BUTTON_SECONDARY {
                 let selection = favorite_list.selection();
                 if let Some((model, iter)) = selection.selected() {
-                    let element_name = model
-                    .get::<String>(&iter, 0);
+                    let element_name = model.get::<String>(&iter, 0);
                     GPS_DEBUG!("Element {} selected", element_name);
 
                     let pop_menu = app.app_pop_menu_at_position(&favorite_list, x, y);
                     let menu: gio::MenuModel = app
-                    .builder
-                    .object("fav_menu")
-                    .expect("Couldn't get fav_menu model");
+                        .builder
+                        .object("fav_menu")
+                        .expect("Couldn't get fav_menu model");
                     pop_menu.set_menu_model(Some(&menu));
 
-                    app.connect_app_menu_action("favorite.remove",
-                        move |_,_| {
-                            Settings::remove_favorite(&element_name);
-                            reset_favorite_list(&favorite_list);
-                        }
-                    );
+                    app.connect_app_menu_action("favorite.remove", move |_, _| {
+                        Settings::remove_favorite(&element_name);
+                        reset_favorite_list(&favorite_list);
+                    });
 
                     pop_menu.show();
                 }
-
             }
-        }),
-    );
+        }
+    ));
     favorite_list.add_controller(gesture);
 }
 

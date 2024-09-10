@@ -23,10 +23,14 @@ pub fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
     dialog.set_default_size(640, 480);
     dialog.set_modal(true);
     let app_weak = app.downgrade();
-    dialog.connect_response(glib::clone!(@weak dialog => move |_,_| {
-        let app = upgrade_weak!(app_weak);
-        f(app, dialog)
-    }));
+    dialog.connect_response(glib::clone!(
+        #[weak]
+        dialog,
+        move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            f(app, dialog)
+        }
+    ));
 
     let scrolledwindow = gtk::ScrolledWindow::builder()
         .hexpand(true)
@@ -84,13 +88,17 @@ pub fn create_input_dialog<F: Fn(GPSApp, String) + 'static>(
     content_area.append(&label);
     content_area.append(&entry);
     let app_weak = app.downgrade();
-    dialog.connect_response(glib::clone!(@weak entry => move |dialog, response_type| {
-        let app = upgrade_weak!(app_weak);
-        if response_type == gtk::ResponseType::Apply {
-            f(app, entry.text().to_string());
+    dialog.connect_response(glib::clone!(
+        #[weak]
+        entry,
+        move |dialog, response_type| {
+            let app = upgrade_weak!(app_weak);
+            if response_type == gtk::ResponseType::Apply {
+                f(app, entry.text().to_string());
+            }
+            dialog.close()
         }
-        dialog.close()
-    }));
+    ));
 
     dialog.show();
 }
