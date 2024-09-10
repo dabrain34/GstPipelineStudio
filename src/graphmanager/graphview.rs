@@ -99,6 +99,7 @@ mod imp {
             drag_controller.connect_drag_begin(|drag_controller, x, y| {
                 let widget = drag_controller
                     .widget()
+                    .unwrap()
                     .dynamic_cast::<super::GraphView>()
                     .expect("drag-begin event is not on the GraphView");
                 let mut dragged_node = widget.imp().dragged_node.borrow_mut();
@@ -138,6 +139,7 @@ mod imp {
             drag_controller.connect_drag_update(|drag_controller, x, y| {
                 let widget = drag_controller
                     .widget()
+                    .unwrap()
                     .dynamic_cast::<super::GraphView>()
                     .expect("drag-update event is not on the GraphView");
                 let dragged_node = widget.imp().dragged_node.borrow();
@@ -167,6 +169,7 @@ mod imp {
             drag_controller.connect_drag_end(|drag_controller, _x, _y| {
                 let widget = drag_controller
                     .widget()
+                    .unwrap()
                     .dynamic_cast::<super::GraphView>()
                     .expect("drag-update event is not on the GraphView");
                 widget.graph_updated();
@@ -174,122 +177,208 @@ mod imp {
 
             let gesture = gtk::GestureClick::new();
             gesture.set_button(0);
-            gesture.connect_pressed(
-                clone!(@weak obj, @weak drag_controller => move |gesture, _n_press, x, y| {
+            gesture.connect_pressed(clone!(
+                #[weak]
+                obj,
+                #[weak]
+                drag_controller,
+                move |gesture, _n_press, x, y| {
                     if gesture.current_button() == gdk::BUTTON_SECONDARY {
-                        let widget = drag_controller.widget()
-                        .dynamic_cast::<Self::Type>()
-                        .expect("click event is not on the GraphView");
-                        let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("port pick() did not return a widget");
-                        if let Some(target) = target.ancestor(Port::static_type()) {
-                            let port = target.dynamic_cast::<Port>().expect("click event is not on the Port");
-                            let node = port.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                            obj.emit_by_name::<()>("port-right-clicked", &[&port.id(), &node.id(), &graphene::Point::new(x as f32,y as f32)]);
-                        } else if let Some(target) = target.ancestor(Node::static_type()) {
-                            let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
-                            widget.unselect_all();
-                            node.set_selected(true);
-                            obj.emit_by_name::<()>("node-right-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]);
-                        } else {
-                            widget.unselect_all();
-                            obj.emit_by_name::<()>("graph-right-clicked", &[&graphene::Point::new(x as f32,y as f32)]);
-                        }
-                    } else if gesture.current_button() == gdk::BUTTON_PRIMARY {
-                        let widget = drag_controller.widget()
-                        .dynamic_cast::<Self::Type>()
-                        .expect("click event is not on the GraphView");
-                        let target = widget.pick(x, y, gtk::PickFlags::DEFAULT).expect("port pick() did not return a widget");
-                        if let Some(target) = target.ancestor(Port::static_type()) {
-                            let port = target.dynamic_cast::<Port>().expect("click event is not on the Node");
-                            widget.unselect_all();
-                            port.toggle_selected();
-                        } else  if let Some(target) = target.ancestor(Node::static_type()) {
-                            let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
-                            widget.unselect_all();
-                            node.toggle_selected();
-                        }
-                         else {
-                            widget.point_on_link(&graphene::Point::new(x.floor() as f32,y.floor() as f32));
-                        }
-                    }
-                }),
-            );
-
-            gesture.connect_released(clone!(@weak gesture, @weak obj, @weak drag_controller => move |_gesture, _n_press, x, y| {
-                if gesture.current_button() == gdk::BUTTON_PRIMARY {
-                    let widget = drag_controller
+                        let widget = drag_controller
                             .widget()
+                            .unwrap()
                             .dynamic_cast::<Self::Type>()
                             .expect("click event is not on the GraphView");
-                    if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
+                        let target = widget
+                            .pick(x, y, gtk::PickFlags::DEFAULT)
+                            .expect("port pick() did not return a widget");
                         if let Some(target) = target.ancestor(Port::static_type()) {
-                            let port_clicked = target.dynamic_cast::<Port>().expect("click event is not on the Port");
-                            if widget.port_is_linked(port_clicked.id()).is_none() {
-                                let selected_port = widget.selected_port().to_owned();
-                                if let Some(mut port_from) = selected_port {
-                                    debug!("Port {} is clicked at {}:{}", port_clicked.id(), x, y);
-                                    let mut port_to = port_clicked;
-                                    if widget.ports_compatible(&port_to) {
-                                        let mut node_from = port_from.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                        let mut node_to = port_to.ancestor(Node::static_type()).expect("Unable to reach parent").dynamic_cast::<Node>().expect("Unable to cast to Node");
-                                        info!("add link from port {} to {} ", port_from.id(), port_to.id());
-                                        if port_to.direction() == PortDirection::Output {
-                                            debug!("swap ports and nodes to create the link");
-                                            std::mem::swap(&mut node_from, &mut node_to);
-                                            std::mem::swap(&mut port_from, &mut port_to);
-                                        }
-                                        widget.add_link(widget.create_link(
-                                            node_from.id(),
-                                            node_to.id(),
-                                            port_from.id(),
-                                            port_to.id(),
-                                         ));
-                                    }
-                                    widget.set_selected_port(None);
-                                } else {
-                                    info!("add selected port id {}", port_clicked.id());
-                                    widget.set_selected_port(Some(&port_clicked));
-                                }
-                            } else {
-                                // click to a linked port
-                                widget.set_selected_port(None);
-                            }
+                            let port = target
+                                .dynamic_cast::<Port>()
+                                .expect("click event is not on the Port");
+                            let node = port
+                                .ancestor(Node::static_type())
+                                .expect("Unable to reach parent")
+                                .dynamic_cast::<Node>()
+                                .expect("Unable to cast to Node");
+                            obj.emit_by_name::<()>(
+                                "port-right-clicked",
+                                &[
+                                    &port.id(),
+                                    &node.id(),
+                                    &graphene::Point::new(x as f32, y as f32),
+                                ],
+                            );
+                        } else if let Some(target) = target.ancestor(Node::static_type()) {
+                            let node = target
+                                .dynamic_cast::<Node>()
+                                .expect("click event is not on the Node");
+                            widget.unselect_all();
+                            node.set_selected(true);
+                            obj.emit_by_name::<()>(
+                                "node-right-clicked",
+                                &[&node.id(), &graphene::Point::new(x as f32, y as f32)],
+                            );
+                        } else {
+                            widget.unselect_all();
+                            obj.emit_by_name::<()>(
+                                "graph-right-clicked",
+                                &[&graphene::Point::new(x as f32, y as f32)],
+                            );
                         }
-                        else {
-                            if let Some(target) = target.ancestor(Node::static_type()) {
-                                let node = target.dynamic_cast::<Node>().expect("click event is not on the Node");
-                                info!(" node id {}", node.id());
-                                if _n_press % 2 == 0  {
-                                    info!("double clicked node id {}", node.id());
-                                    obj.emit_by_name::<()>("node-double-clicked", &[&node.id(), &graphene::Point::new(x as f32,y as f32)]);
-                                }
-                            } else if _n_press % 2 == 0  {
-                                if let Some(link) = widget.point_on_link(&graphene::Point::new(x.floor() as f32,y.floor() as f32)) {
-                                    info!("double clicked link id {}", link.id());
-                                    obj.emit_by_name::<()>("link-double-clicked", &[&link.id(), &graphene::Point::new(x as f32,y as f32)]);
-                                }
-                            } else {
-                                info!("double click {}",widget.width());
-                            }
-
-                            // Click to something else than a port
-                            widget.set_selected_port(None);
+                    } else if gesture.current_button() == gdk::BUTTON_PRIMARY {
+                        let widget = drag_controller
+                            .widget()
+                            .unwrap()
+                            .dynamic_cast::<Self::Type>()
+                            .expect("click event is not on the GraphView");
+                        let target = widget
+                            .pick(x, y, gtk::PickFlags::DEFAULT)
+                            .expect("port pick() did not return a widget");
+                        if let Some(target) = target.ancestor(Port::static_type()) {
+                            let port = target
+                                .dynamic_cast::<Port>()
+                                .expect("click event is not on the Node");
+                            widget.unselect_all();
+                            port.toggle_selected();
+                        } else if let Some(target) = target.ancestor(Node::static_type()) {
+                            let node = target
+                                .dynamic_cast::<Node>()
+                                .expect("click event is not on the Node");
+                            widget.unselect_all();
+                            node.toggle_selected();
+                        } else {
+                            widget.point_on_link(&graphene::Point::new(
+                                x.floor() as f32,
+                                y.floor() as f32,
+                            ));
                         }
                     }
                 }
-            }));
+            ));
+
+            gesture.connect_released(clone!(
+                #[weak]
+                gesture,
+                #[weak]
+                obj,
+                #[weak]
+                drag_controller,
+                move |_gesture, _n_press, x, y| {
+                    if gesture.current_button() == gdk::BUTTON_PRIMARY {
+                        let widget = drag_controller
+                            .widget()
+                            .unwrap()
+                            .dynamic_cast::<Self::Type>()
+                            .expect("click event is not on the GraphView");
+                        if let Some(target) = widget.pick(x, y, gtk::PickFlags::DEFAULT) {
+                            if let Some(target) = target.ancestor(Port::static_type()) {
+                                let port_clicked = target
+                                    .dynamic_cast::<Port>()
+                                    .expect("click event is not on the Port");
+                                if widget.port_is_linked(port_clicked.id()).is_none() {
+                                    let selected_port = widget.selected_port().to_owned();
+                                    if let Some(mut port_from) = selected_port {
+                                        debug!(
+                                            "Port {} is clicked at {}:{}",
+                                            port_clicked.id(),
+                                            x,
+                                            y
+                                        );
+                                        let mut port_to = port_clicked;
+                                        if widget.ports_compatible(&port_to) {
+                                            let mut node_from = port_from
+                                                .ancestor(Node::static_type())
+                                                .expect("Unable to reach parent")
+                                                .dynamic_cast::<Node>()
+                                                .expect("Unable to cast to Node");
+                                            let mut node_to = port_to
+                                                .ancestor(Node::static_type())
+                                                .expect("Unable to reach parent")
+                                                .dynamic_cast::<Node>()
+                                                .expect("Unable to cast to Node");
+                                            info!(
+                                                "add link from port {} to {} ",
+                                                port_from.id(),
+                                                port_to.id()
+                                            );
+                                            if port_to.direction() == PortDirection::Output {
+                                                debug!("swap ports and nodes to create the link");
+                                                std::mem::swap(&mut node_from, &mut node_to);
+                                                std::mem::swap(&mut port_from, &mut port_to);
+                                            }
+                                            widget.add_link(widget.create_link(
+                                                node_from.id(),
+                                                node_to.id(),
+                                                port_from.id(),
+                                                port_to.id(),
+                                            ));
+                                        }
+                                        widget.set_selected_port(None);
+                                    } else {
+                                        info!("add selected port id {}", port_clicked.id());
+                                        widget.set_selected_port(Some(&port_clicked));
+                                    }
+                                } else {
+                                    // click to a linked port
+                                    widget.set_selected_port(None);
+                                }
+                            } else {
+                                if let Some(target) = target.ancestor(Node::static_type()) {
+                                    let node = target
+                                        .dynamic_cast::<Node>()
+                                        .expect("click event is not on the Node");
+                                    info!(" node id {}", node.id());
+                                    if _n_press % 2 == 0 {
+                                        info!("double clicked node id {}", node.id());
+                                        obj.emit_by_name::<()>(
+                                            "node-double-clicked",
+                                            &[
+                                                &node.id(),
+                                                &graphene::Point::new(x as f32, y as f32),
+                                            ],
+                                        );
+                                    }
+                                } else if _n_press % 2 == 0 {
+                                    if let Some(link) = widget.point_on_link(&graphene::Point::new(
+                                        x.floor() as f32,
+                                        y.floor() as f32,
+                                    )) {
+                                        info!("double clicked link id {}", link.id());
+                                        obj.emit_by_name::<()>(
+                                            "link-double-clicked",
+                                            &[
+                                                &link.id(),
+                                                &graphene::Point::new(x as f32, y as f32),
+                                            ],
+                                        );
+                                    }
+                                } else {
+                                    info!("double click {}", widget.width());
+                                }
+
+                                // Click to something else than a port
+                                widget.set_selected_port(None);
+                            }
+                        }
+                    }
+                }
+            ));
             obj.add_controller(drag_controller);
             obj.add_controller(gesture);
 
             let event_motion = gtk::EventControllerMotion::new();
-            event_motion.connect_motion(glib::clone!(@weak obj => move |_e, x, y| {
-                let graphview = obj;
-                if graphview.selected_port().is_some() {
-                    graphview.set_mouse_position(x,y);
-                    graphview.queue_allocate();
+            event_motion.connect_motion(glib::clone!(
+                #[weak]
+                obj,
+                move |_e, x, y| {
+                    let graphview = obj;
+                    if graphview.selected_port().is_some() {
+                        graphview.set_mouse_position(x, y);
+                        graphview.queue_allocate();
+                    }
                 }
-
-            }));
+            ));
             obj.add_controller(event_motion);
 
             let scroll_controller =
@@ -304,6 +393,7 @@ mod imp {
                 {
                     let widget = eventcontroller
                         .widget()
+                        .unwrap()
                         .downcast::<super::GraphView>()
                         .unwrap();
                     widget.set_zoom_factor(widget.zoom_factor() + (0.1 * -delta_y), None);
@@ -1564,7 +1654,11 @@ impl GraphView {
         }
 
         if let Some(adjustment) = adjustment {
-            adjustment.connect_value_changed(clone!(@weak obj => move |_|  obj.queue_allocate() ));
+            adjustment.connect_value_changed(clone!(
+                #[weak]
+                obj,
+                move |_| obj.queue_allocate()
+            ));
         }
     }
 
