@@ -1266,7 +1266,7 @@ impl GraphView {
                             if let Some(id) = attrs.get::<String>(&String::from("id")) {
                                 self.set_id(id.parse::<u32>().expect("id should be an u32"));
                             }
-                            if let Some(version) = attrs.get::<String>(&"version".to_string()) {
+                            if let Some(version) = attrs.get::<String>(&String::from("version")) {
                                 info!("Found file format version: {}", version);
                             } else {
                                 warn!("No file format version found");
