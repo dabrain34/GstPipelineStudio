@@ -15,7 +15,6 @@ use gtk::{
     PopoverMenu, ResponseType, Statusbar, Widget,
 };
 use log::error;
-use once_cell::unsync::OnceCell;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fs::File;
@@ -40,7 +39,6 @@ pub struct GPSAppInner {
     pub current_graphtab: Cell<u32>,
     pub graphbook: RefCell<HashMap<u32, graphbook::GraphTab>>,
     pub builder: Builder,
-    pub plugin_list_initialized: OnceCell<bool>,
     pub signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
 }
 
@@ -100,7 +98,6 @@ impl GPSApp {
             current_graphtab: Cell::new(0),
             graphbook: RefCell::new(HashMap::new()),
             builder,
-            plugin_list_initialized: OnceCell::new(),
             signal_handlers: RefCell::new(HashMap::new()),
         }));
         let settings = Settings::load_settings();

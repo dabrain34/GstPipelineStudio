@@ -122,8 +122,7 @@ struct WriteAdapter {
 impl io::Write for WriteAdapter {
     // On write we forward each u8 of the buffer to the sender and return the length of the buffer
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buffer
-            .push_str(&String::from_utf8(buf.to_vec()).unwrap());
+        self.buffer.push_str(core::str::from_utf8(buf).unwrap());
         if self.buffer.ends_with('\n') {
             self.buffer.pop();
             let _ = self.sender.try_send((LogType::App, self.buffer.clone()));
