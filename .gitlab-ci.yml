@@ -251,6 +251,8 @@ macos installer stable:
     - open /Applications/Python\ 3.8/Install\ Certificates.command
     # Get ninja
     - pip3 install -U ninja
+    # Get tomlib
+    - pip3 install -U tomli
   script:
     # rust toolchain
     - curl https://sh.rustup.rs -sSf | sh -s -- -y
