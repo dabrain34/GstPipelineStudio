@@ -283,6 +283,7 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("node.request-pad-input", None));
         application.add_action(&gio::SimpleAction::new("node.request-pad-output", None));
         application.add_action(&gio::SimpleAction::new("node.properties", None));
+        application.add_action(&gio::SimpleAction::new("node.duplicate", None));
     }
 
     pub fn app_pop_menu_at_position(

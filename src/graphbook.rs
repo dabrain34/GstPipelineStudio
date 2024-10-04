@@ -495,6 +495,14 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                     let node = current_graphtab(&app).graphview().node(node_id).unwrap();
                     GPSUI::properties::display_plugin_properties(&app, &node.name(), node_id);
                 });
+                let app_weak = app.downgrade();
+                app.connect_app_menu_action("node.duplicate", move |_, _| {
+                    let app = upgrade_weak!(app_weak);
+                    GPS_DEBUG!("node.d id: {}", node_id);
+                    if let Some(node) = current_graphtab(&app).graphview().node(node_id) {
+                        app.add_new_element(&node.name());
+                    };
+                });
             }
             pop_menu.show();
             None

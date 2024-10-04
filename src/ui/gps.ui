@@ -111,6 +111,11 @@
         <attribute name="action">app.node.add-to-favorite</attribute>
         <attribute name="accel">&lt;primary&gt;A</attribute>
       </item>
+      <item>
+        <attribute name="label" translatable="yes" comments="Node menu entry add to favorite">_Duplicate</attribute>
+        <attribute name="action">app.node.duplicate</attribute>
+        <attribute name="accel">&lt;primary&gt;A</attribute>
+      </item>
     </section>
   </menu>
   <object class="GtkPopoverMenu" id="app_pop_menu">
