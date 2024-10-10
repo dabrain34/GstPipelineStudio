@@ -125,3 +125,13 @@
   - [x] settings: add a log level selection
   - [x] rename gst_pipeline_studio to gst-pipeline-studio
   - [x] can open a pipeline from the command line
+
+## 0.3.6
+
+### app
+  - [x] gtk: 4.13.9
+  - [x] gstreamer: 1.24
+  - [x] graphview: can now zoom on graph
+  - [x] add duplicate node
+  - [x] app: enhance element uri handler
+  - [x] macos: installer with gstreamer 1.24

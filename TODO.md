@@ -4,7 +4,6 @@
 
 - [ ] create a crate for graphview/node/port
 
-
 ### GStreamer:
 
 - [ ] Implement pipeline unit test
@@ -19,13 +18,9 @@
 - [ ] Offer compatible element to a pad (autorender)
 - [ ] Display tags/meta/message detected
 - [ ] Change TreeView to ListView
-- [ ] Implement zoom on the view (https://gitlab.gnome.org/World/obfuscate/-/blob/master/src/widgets/drawing_area.rs)
 - [ ] reopen the last log on prematured exit (crash)
 - [ ] Play/pause should be prevented until the pipeline is ready
 - [ ] Filter the elements by class/rank etc.
-- [ ] double click on node/pad open the properties
-
-
 
 ## bugs
 

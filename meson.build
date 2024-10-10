@@ -1,5 +1,5 @@
 project('gst-pipeline-studio',
-          version: '0.3.5',
+          version: '0.3.6',
     meson_version: '>= 0.63.0',
   default_options: [ 'warning_level=2',
                    ],

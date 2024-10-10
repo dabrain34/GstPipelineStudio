@@ -31,10 +31,12 @@
     <description>
         <p>Welcome to GstPipelineStudio</p>
         <ul>
-          <li>logs: receive multiple log sources such as GST logs and messages.</li>
-          <li>settings: add a log level selection</li>
-          <li>rename gst_pipeline_studio to gst-pipeline-studio</li>
-          <li>can open a pipeline from the command line</li>
+          <li>gtk: 4.13.9</li>
+          <li>gstreamer: 1.24</li>
+          <li>graphview: can now zoom on graph</li>
+          <li>add duplicate node</li>
+          <li>app: enhance element uri handler</li>
+          <li>macos: installer with gstreamer 1.24</li>
         </ul>
       </description>
     </release>
