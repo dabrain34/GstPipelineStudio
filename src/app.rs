@@ -11,8 +11,8 @@ use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{gio, gio::SimpleAction, glib, graphene};
 use gtk::{
-    Application, ApplicationWindow, Builder, Button, FileChooserAction, FileChooserDialog, Paned,
-    PopoverMenu, ResponseType, Statusbar, Widget,
+    Application, ApplicationWindow, Builder, Button, FileChooserAction, FileChooserDialog,
+    FileFilter, Paned, PopoverMenu, ResponseType, Statusbar, Widget,
 };
 use log::error;
 use std::cell::{Cell, RefCell};
@@ -381,6 +381,13 @@ impl GPSApp {
                 (cancel_button, ResponseType::Cancel),
             ],
         );
+        if save {
+            file_chooser.set_current_name("untitled.gps");
+        }
+        let filter = FileFilter::new();
+        filter.add_pattern("*.gps");
+        filter.set_name(Some("GPS Files (*.gps)"));
+        file_chooser.add_filter(&filter);
         let app_weak = app.downgrade();
         file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
             let app = upgrade_weak!(app_weak);
