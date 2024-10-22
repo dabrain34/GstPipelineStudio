@@ -237,9 +237,17 @@ impl ElementInfo {
         ElementInfo::element_properties(&element)
     }
 
-    pub fn element_is_uri_src_handler(element_name: &str) -> bool {
-        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
+    pub fn element_has_property(element: &gst::Element, property_name: &str) -> bool {
+        let properties = ElementInfo::element_properties(element)
+            .unwrap_or_else(|_| panic!("Couldn't get properties for {}", element.name()));
 
+        properties.keys().any(|name| name == property_name)
+    }
+
+    pub fn element_is_uri_src_handler(element_name: &str) -> Option<(String, bool)> {
+        let feature: gst::PluginFeature =
+            ElementInfo::element_feature(element_name).expect("Unable to get feature");
+        let mut file_chooser = false;
         let factory = feature
             .downcast::<gst::ElementFactory>()
             .expect("Unable to get the factory from the feature");
@@ -247,10 +255,52 @@ impl ElementInfo {
             .create()
             .build()
             .expect("Unable to create an element from the feature");
-        match element.dynamic_cast::<gst::URIHandler>() {
-            Ok(uri_handler) => uri_handler.uri_type() == gst::URIType::Src,
-            Err(_e) => false,
+        if let Ok(uri_handler) = element.clone().dynamic_cast::<gst::URIHandler>() {
+            let search_strings = ["file", "pushfile"];
+            file_chooser = search_strings
+                .iter()
+                .any(|s| uri_handler.protocols().contains(&glib::GString::from(*s)));
         }
+
+        if element.is::<gst::Bin>() || ElementInfo::element_type(element_name) == NodeType::Source {
+            if ElementInfo::element_has_property(&element, "uri") {
+                return Some((String::from("uri"), file_chooser));
+            }
+            if ElementInfo::element_has_property(&element, "location") {
+                return Some((String::from("location"), file_chooser));
+            }
+        }
+
+        None
+    }
+
+    pub fn element_is_uri_sink_handler(element_name: &str) -> Option<(String, bool)> {
+        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
+        let mut file_chooser = false;
+        let factory = feature
+            .downcast::<gst::ElementFactory>()
+            .expect("Unable to get the factory from the feature");
+        let element = factory
+            .create()
+            .build()
+            .expect("Unable to create an element from the feature");
+
+        if let Ok(uri_handler) = element.clone().dynamic_cast::<gst::URIHandler>() {
+            file_chooser = uri_handler
+                .protocols()
+                .contains(&glib::GString::from("file"))
+        }
+
+        if ElementInfo::element_type(element_name) == NodeType::Sink {
+            if ElementInfo::element_has_property(&element, "uri") {
+                return Some((String::from("uri"), file_chooser));
+            }
+            if ElementInfo::element_has_property(&element, "location") {
+                return Some((String::from("location"), file_chooser));
+            }
+        }
+
+        None
     }
 
     pub fn element_supports_new_pad_request(

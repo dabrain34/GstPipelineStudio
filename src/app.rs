@@ -448,20 +448,24 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("open", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            GPSUI::dialog::get_file_from_dialog(&app, false, move |app, filename| {
-                app.load_graph(&filename, false)
-                    .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", filename));
-            });
+            GPSUI::dialog::get_file_from_dialog(
+                &app,
+                GPSUI::dialog::FileDialogType::Open,
+                move |app, filename| {
+                    app.load_graph(&filename, false)
+                        .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", filename));
+                },
+            );
         });
 
         let app_weak = self.downgrade();
         self.connect_app_menu_action("open_pipeline", move |_, _| {
             let app = upgrade_weak!(app_weak);
             GPSUI::dialog::create_input_dialog(
+                &app,
                 "Enter pipeline description with gst-launch format",
                 "description",
                 &Settings::recent_pipeline_description(),
-                &app,
                 move |app, pipeline_desc| {
                     app.load_pipeline(&pipeline_desc).unwrap_or_else(|_| {
                         GPS_ERROR!("Unable to open pipeline description {}", pipeline_desc)
@@ -475,12 +479,16 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let gt = graphbook::current_graphtab(&app);
             if gt.undefined() {
-                GPSUI::dialog::get_file_from_dialog(&app, true, move |app, filename| {
-                    GPS_DEBUG!("Save file {}", filename);
-                    app.save_graph(&filename)
-                        .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
-                    graphbook::current_graphtab_set_filename(&app, filename.as_str());
-                });
+                GPSUI::dialog::get_file_from_dialog(
+                    &app,
+                    GPSUI::dialog::FileDialogType::Save,
+                    move |app, filename| {
+                        GPS_DEBUG!("Save file {}", filename);
+                        app.save_graph(&filename)
+                            .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
+                        graphbook::current_graphtab_set_filename(&app, filename.as_str());
+                    },
+                );
             } else if gt.modified() {
                 let filename = gt.filename();
                 app.save_graph(&filename)
@@ -492,12 +500,16 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("save_as", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            GPSUI::dialog::get_file_from_dialog(&app, true, move |app, filename| {
-                GPS_DEBUG!("Save file {}", filename);
-                app.save_graph(&filename)
-                    .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
-                graphbook::current_graphtab_set_filename(&app, filename.as_str());
-            });
+            GPSUI::dialog::get_file_from_dialog(
+                &app,
+                GPSUI::dialog::FileDialogType::Save,
+                move |app, filename| {
+                    GPS_DEBUG!("Save file {}", filename);
+                    app.save_graph(&filename)
+                        .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
+                    graphbook::current_graphtab_set_filename(&app, filename.as_str());
+                },
+            );
         });
 
         let app_weak = self.downgrade();
@@ -589,15 +601,78 @@ impl GPSApp {
             .graphview()
             .create_node(element_name, GPS::ElementInfo::element_type(element_name));
         let node_id = node.id();
-        if GPS::ElementInfo::element_is_uri_src_handler(element_name) {
-            GPSUI::dialog::get_file_from_dialog(self, false, move |app, filename| {
-                GPS_DEBUG!("Open file {}", filename);
-                let mut properties: HashMap<String, String> = HashMap::new();
-                properties.insert(String::from("location"), filename);
-                if let Some(node) = graphbook::current_graphtab(&app).graphview().node(node_id) {
-                    node.update_properties(&properties);
-                }
-            });
+        if let Some((prop_name, file_chooser)) =
+            GPS::ElementInfo::element_is_uri_src_handler(element_name)
+        {
+            if file_chooser {
+                GPSUI::dialog::get_file_from_dialog(
+                    self,
+                    GPSUI::dialog::FileDialogType::OpenAll,
+                    move |app, filename| {
+                        GPS_DEBUG!("Open file {}", filename);
+                        let mut properties: HashMap<String, String> = HashMap::new();
+                        properties.insert(prop_name.clone(), filename);
+                        if let Some(node) =
+                            graphbook::current_graphtab(&app).graphview().node(node_id)
+                        {
+                            node.update_properties(&properties);
+                        }
+                    },
+                );
+            } else {
+                GPSUI::dialog::create_input_dialog(
+                    self,
+                    "Enter uri",
+                    "uri",
+                    "",
+                    move |app, uri| {
+                        GPS_DEBUG!("Open uri {}", uri);
+                        let mut properties: HashMap<String, String> = HashMap::new();
+                        properties.insert(String::from("uri"), uri);
+                        if let Some(node) =
+                            graphbook::current_graphtab(&app).graphview().node(node_id)
+                        {
+                            node.update_properties(&properties);
+                        }
+                    },
+                );
+            }
+        } else if let Some((prop_name, file_chooser)) =
+            GPS::ElementInfo::element_is_uri_sink_handler(element_name)
+        {
+            if file_chooser {
+                GPSUI::dialog::get_file_from_dialog(
+                    self,
+                    GPSUI::dialog::FileDialogType::SaveAll,
+                    move |app, filename| {
+                        GPS_DEBUG!("Save file {}", filename);
+                        let mut properties: HashMap<String, String> = HashMap::new();
+                        properties.insert(prop_name.clone(), filename);
+                        if let Some(node) =
+                            graphbook::current_graphtab(&app).graphview().node(node_id)
+                        {
+                            node.update_properties(&properties);
+                        }
+                    },
+                );
+            } else {
+                GPSUI::dialog::create_input_dialog(
+                    self,
+                    "Enter uri",
+                    "uri",
+                    "",
+                    move |app, uri| {
+                        GPS_DEBUG!("Save uri {}", uri);
+                        let mut properties: HashMap<String, String> = HashMap::new();
+                        properties.insert(String::from("uri"), uri);
+                        if let Some(node) =
+                            graphbook::current_graphtab(&app).graphview().node(node_id)
+                        {
+                            node.update_properties(&properties);
+                        }
+                    },
+                );
+            }
         }
         graphbook::current_graphtab(self).graphview().add_node(node);
         for input in inputs {

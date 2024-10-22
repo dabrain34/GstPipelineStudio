@@ -12,6 +12,14 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::{ApplicationWindow, FileChooserAction, FileChooserDialog, FileFilter, ResponseType};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FileDialogType {
+    Save,
+    Open,
+    OpenAll,
+    SaveAll,
+}
+
 pub fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
     name: &str,
     app: &GPSApp,
@@ -50,10 +58,10 @@ pub fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
 }
 
 pub fn create_input_dialog<F: Fn(GPSApp, String) + 'static>(
+    app: &GPSApp,
     dialog_name: &str,
     input_name: &str,
     default_value: &str,
-    app: &GPSApp,
     f: F,
 ) {
     let dialog = gtk::Dialog::with_buttons(
@@ -104,12 +112,16 @@ pub fn create_input_dialog<F: Fn(GPSApp, String) + 'static>(
     dialog.show();
 }
 
-pub fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, save: bool, f: F) {
+pub fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(
+    app: &GPSApp,
+    dlg_type: FileDialogType,
+    f: F,
+) {
     let mut message = "Open file";
     let mut ok_button = "Open";
     let cancel_button = "Cancel";
     let mut action = FileChooserAction::Open;
-    if save {
+    if dlg_type == FileDialogType::Save || dlg_type == FileDialogType::SaveAll {
         message = "Save file";
         ok_button = "Save";
         action = FileChooserAction::Save;
@@ -127,13 +139,15 @@ pub fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, save:
             (cancel_button, ResponseType::Cancel),
         ],
     );
-    if save {
+    if dlg_type == FileDialogType::Save {
         file_chooser.set_current_name("untitled.gps");
     }
-    let filter = FileFilter::new();
-    filter.add_pattern("*.gps");
-    filter.set_name(Some("GPS Files (*.gps)"));
-    file_chooser.add_filter(&filter);
+    if dlg_type == FileDialogType::Open {
+        let filter = FileFilter::new();
+        filter.add_pattern("*.gps");
+        filter.set_name(Some("GPS Files (*.gps)"));
+        file_chooser.add_filter(&filter);
+    }
 
     let app_weak = app.downgrade();
     file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
