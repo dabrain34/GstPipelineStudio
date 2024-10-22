@@ -10,10 +10,7 @@ use glib::SignalHandlerId;
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{gio, gio::SimpleAction, glib, graphene};
-use gtk::{
-    Application, ApplicationWindow, Builder, Button, FileChooserAction, FileChooserDialog,
-    FileFilter, Paned, PopoverMenu, ResponseType, Statusbar, Widget,
-};
+use gtk::{Application, ApplicationWindow, Builder, Button, Paned, PopoverMenu, Statusbar, Widget};
 use log::error;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -358,56 +355,6 @@ impl GPSApp {
         button.connect_clicked(f);
     }
 
-    fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, save: bool, f: F) {
-        let mut message = "Open file";
-        let mut ok_button = "Open";
-        let cancel_button = "Cancel";
-        let mut action = FileChooserAction::Open;
-        if save {
-            message = "Save file";
-            ok_button = "Save";
-            action = FileChooserAction::Save;
-        }
-        let window: ApplicationWindow = app
-            .builder
-            .object("mainwindow")
-            .expect("Couldn't get main window");
-        let file_chooser: FileChooserDialog = FileChooserDialog::new(
-            Some(message),
-            Some(&window),
-            action,
-            &[
-                (ok_button, ResponseType::Ok),
-                (cancel_button, ResponseType::Cancel),
-            ],
-        );
-        if save {
-            file_chooser.set_current_name("untitled.gps");
-        }
-        let filter = FileFilter::new();
-        filter.add_pattern("*.gps");
-        filter.set_name(Some("GPS Files (*.gps)"));
-        file_chooser.add_filter(&filter);
-        let app_weak = app.downgrade();
-        file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
-            let app = upgrade_weak!(app_weak);
-            if response == ResponseType::Ok {
-                let file = d.file().expect("Couldn't get file");
-                let filename = String::from(
-                    file.path()
-                        .expect("Couldn't get file path")
-                        .to_str()
-                        .expect("Unable to convert to string"),
-                );
-                f(app, filename);
-            }
-
-            d.close();
-        });
-
-        file_chooser.show();
-    }
-
     pub fn set_app_state(&self, state: AppState) {
         let status_bar: Statusbar = self
             .builder
@@ -501,7 +448,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("open", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            GPSApp::get_file_from_dialog(&app, false, move |app, filename| {
+            GPSUI::dialog::get_file_from_dialog(&app, false, move |app, filename| {
                 app.load_graph(&filename, false)
                     .unwrap_or_else(|_| GPS_ERROR!("Unable to open file {}", filename));
             });
@@ -528,7 +475,7 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let gt = graphbook::current_graphtab(&app);
             if gt.undefined() {
-                GPSApp::get_file_from_dialog(&app, true, move |app, filename| {
+                GPSUI::dialog::get_file_from_dialog(&app, true, move |app, filename| {
                     GPS_DEBUG!("Save file {}", filename);
                     app.save_graph(&filename)
                         .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
@@ -545,7 +492,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("save_as", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            GPSApp::get_file_from_dialog(&app, true, move |app, filename| {
+            GPSUI::dialog::get_file_from_dialog(&app, true, move |app, filename| {
                 GPS_DEBUG!("Save file {}", filename);
                 app.save_graph(&filename)
                     .unwrap_or_else(|_| GPS_ERROR!("Unable to save file to {}", filename));
@@ -643,7 +590,7 @@ impl GPSApp {
             .create_node(element_name, GPS::ElementInfo::element_type(element_name));
         let node_id = node.id();
         if GPS::ElementInfo::element_is_uri_src_handler(element_name) {
-            GPSApp::get_file_from_dialog(self, false, move |app, filename| {
+            GPSUI::dialog::get_file_from_dialog(self, false, move |app, filename| {
                 GPS_DEBUG!("Open file {}", filename);
                 let mut properties: HashMap<String, String> = HashMap::new();
                 properties.insert(String::from("location"), filename);

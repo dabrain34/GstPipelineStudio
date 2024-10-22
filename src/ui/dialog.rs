@@ -10,6 +10,7 @@ use crate::app::GPSApp;
 
 use gtk::glib;
 use gtk::prelude::*;
+use gtk::{ApplicationWindow, FileChooserAction, FileChooserDialog, FileFilter, ResponseType};
 
 pub fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
     name: &str,
@@ -101,4 +102,55 @@ pub fn create_input_dialog<F: Fn(GPSApp, String) + 'static>(
     ));
 
     dialog.show();
+}
+
+pub fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, save: bool, f: F) {
+    let mut message = "Open file";
+    let mut ok_button = "Open";
+    let cancel_button = "Cancel";
+    let mut action = FileChooserAction::Open;
+    if save {
+        message = "Save file";
+        ok_button = "Save";
+        action = FileChooserAction::Save;
+    }
+    let window: ApplicationWindow = app
+        .builder
+        .object("mainwindow")
+        .expect("Couldn't get main window");
+    let file_chooser: FileChooserDialog = FileChooserDialog::new(
+        Some(message),
+        Some(&window),
+        action,
+        &[
+            (ok_button, ResponseType::Ok),
+            (cancel_button, ResponseType::Cancel),
+        ],
+    );
+    if save {
+        file_chooser.set_current_name("untitled.gps");
+    }
+    let filter = FileFilter::new();
+    filter.add_pattern("*.gps");
+    filter.set_name(Some("GPS Files (*.gps)"));
+    file_chooser.add_filter(&filter);
+
+    let app_weak = app.downgrade();
+    file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
+        let app = upgrade_weak!(app_weak);
+        if response == ResponseType::Ok {
+            let file = d.file().expect("Couldn't get file");
+            let filename = String::from(
+                file.path()
+                    .expect("Couldn't get file path")
+                    .to_str()
+                    .expect("Unable to convert to string"),
+            );
+            f(app, filename);
+        }
+
+        d.close();
+    });
+
+    file_chooser.show();
 }
