@@ -533,7 +533,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             let link_id = values[1].get::<u32>().expect("link id args[1]");
             GPS_TRACE!("link double clicked id={}", link_id);
             let link = current_graphtab(&app).graphview().link(link_id).unwrap();
-            GPSUI::dialog::create_input_dialog(
+            GPSUI::dialog::get_input(
                 &app,
                 "Enter caps filter description",
                 "description",

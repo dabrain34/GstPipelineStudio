@@ -82,7 +82,7 @@ pub fn display_settings(app: &GPSApp) {
         .expect("Should be a widget");
     add_settings_widget(&grid, "Log level", &widget, 1);
 
-    let dialog = GPSUI::dialog::create_dialog("Preferences", app, &grid, move |_app, dialog| {
+    let dialog = GPSUI::dialog::create("Preferences", app, &grid, move |_app, dialog| {
         dialog.close();
     });
 

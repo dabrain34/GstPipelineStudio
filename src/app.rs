@@ -448,7 +448,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("open", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            GPSUI::dialog::get_file_from_dialog(
+            GPSUI::dialog::get_file(
                 &app,
                 GPSUI::dialog::FileDialogType::Open,
                 move |app, filename| {
@@ -461,7 +461,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("open_pipeline", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            GPSUI::dialog::create_input_dialog(
+            GPSUI::dialog::get_input(
                 &app,
                 "Enter pipeline description with gst-launch format",
                 "description",
@@ -479,7 +479,7 @@ impl GPSApp {
             let app = upgrade_weak!(app_weak);
             let gt = graphbook::current_graphtab(&app);
             if gt.undefined() {
-                GPSUI::dialog::get_file_from_dialog(
+                GPSUI::dialog::get_file(
                     &app,
                     GPSUI::dialog::FileDialogType::Save,
                     move |app, filename| {
@@ -500,7 +500,7 @@ impl GPSApp {
         let app_weak = self.downgrade();
         self.connect_app_menu_action("save_as", move |_, _| {
             let app = upgrade_weak!(app_weak);
-            GPSUI::dialog::get_file_from_dialog(
+            GPSUI::dialog::get_file(
                 &app,
                 GPSUI::dialog::FileDialogType::Save,
                 move |app, filename| {
@@ -605,7 +605,7 @@ impl GPSApp {
             GPS::ElementInfo::element_is_uri_src_handler(element_name)
         {
             if file_chooser {
-                GPSUI::dialog::get_file_from_dialog(
+                GPSUI::dialog::get_file(
                     self,
                     GPSUI::dialog::FileDialogType::OpenAll,
                     move |app, filename| {
@@ -620,28 +620,21 @@ impl GPSApp {
                     },
                 );
             } else {
-                GPSUI::dialog::create_input_dialog(
-                    self,
-                    "Enter uri",
-                    "uri",
-                    "",
-                    move |app, uri| {
-                        GPS_DEBUG!("Open uri {}", uri);
-                        let mut properties: HashMap<String, String> = HashMap::new();
-                        properties.insert(String::from("uri"), uri);
-                        if let Some(node) =
-                            graphbook::current_graphtab(&app).graphview().node(node_id)
-                        {
-                            node.update_properties(&properties);
-                        }
-                    },
-                );
+                GPSUI::dialog::get_input(self, "Enter uri", "uri", "", move |app, uri| {
+                    GPS_DEBUG!("Open uri {}", uri);
+                    let mut properties: HashMap<String, String> = HashMap::new();
+                    properties.insert(String::from("uri"), uri);
+                    if let Some(node) = graphbook::current_graphtab(&app).graphview().node(node_id)
+                    {
+                        node.update_properties(&properties);
+                    }
+                });
             }
         } else if let Some((prop_name, file_chooser)) =
             GPS::ElementInfo::element_is_uri_sink_handler(element_name)
         {
             if file_chooser {
-                GPSUI::dialog::get_file_from_dialog(
+                GPSUI::dialog::get_file(
                     self,
                     GPSUI::dialog::FileDialogType::SaveAll,
                     move |app, filename| {
@@ -656,22 +649,15 @@ impl GPSApp {
                     },
                 );
             } else {
-                GPSUI::dialog::create_input_dialog(
-                    self,
-                    "Enter uri",
-                    "uri",
-                    "",
-                    move |app, uri| {
-                        GPS_DEBUG!("Save uri {}", uri);
-                        let mut properties: HashMap<String, String> = HashMap::new();
-                        properties.insert(String::from("uri"), uri);
-                        if let Some(node) =
-                            graphbook::current_graphtab(&app).graphview().node(node_id)
-                        {
-                            node.update_properties(&properties);
-                        }
-                    },
-                );
+                GPSUI::dialog::get_input(self, "Enter uri", "uri", "", move |app, uri| {
+                    GPS_DEBUG!("Save uri {}", uri);
+                    let mut properties: HashMap<String, String> = HashMap::new();
+                    properties.insert(String::from("uri"), uri);
+                    if let Some(node) = graphbook::current_graphtab(&app).graphview().node(node_id)
+                    {
+                        node.update_properties(&properties);
+                    }
+                });
             }
         }
         graphbook::current_graphtab(self).graphview().add_node(node);

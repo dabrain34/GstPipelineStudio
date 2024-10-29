@@ -20,7 +20,7 @@ pub enum FileDialogType {
     SaveAll,
 }
 
-pub fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
+pub fn create<F: Fn(GPSApp, gtk::Dialog) + 'static>(
     name: &str,
     app: &GPSApp,
     grid: &gtk::Grid,
@@ -57,7 +57,7 @@ pub fn create_dialog<F: Fn(GPSApp, gtk::Dialog) + 'static>(
     dialog
 }
 
-pub fn create_input_dialog<F: Fn(GPSApp, String) + 'static>(
+pub fn get_input<F: Fn(GPSApp, String) + 'static>(
     app: &GPSApp,
     dialog_name: &str,
     input_name: &str,
@@ -112,11 +112,7 @@ pub fn create_input_dialog<F: Fn(GPSApp, String) + 'static>(
     dialog.show();
 }
 
-pub fn get_file_from_dialog<F: Fn(GPSApp, String) + 'static>(
-    app: &GPSApp,
-    dlg_type: FileDialogType,
-    f: F,
-) {
+pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDialogType, f: F) {
     let mut message = "Open file";
     let mut ok_button = "Open";
     let cancel_button = "Cancel";
