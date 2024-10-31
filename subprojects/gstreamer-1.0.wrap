@@ -3,7 +3,6 @@ directory=gstreamer-1.0
 url=https://gitlab.freedesktop.org/gstreamer/gstreamer.git
 push-url=git@gitlab.freedesktop.org:gstreamer/gstreamer.git
 revision=1.24
-diff_files = gstreamer-1.0/0001-Revert-meson-Fix-invalid-include-flag-in-uninstalled.patch
 
 [provide]
 dependency_names = gstreamer-1.0, gstreamer-base-1.0, gstreamer-sys-1.0, gstreamer-plugins-bad-1.0, gstreamer-video-1.0, gstreamer-player-1.0 gstreamer-gl-1.0
