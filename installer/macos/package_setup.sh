@@ -18,11 +18,15 @@ echo 'export PATH="/opt/homebrew/opt/m4/bin:$PATH"' >> ~/.zshrc
 
 brew install bash
 
-bash -c "$(curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh)"
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 
 source ~/.nvm/nvm.sh
 
 nvm install node
+
+nvm install 20
+
+nvm alias default 20
 
 nvm install-latest-npm
 
