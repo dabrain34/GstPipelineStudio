@@ -447,6 +447,12 @@ mod imp {
                     Signal::builder("port-added")
                         .param_types([u32::static_type(), u32::static_type(), u32::static_type()])
                         .build(),
+                    Signal::builder("link-added")
+                        .param_types([u32::static_type(), u32::static_type()])
+                        .build(),
+                    Signal::builder("link-removed")
+                        .param_types([u32::static_type(), u32::static_type()])
+                        .build(),
                     Signal::builder("link-double-clicked")
                         .param_types([u32::static_type(), graphene::Point::static_type()])
                         .build(),
@@ -1055,7 +1061,9 @@ impl GraphView {
     pub fn add_link(&self, link: Link) {
         let private = imp::GraphView::from_obj(self);
         if !self.link_exists(&link) {
-            private.links.borrow_mut().insert(link.id, link);
+            let link_id = link.id;
+            private.links.borrow_mut().insert(link_id, link);
+            self.emit_by_name::<()>("link-added", &[&private.id.get(), &link_id]);
             self.graph_updated();
         }
     }
@@ -1462,11 +1470,11 @@ impl GraphView {
         Link::new(link_id, node_from_id, node_to_id, port_from_id, port_to_id)
     }
 
-    fn remove_link(&self, id: u32) {
+    pub fn remove_link(&self, id: u32) {
         let private = imp::GraphView::from_obj(self);
         let mut links = private.links.borrow_mut();
         links.remove(&id);
-
+        self.emit_by_name::<()>("link-removed", &[&private.id.get(), &id]);
         self.queue_draw();
     }
 
