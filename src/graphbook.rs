@@ -548,4 +548,24 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             None
         }),
     );
+    let app_weak = app.downgrade();
+    gt.graphview().connect_local(
+        "link-added",
+        false,
+        glib::clone!(move |values: &[Value]| {
+            let app = upgrade_weak!(app_weak, None);
+            let link_id = values[2].get::<u32>().expect("link id args[1]");
+            GPS_TRACE!("link added id={}", link_id);
+            let link = current_graphtab(&app).graphview().link(link_id).unwrap();
+            let port_from = app.port(link.node_from, link.port_from);
+            let caps1 = PropertyExt::property(&port_from, "_caps").unwrap();
+            let port_to = app.port(link.node_to, link.port_to);
+            let caps2 = PropertyExt::property(&port_to, "_caps").unwrap();
+            if !GPS::PadInfo::caps_compatible(&caps1, &caps2) {
+                GPS_WARN!("caps are not compatible caps1={} caps2={}", caps1, caps2);
+                current_graphtab(&app).graphview().remove_link(link_id);
+            }
+            None
+        }),
+    );
 }
