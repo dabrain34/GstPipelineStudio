@@ -12,6 +12,7 @@ use crate::gps::ElementInfo;
 use crate::graphmanager::{PortDirection, PortPresence};
 
 use gst::prelude::*;
+use std::str::FromStr;
 
 #[derive(Debug, PartialOrd, PartialEq, Eq)]
 pub struct PadInfo {
@@ -48,6 +49,12 @@ impl PadInfo {
 
     pub fn caps(&self) -> &str {
         self.caps.as_ref().unwrap()
+    }
+
+    pub fn caps_compatible(caps1: &str, caps2: &str) -> bool {
+        let caps1 = gst::Caps::from_str(caps1).unwrap();
+        let caps2 = gst::Caps::from_str(caps2).unwrap();
+        caps1.can_intersect(&caps2)
     }
 
     pub fn pads(element_name: &str, include_on_request: bool) -> (Vec<PadInfo>, Vec<PadInfo>) {
