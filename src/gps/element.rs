@@ -19,8 +19,8 @@ use std::fmt::Write as _;
 #[derive(Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ElementInfo {
     pub name: String,
-    plugin_name: String,
-    rank: i32,
+    pub plugin_name: String,
+    pub rank: i32,
 }
 
 impl ElementInfo {
@@ -38,6 +38,7 @@ impl ElementInfo {
 
                     element.name = gst::PluginFeature::name(&feature).as_str().to_owned();
                     element.plugin_name = gst::Plugin::plugin_name(&plugin).as_str().to_owned();
+                    element.rank = gst::PluginFeature::rank(&feature).into();
                     elements.push(element);
                 }
             }
