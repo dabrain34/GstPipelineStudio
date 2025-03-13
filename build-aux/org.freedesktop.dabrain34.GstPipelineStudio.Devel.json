@@ -34,12 +34,14 @@
       "buildsystem": "meson",
       "builddir": true,
       "config-opts": [
-        "-Ddoc=disabled"
+        "-Ddoc=disabled",
+        "-Dtests=disabled",
+        "-Dexamples=disabled"
       ],
       "sources": [
         {
           "type": "git",
-          "tag": "1.22",
+          "tag": "1.26",
           "url": "https://gitlab.freedesktop.org/gstreamer/gstreamer.git",
           "disable-submodules": true
         }
