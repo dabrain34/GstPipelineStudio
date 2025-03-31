@@ -1,7 +1,7 @@
 subdir('icons')
 
 desktop_conf = configuration_data()
-desktop_conf.set('icon', base_id)
+desktop_conf.set('icon', application_id)
 desktop_file = configure_file(
   input: '@0@.desktop.in'.format(base_id),
   output: '@BASENAME@',

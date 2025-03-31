@@ -61,5 +61,7 @@
         }
       ]
     }
-  ]
+  ],
+  "rename-desktop-file": "org.freedesktop.dabrain34.GstPipelineStudio.desktop",
+  "rename-appdata-file": "org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml"
 }
