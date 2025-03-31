@@ -23,7 +23,7 @@
     <category>Development</category>
   </categories>
   <developer_name>Stéphane Cerveau</developer_name>
-  <update_contact>scerveau@collabora.com</update_contact>
+  <update_contact>scerveau@igalia.com</update_contact>
   <translation type="gettext">@gettext-package@</translation>
   <launchable type="desktop-id">@app-id@.desktop</launchable>
     <releases>
