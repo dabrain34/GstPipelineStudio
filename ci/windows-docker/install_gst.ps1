@@ -36,8 +36,8 @@ $env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release " +
     "-Dugly=enabled " +
     "-Dbad=enabled " +
     "-Dges=enabled " +
-    "-Drtsp_server=enabled " +
-    "-Ddevtools=enabled " +
+    "-Drtsp_server=disabled " +
+    "-Ddevtools=disabled " +
     "-Dsharp=disabled " +
     "-Dpython=disabled " +
     "-Dlibav=disabled " +

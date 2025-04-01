@@ -3,11 +3,13 @@
 
 ### app
   - [x] gtk: 4.13.9
-  - [x] gstreamer: 1.24
+  - [x] gstreamer: 1.26
   - [x] graphview: can now zoom on graph
   - [x] add duplicate node
   - [x] app: enhance element uri handler
   - [x] macos: installer with gstreamer 1.24
+  - [x] Control the connection between element
+  - [x] unable to connect element with incompatible caps.
 
 ## 0.3.5
 

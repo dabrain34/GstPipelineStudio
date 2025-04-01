@@ -1,6 +1,15 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
 
-$env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release"
+$env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release" +
+" -Dwrap_mode=forcefallback" +
+" -Dintrospection=disabled" +
+" -Dbuild-examples=false" +
+" -Dbuild-tests=false" +
+" -Dmedia-gstreamer=disabled" +
+" -Dx11-backend=false" +
+" -Dmacos-backend=true" +
+" -Dvulkan=disabled" +
+" -Dprint-cups=disabled"
 
 # Download gtk and all its subprojects
 git clone -b $env:DEFAULT_GTK_BRANCH --depth 1 https://gitlab.gnome.org/gnome/gtk.git C:\gtk

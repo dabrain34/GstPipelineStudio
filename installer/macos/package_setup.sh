@@ -10,8 +10,6 @@ brew update
 
 brew install pkg-config
 
-brew install glib
-
 brew install m4
 
 echo 'export PATH="/opt/homebrew/opt/m4/bin:$PATH"' >> ~/.zshrc

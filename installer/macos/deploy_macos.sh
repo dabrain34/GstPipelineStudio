@@ -26,35 +26,44 @@ echo "VERSION=$VERSION"
 pip3 install docutils
 
 GSTREAMER_OPTS="
-        -Dforce_fallback_for=gstreamer-1.0,gtk \
+        -Dforce_fallback_for=gstreamer-1.0,gtk,glib \
+        -Dglib:introspection=disabled \
         -Dgstreamer-1.0:libav=disabled \
         -Dgstreamer-1.0:examples=disabled \
         -Dgstreamer-1.0:introspection=disabled \
         -Dgstreamer-1.0:rtsp_server=disabled \
         -Dgstreamer-1.0:devtools=disabled \
         -Dgstreamer-1.0:ges=disabled \
-        -Dgst-plugins-base:tests=disabled \
+        -Dgstreamer-1.0:python=disabled \
         -Dgstreamer-1.0:tests=disabled \
+        -Dgstreamer-1.0:gtk=enabled \
+        -Dgst-plugins-base:tests=disabled \
+        -Dgst-plugins-good:tests=disabled \
         -Dgst-plugins-bad:openexr=disabled -Dgstreamer-1.0:gst-examples=disabled \
         -Dgst-plugins-bad:vulkan=disabled \
+        -Dgst-plugins-bad:webrtc=disabled \
+        -Dgst-plugins-bad:webrtcdsp=disabled \
+        -Dgst-plugins-bad:tests=disabled \
         -Dorc:gtk_doc=disabled \
-        -Dgstreamer-1.0:python=disabled \
-        -Dgtk:introspection=disabled \
-        -Dgtk:build-examples=false \
-        -Dgtkl:build-tests=false \
-        -Dgtk:media-gstreamer=disabled \
-        -Dgtk:x11-backend=false \
-        -Dgtk:macos-backend=true \
-        -Dgtk:print-cups=disabled \
+        -Dgtk4:introspection=disabled \
+        -Dgtk4:build-examples=false \
+        -Dgtk4:build-tests=false \
+        -Dgtk4:media-gstreamer=disabled \
+        -Dgtk4:x11-backend=false \
+        -Dgtk4:macos-backend=true \
+        -Dgtk4:wayland-backend=false \
+        -Dgtk4:print-cups=disabled \
+        -Dgtk4:vulkan=disabled \
+        -Dgtk4:build-demos=false \
         -Djson-glib:introspection=disabled \
         "
 
 
 # rebuild app release version
 rm -rf "${TARGETDIR}"
+test_ok meson subprojects update --reset
 test_ok meson --prefix=$TARGETDIR --buildtype=release ${BUILD_DIR} ${GSTREAMER_OPTS}
 test_ok ninja -C ${BUILD_DIR} install
-
 
 # copy app data files to target dir
 echo -n "Copy app data files......"
@@ -75,6 +84,11 @@ function lib_dependency_copy
   lib_dir="$( cd "$( dirname "$1" )" >/dev/null 2>&1 && pwd )"
   libraries="$(otool -L $target | grep "/*.*dylib" -o | xargs)"
   for lib in $libraries; do
+    # Skip Homebrew's gettext/libintl - we use proxy-libintl from the build
+    if [[ $lib == *"/gettext/"* || $lib == *"libintl"* ]]; then
+      continue
+    fi
+
     if [[ '/usr/lib/' != ${lib:0:9} && '/System/Library/' != ${lib:0:16} ]]; then
       if [[ '@' == ${lib:0:1} ]]; then
         if [[ '@loader_path' == ${lib:0:12} ]]; then
@@ -147,6 +161,25 @@ lib_dependency_analyze ${TARGETDIR}/lib ${TARGETDIR}/bin
 lib_dependency_analyze ${TARGETDIR}/bin ${TARGETDIR}/bin
 echo "[done]"
 
+# Verify proxy-libintl from the build (installed by meson)
+echo -n "Verifying proxy-libintl......"
+
+# Meson should have already installed proxy-libintl to lib/
+PROXY_LIBINTL="${TARGETDIR}/lib/libintl.8.dylib"
+
+if [ ! -f "$PROXY_LIBINTL" ]; then
+    echo "[ERROR: proxy-libintl not installed by meson]"
+    exit 1
+fi
+
+# Verify it has g_libintl symbols (confirms it's proxy-libintl, not Homebrew gettext)
+if ! nm -g "$PROXY_LIBINTL" 2>/dev/null | grep -q "_g_libintl_"; then
+    echo "[ERROR: libintl missing g_libintl symbols - wrong libintl installed]"
+    exit 1
+fi
+
+echo "[verified]"
+
 # copy app icons and license files to target dir
 echo -n "Copy app icon(svg) files......"
 cp -f "${PROJECTDIR}/../data/icons/org.freedesktop.dabrain34.GstPipelineStudio.ico" "${TARGETDIR}/bin"
@@ -178,6 +211,23 @@ if [ $? -eq 0 ]; then
   else
   echo "[failed]"
 fi
+
+# sign all libraries and the application
+echo -n "Signing application and libraries......"
+# Sign all dylibs first
+find "${PROJECTDIR}/${BUILD_DIR}/GstPipelineStudio.app" -name "*.dylib" -exec codesign --force --sign - {} \; 2>/dev/null
+find "${PROJECTDIR}/${BUILD_DIR}/GstPipelineStudio.app" -name "*.so" -exec codesign --force --sign - {} \; 2>/dev/null
+# Sign the main executable
+codesign --force --sign - "${PROJECTDIR}/${BUILD_DIR}/GstPipelineStudio.app/Contents/MacOS/gst-pipeline-studio-real" 2>/dev/null
+# Sign the launcher script wrapper if it exists
+if [ -f "${PROJECTDIR}/${BUILD_DIR}/GstPipelineStudio.app/Contents/MacOS/gst-pipeline-studio" ]; then
+  codesign --force --sign - "${PROJECTDIR}/${BUILD_DIR}/GstPipelineStudio.app/Contents/MacOS/gst-pipeline-studio" 2>/dev/null
+fi
+# Sign the entire app bundle with deep signature
+codesign --force --deep --sign - "${PROJECTDIR}/${BUILD_DIR}/GstPipelineStudio.app" 2>/dev/null
+# Remove quarantine attributes
+xattr -cr "${PROJECTDIR}/${BUILD_DIR}/GstPipelineStudio.app" 2>/dev/null
+echo "[done]"
 
 # make installer package
 echo "make macos installer(.dmg)......"

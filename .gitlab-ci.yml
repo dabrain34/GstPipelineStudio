@@ -12,10 +12,13 @@ stages:
   - deploy
 
 variables:
+  WINDOWS_AMD64_SUFFIX: "amd64/windows"
+  CI_GST_REGISTRY_IMAGE: "registry.freedesktop.org/gstreamer/gstreamer"
+  GST_WINDOWS_IMAGE: "$CI_GST_REGISTRY_IMAGE/$WINDOWS_AMD64_SUFFIX:$GST_WIN_IMG_TAG-$GST_UPSTREAM_BRANCH"
   FDO_UPSTREAM_REPO: "dabrain34/GstPipelineStudio"
   GNOME_RUNTIME_IMAGE: "quay.io/gnome_infrastructure/gnome-runtime-images:gnome-master"
-  WINDOWS_RUST_STABLE_IMAGE: "$CI_REGISTRY_IMAGE/windows:$GST_RS_WIN_IMG_TAG"
-  WINDOWS_RUST_STABLE_UPSTREAM_IMAGE: "$CI_REGISTRY/$FDO_UPSTREAM_REPO/windows:$GST_RS_WIN_IMG_TAG"
+  GPS_WINDOWS_RUST_STABLE_IMAGE: "$CI_REGISTRY_IMAGE/windows:$GPS_RS_WIN_IMG_TAG"
+  GPS_WINDOWS_RUST_STABLE_UPSTREAM_IMAGE: "$CI_REGISTRY/$FDO_UPSTREAM_REPO/windows:$GPS_RS_WIN_IMG_TAG"
 
 # Version and tag for our current container
 .fedora:
@@ -73,14 +76,14 @@ build-fedora-container:
     # We also don't need a CONTEXT_DIR var as its also
     # hardcoded to be windows-docker/
     DOCKERFILE: "ci/windows-docker/Dockerfile"
-    GST_UPSTREAM_BRANCH: "1.22"
+
   tags:
     - "windows"
     - "shell"
     - "2022"
   script:
     # We need to pass an array and to resolve the env vars, so we can't use a variable:
-    - $DOCKER_BUILD_ARGS = @("--build-arg", "DEFAULT_GST_BRANCH=$GST_UPSTREAM_BRANCH", "--build-arg", "RUST_VERSION=$RUST_VERSION")
+    - $DOCKER_BUILD_ARGS = @("--build-arg", "RUST_VERSION=$GST_RS_STABLE", "--build-arg", "GST_WINDOWS_IMAGE=$GST_WINDOWS_IMAGE")
     - "& ci/windows-docker/container.ps1 $CI_REGISTRY $CI_REGISTRY_USER $CI_REGISTRY_PASSWORD $RUST_IMAGE $RUST_UPSTREAM_IMAGE $DOCKERFILE"
     - |
       if (!($?)) {
@@ -91,9 +94,8 @@ build-fedora-container:
 windows rust docker stable:
   extends: ".windows rust docker build"
   variables:
-    RUST_IMAGE: $WINDOWS_RUST_STABLE_IMAGE
-    RUST_UPSTREAM_IMAGE: $WINDOWS_RUST_STABLE_UPSTREAM_IMAGE"]
-    RUST_VERSION: $GST_RS_STABLE
+    RUST_IMAGE: $GPS_WINDOWS_RUST_STABLE_IMAGE
+    RUST_UPSTREAM_IMAGE: $GPS_WINDOWS_RUST_STABLE_UPSTREAM_IMAGE
 
 .msvc2019 build:
   stage: test
@@ -106,7 +108,7 @@ windows installer stable:
   needs:
     - job: "windows rust docker stable"
       artifacts: false
-  image: "$WINDOWS_RUST_STABLE_IMAGE"
+  image: "$GPS_WINDOWS_RUST_STABLE_IMAGE"
   extends: ".msvc2019 build"
   script:
     - rustc --version
@@ -237,18 +239,23 @@ flatpak:
       - target_test/
   when: "manual"
 
+.macos image:
+  image: "registry.freedesktop.org/gstreamer/gstreamer/macos-arm64/15-sequoia:2024-10-28.0"
+  tags:
+    - gst-mac-arm
+
 macos installer stable:
   stage: test
-  tags:
-    - gst-macos-13
+  extends:
+    - ".macos image"
   before_script:
     - pip3 install --upgrade pip
     # Make sure meson is up to date
-    - pip3 install -U meson
+    - pip3 install -U meson==1.8.5
     # Need to install certificates for python
     - pip3 install --upgrade certifi
-    # Another way to install certificates
-    - open /Applications/Python\ 3.8/Install\ Certificates.command
+    # # Another way to install certificates
+    # - open /Applications/Python\ 3.8/Install\ Certificates.command
     # Get ninja
     - pip3 install -U ninja
     # Get tomlib

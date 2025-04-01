@@ -10,8 +10,7 @@
 
 ### app
 
-- [ ] Control the connection between element
-- [ ] unable to connect element with incompatible caps.
+
 - [ ] Implement graph dot render/load
 - [ ] Add probes on each pad to monitor the pipeline
 - [ ] Render a media file

@@ -8,8 +8,8 @@ project('gst-pipeline-studio',
 
 host_system = host_machine.system()
 
-python_mod = import('python')
-python3 = python_mod.find_installation()
+
+python3 = find_program('python3')
 current_date = run_command(python3, '-c', 'import datetime; print(datetime.datetime.now().strftime("%Y-%m-%d"), end ="")').stdout()
 i18n = import('i18n')
 host_system = host_machine.system()
@@ -19,7 +19,7 @@ dependency('gstreamer-base-1.0', version: '>= 1.20', fallback: ['gstreamer-1.0']
 dependency('gstreamer-video-1.0', version: '>= 1.20', fallback: ['gstreamer-1.0'])
 dependency('glib-2.0', version: '>= 2.66')
 dependency('gio-2.0', version: '>= 2.66')
-dependency('gtk4', version: '>= 4.0.0', fallback: ['gtk'])
+dependency('gtk4', version: '>= 4.0.0', fallback: ['gtk4'])
 
 find_program('cargo', required: true)
 find_program('glib-compile-resources', required: true)
