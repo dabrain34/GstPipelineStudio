@@ -13,7 +13,7 @@ use crate::settings::Settings;
 use crate::ui::treeview;
 use crate::GPS_DEBUG;
 use gtk::prelude::*;
-use gtk::{gdk::BUTTON_SECONDARY, Box, Label, ListStore, TreeModelFilter, TreeView};
+use gtk::{gdk::BUTTON_SECONDARY, Box, Label, ListStore, SearchEntry, TreeModelFilter, TreeView};
 use gtk::{gio, glib};
 
 fn setup_search_entry(tree: &TreeView, app: &GPSApp) {
@@ -21,6 +21,12 @@ fn setup_search_entry(tree: &TreeView, app: &GPSApp) {
         let entry_name = model.get::<String>(data, 0);
         !entry_name.contains(key)
     });
+
+    let search_entry: SearchEntry = app
+        .builder
+        .object("elements-search-entry")
+        .expect("Couldn't get elements-search-entry");
+    tree.set_search_entry(Some(&search_entry));
 }
 
 pub fn setup_favorite_list(app: &GPSApp) {
