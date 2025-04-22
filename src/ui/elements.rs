@@ -27,6 +27,33 @@ fn setup_search_entry(tree: &TreeView, app: &GPSApp) {
         .object("elements-search-entry")
         .expect("Couldn't get elements-search-entry");
     tree.set_search_entry(Some(&search_entry));
+
+    let model: TreeModelFilter = tree
+        .model()
+        .and_downcast()
+        .expect("Could not find a TreeModelFilter");
+    let model: ListStore = model
+        .model()
+        .downcast()
+        .expect("TreeModelFilter does not contains a ListStore");
+
+    search_entry.connect_changed(move |entry| {
+        let entry_text = entry.text().to_string();
+
+        let iter = match model.iter_first() {
+            Some(iter) => iter,
+            None => return,
+        };
+
+        loop {
+            let element_name = model.get::<String>(&iter, 0);
+            model.set_value(&iter, 3, &element_name.contains(&entry_text).to_value());
+
+            if !model.iter_next(&iter) {
+                break;
+            }
+        }
+    });
 }
 
 pub fn setup_favorite_list(app: &GPSApp) {
