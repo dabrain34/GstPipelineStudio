@@ -16,6 +16,13 @@ use gtk::prelude::*;
 use gtk::{gdk::BUTTON_SECONDARY, Box, Label, ListStore, TreeView};
 use gtk::{gio, glib};
 
+fn setup_search_entry(tree: &TreeView, app: &GPSApp) {
+    tree.set_search_equal_func(|model, _col, key, data| {
+        let entry_name = model.get::<String>(data, 0);
+        !entry_name.contains(key)
+    });
+}
+
 pub fn setup_favorite_list(app: &GPSApp) {
     let favorite_list: TreeView = app
         .builder
@@ -89,6 +96,8 @@ pub fn setup_favorite_list(app: &GPSApp) {
         }
     ));
     favorite_list.add_controller(gesture);
+
+    setup_search_entry(&favorite_list, app)
 }
 
 pub fn add_to_favorite_list(app: &GPSApp, element_name: String) {
@@ -159,6 +168,8 @@ pub fn setup_elements_list(app: &GPSApp) {
             display_properties(&app, &element_name);
         }
     });
+
+    setup_search_entry(&tree, app)
 }
 
 pub fn display_properties(app: &GPSApp, element_name: &str) {
