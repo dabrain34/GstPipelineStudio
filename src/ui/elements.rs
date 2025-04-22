@@ -13,7 +13,7 @@ use crate::settings::Settings;
 use crate::ui::treeview;
 use crate::GPS_DEBUG;
 use gtk::prelude::*;
-use gtk::{gdk::BUTTON_SECONDARY, Box, Label, ListStore, TreeView};
+use gtk::{gdk::BUTTON_SECONDARY, Box, Label, ListStore, TreeModelFilter, TreeView};
 use gtk::{gio, glib};
 
 fn setup_search_entry(tree: &TreeView, app: &GPSApp) {
@@ -123,6 +123,7 @@ fn reset_elements_list(elements_list: &TreeView, elements: Vec<GPS::ElementInfo>
         String::static_type(),
         String::static_type(),
         String::static_type(),
+        bool::static_type(),
     ]);
     elements_list.set_model(Some(&model));
     for element in elements {
@@ -132,9 +133,15 @@ fn reset_elements_list(elements_list: &TreeView, elements: Vec<GPS::ElementInfo>
                 (0, &element.name),
                 (1, &element.plugin_name),
                 (2, &element.rank.to_string()),
+                (3, &true),
             ],
         );
     }
+
+    let filter_model = TreeModelFilter::new(&model, None);
+    filter_model.set_visible_column(3);
+
+    elements_list.set_model(Some(&filter_model));
 }
 
 pub fn setup_elements_list(app: &GPSApp) {
