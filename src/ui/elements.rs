@@ -16,22 +16,28 @@ use gtk::prelude::*;
 use gtk::{gdk::BUTTON_SECONDARY, Box, Label, ListStore, TreeView};
 use gtk::{gio, glib};
 
-pub fn reset_favorite_list(favorite_list: &TreeView) {
-    let model = ListStore::new(&[String::static_type()]);
-    favorite_list.set_model(Some(&model));
-    let favorites = Settings::favorites_list();
-    for favorite in favorites {
-        model.insert_with_values(None, &[(0, &favorite)]);
-    }
-}
-
 pub fn setup_favorite_list(app: &GPSApp) {
     let favorite_list: TreeView = app
         .builder
         .object("treeview-favorites")
         .expect("Couldn't get treeview-favorites");
+
     treeview::add_column_to_treeview(app, "treeview-favorites", "Name", 0, false);
-    reset_favorite_list(&favorite_list);
+    treeview::add_column_to_treeview(app, "treeview-favorites", "Plugin", 1, false);
+    treeview::add_column_to_treeview(app, "treeview-favorites", "Rank", 2, false);
+
+    let get_favorite_elements = || -> Vec<GPS::ElementInfo> {
+        let favorite_names = Settings::favorites_list();
+
+        GPS::ElementInfo::elements_list()
+            .expect("Unable to obtain element's list")
+            .into_iter()
+            .filter(|e| favorite_names.contains(&e.name))
+            .collect()
+    };
+
+    reset_elements_list(&favorite_list, get_favorite_elements());
+
     let app_weak = app.downgrade();
     favorite_list.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
         let app = upgrade_weak!(app_weak);
@@ -74,7 +80,7 @@ pub fn setup_favorite_list(app: &GPSApp) {
 
                     app.connect_app_menu_action("favorite.remove", move |_, _| {
                         Settings::remove_favorite(&element_name);
-                        reset_favorite_list(&favorite_list);
+                        reset_elements_list(&favorite_list, get_favorite_elements());
                     });
 
                     pop_menu.show();
