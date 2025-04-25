@@ -103,14 +103,13 @@ pub fn add_to_favorite_list(app: &GPSApp, element_name: String) {
     }
 }
 
-fn reset_elements_list(elements_list: &TreeView) {
+fn reset_elements_list(elements_list: &TreeView, elements: Vec<GPS::ElementInfo>) {
     let model = ListStore::new(&[
         String::static_type(),
         String::static_type(),
         String::static_type(),
     ]);
     elements_list.set_model(Some(&model));
-    let elements = GPS::ElementInfo::elements_list().expect("Unable to obtain element's list");
     for element in elements {
         model.insert_with_values(
             None,
@@ -131,7 +130,10 @@ pub fn setup_elements_list(app: &GPSApp) {
     treeview::add_column_to_treeview(app, "treeview-elements", "Name", 0, false);
     treeview::add_column_to_treeview(app, "treeview-elements", "Plugin", 1, false);
     treeview::add_column_to_treeview(app, "treeview-elements", "Rank", 2, false);
-    reset_elements_list(&tree);
+
+    let elements = GPS::ElementInfo::elements_list().expect("Unable to obtain element's list");
+    reset_elements_list(&tree, elements);
+
     let app_weak = app.downgrade();
     tree.connect_row_activated(move |tree_view, _tree_path, _tree_column| {
         let app = upgrade_weak!(app_weak);
