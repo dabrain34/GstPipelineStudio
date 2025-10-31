@@ -622,7 +622,7 @@ mod imp {
             let widget = &*self.obj();
             let from_node = nodes
                 .get(&node_from)
-                .unwrap_or_else(|| (panic!("Unable to get node from {}", node_from)));
+                .unwrap_or_else(|| panic!("Unable to get node from {}", node_from));
 
             let from_port = from_node
                 .0
