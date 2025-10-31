@@ -39,7 +39,7 @@ pub trait PropertyExt {
 
     /// Retrieves properties.
     ///
-    fn properties(&self) -> Ref<HashMap<String, String>>;
+    fn properties(&self) -> Ref<'_, HashMap<String, String>>;
 
     /// Retrieves property with the name.
     ///

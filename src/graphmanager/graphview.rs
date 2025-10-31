@@ -1608,7 +1608,7 @@ impl GraphView {
         *private.port_selected.borrow_mut() = port.cloned();
     }
 
-    fn selected_port(&self) -> RefMut<Option<Port>> {
+    fn selected_port(&self) -> RefMut<'_, Option<Port>> {
         let private = imp::GraphView::from_obj(self);
         private.port_selected.borrow_mut()
     }

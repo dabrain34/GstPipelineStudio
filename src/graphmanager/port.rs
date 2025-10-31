@@ -242,7 +242,7 @@ impl PropertyExt for Port {
 
     /// Retrieves node properties.
     ///
-    fn properties(&self) -> Ref<HashMap<String, String>> {
+    fn properties(&self) -> Ref<'_, HashMap<String, String>> {
         let private = imp::Port::from_obj(self);
         private.properties.borrow()
     }

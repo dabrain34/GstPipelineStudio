@@ -172,7 +172,7 @@ impl Node {
 
     /// Retrieves all ports as an hashmap
     ///
-    pub fn ports(&self) -> Ref<HashMap<u32, Port>> {
+    pub fn ports(&self) -> Ref<'_, HashMap<u32, Port>> {
         let private = imp::Node::from_obj(self);
         private.ports.borrow()
     }
@@ -379,7 +379,7 @@ impl PropertyExt for Node {
 
     /// Retrieves node properties.
     ///
-    fn properties(&self) -> Ref<HashMap<String, String>> {
+    fn properties(&self) -> Ref<'_, HashMap<String, String>> {
         let private = imp::Node::from_obj(self);
         private.properties.borrow()
     }
