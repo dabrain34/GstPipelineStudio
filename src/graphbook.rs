@@ -65,11 +65,11 @@ impl GraphTab {
         &self.name
     }
 
-    pub fn graphview(&self) -> Ref<GM::GraphView> {
+    pub fn graphview(&self) -> Ref<'_, GM::GraphView> {
         self.graphview.borrow()
     }
 
-    pub fn player(&self) -> Ref<GPS::Player> {
+    pub fn player(&self) -> Ref<'_, GPS::Player> {
         self.player.borrow()
     }
 
