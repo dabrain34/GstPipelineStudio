@@ -24,8 +24,11 @@ pub fn display_about_dialog(app: &GPSApp) {
         .program_name("GstPipelineStudio")
         .version(config::VERSION)
         .comments(format!(
-            "{}\n\n{}",
+            "{}\n\nGTK: {}.{}.{}\nGStreamer: {}",
             &"Draw your own GStreamer pipeline",
+            gtk::major_version(),
+            gtk::minor_version(),
+            gtk::micro_version(),
             GPS::Player::get_version()
         ))
         .website("https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio")

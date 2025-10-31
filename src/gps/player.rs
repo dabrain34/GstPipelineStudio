@@ -107,7 +107,12 @@ impl Player {
     }
 
     pub fn get_version() -> String {
-        gst::version_string().to_string()
+        let version_string = gst::version_string().to_string();
+        // Extract just the version part after "GStreamer Library "
+        version_string
+            .trim_start_matches("GStreamer Library ")
+            .trim_start_matches("GStreamer ")
+            .to_string()
     }
 
     pub fn set_app(&self, app: GPSAppWeak) {
