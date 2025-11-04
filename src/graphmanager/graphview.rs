@@ -722,7 +722,8 @@ mod imp {
 
 glib::wrapper! {
     pub struct GraphView(ObjectSubclass<imp::GraphView>)
-        @extends gtk::Widget;
+        @extends gtk::Widget, gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget,
+        @implements gtk::Scrollable;
 }
 
 impl GraphView {

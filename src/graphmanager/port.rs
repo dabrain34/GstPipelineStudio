@@ -127,7 +127,7 @@ mod imp {
 
 glib::wrapper! {
     pub struct Port(ObjectSubclass<imp::Port>)
-        @extends gtk::Widget, gtk::Box;
+        @extends gtk::Widget, gtk::Box, gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl Port {

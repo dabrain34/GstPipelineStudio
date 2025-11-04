@@ -30,7 +30,7 @@ struct Command {
     pipeline: String,
 }
 
-fn main() {
+fn main() -> gtk::glib::ExitCode {
     //    gio::resources_register_include!("compiled.gresource").unwrap();
     init().expect("Unable to init app");
     let application = gtk::Application::new(
@@ -44,7 +44,7 @@ fn main() {
 
     application.connect_command_line(|_app, _cmd_line| {
         // structopt already handled arguments
-        0
+        0.into()
     });
-    application.run();
+    application.run()
 }
