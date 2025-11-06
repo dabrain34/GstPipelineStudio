@@ -47,7 +47,7 @@ pub fn display_message_dialog<F: Fn(Application) + 'static>(
         f(app);
     });
     dialog.set_resizable(false);
-    dialog.show();
+    dialog.present();
 }
 
 #[allow(dead_code)]

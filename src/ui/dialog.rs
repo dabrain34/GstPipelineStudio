@@ -109,7 +109,7 @@ pub fn get_input<F: Fn(GPSApp, String) + 'static>(
         }
     ));
 
-    dialog.show();
+    dialog.present();
 }
 
 pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDialogType, f: F) {
@@ -162,5 +162,5 @@ pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDia
         d.close();
     });
 
-    file_chooser.show();
+    file_chooser.present();
 }

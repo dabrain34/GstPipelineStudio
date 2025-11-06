@@ -72,7 +72,7 @@ pub fn setup_logger_list(app: &GPSApp, logger_name: &str, log_type: logger::LogT
                     reset_logger_list(&logger_list);
                 });
 
-                pop_menu.show();
+                pop_menu.present();
             }
         }
     ));

@@ -349,7 +349,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                 let app = upgrade_weak!(app_weak);
                 GPSUI::properties::display_pipeline_details(&app);
             });
-            pop_menu.show();
+            pop_menu.present();
             None
         }),
     );
@@ -405,7 +405,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                     port_id,
                 );
             });
-            pop_menu.show();
+            pop_menu.present();
             None
         });
 
@@ -504,7 +504,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                     };
                 });
             }
-            pop_menu.show();
+            pop_menu.present();
             None
         }),
     );

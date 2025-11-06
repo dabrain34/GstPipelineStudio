@@ -40,5 +40,5 @@ pub fn display_about_dialog(app: &GPSApp) {
         .transient_for(&window)
         .build();
 
-    about_dialog.show();
+    about_dialog.present();
 }

@@ -423,7 +423,7 @@ impl GPSApp {
 
         let window = &self.window;
 
-        window.show();
+        window.present();
         self.set_app_state(AppState::Ready);
         self.setup_app_actions(application);
 

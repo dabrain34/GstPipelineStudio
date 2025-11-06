@@ -123,7 +123,7 @@ pub fn setup_favorite_list(app: &GPSApp) {
                         reset_elements_list(&favorite_list, get_favorite_elements());
                     });
 
-                    pop_menu.show();
+                    pop_menu.present();
                 }
             }
         }

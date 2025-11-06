@@ -99,5 +99,5 @@ pub fn display_settings(app: &GPSApp) {
         .dynamic_cast::<gtk::Widget>()
         .expect("Should be a widget");
     add_settings_widget(&grid, "GST Log level", &widget, 2);
-    dialog.show();
+    dialog.present();
 }

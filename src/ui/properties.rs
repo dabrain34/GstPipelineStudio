@@ -218,7 +218,7 @@ pub fn display_plugin_properties(app: &GPSApp, element_name: &str, node_id: u32)
         ),
     );
 
-    dialog.show();
+    dialog.present();
 }
 
 pub fn display_pad_properties(
@@ -332,7 +332,7 @@ pub fn display_pad_properties(
         ),
     );
 
-    dialog.show();
+    dialog.present();
 }
 
 pub fn display_pipeline_details(app: &GPSApp) {
@@ -370,6 +370,6 @@ pub fn display_pipeline_details(app: &GPSApp) {
                 dialog.close();
             });
 
-        dialog.show();
+        dialog.present();
     }
 }
