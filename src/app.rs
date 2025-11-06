@@ -9,7 +9,7 @@
 use glib::SignalHandlerId;
 use gtk::gdk;
 use gtk::prelude::*;
-use gtk::{gio, gio::SimpleAction, glib, graphene};
+use gtk::{gio, gio::SimpleAction, glib};
 use gtk::{Application, ApplicationWindow, Builder, Button, Paned, PopoverMenu, Statusbar, Widget};
 use log::error;
 use std::cell::{Cell, RefCell};
@@ -226,12 +226,6 @@ impl GPSApp {
             app.save_paned_position(&mut settings, "playcontrols_position-paned");
 
             Settings::save_settings(&settings);
-
-            let pop_menu: PopoverMenu = app
-                .builder
-                .object("app_pop_menu")
-                .expect("Couldn't get app_pop_menu");
-            pop_menu.unparent();
             if let Some(timeout_id) = timeout_id.borrow_mut().take() {
                 timeout_id.remove();
             }
@@ -288,27 +282,42 @@ impl GPSApp {
         widget: &impl IsA<Widget>,
         x: f64,
         y: f64,
+        menu_model: Option<&gio::MenuModel>,
     ) -> PopoverMenu {
-        let mainwindow: ApplicationWindow = self
-            .builder
-            .object("mainwindow")
-            .expect("Couldn't get the main window");
+        // Create a new PopoverMenu dynamically for GTK4
+        let popover = PopoverMenu::builder().has_arrow(false).build();
 
-        let pop_menu: PopoverMenu = self
-            .builder
-            .object("app_pop_menu")
-            .expect("Couldn't get app_pop_menu");
-
-        if let Some((x, y)) = widget.translate_coordinates(&mainwindow, x, y) {
-            let point = graphene::Point::new(x as f32, y as f32);
-            pop_menu.set_pointing_to(Some(&gdk::Rectangle::new(
-                point.to_vec2().x() as i32,
-                point.to_vec2().y() as i32,
-                0,
-                0,
-            )));
+        // Set the menu model if provided
+        if let Some(model) = menu_model {
+            popover.set_menu_model(Some(model));
         }
-        pop_menu
+
+        // Set parent widget
+        popover.set_parent(widget);
+
+        // Set positioning
+        let rect = gdk::Rectangle::new(x as i32, y as i32, 1, 1);
+        popover.set_pointing_to(Some(&rect));
+
+        // Use popup() which is the correct GTK4 method for context menus
+        popover.popup();
+
+        popover
+    }
+
+    pub fn show_context_menu_at_position(
+        &self,
+        widget: &impl IsA<Widget>,
+        x: f64,
+        y: f64,
+        menu_model: &gio::MenuModel,
+    ) {
+        let popover = self.app_pop_menu_at_position(widget, x, y, Some(menu_model));
+
+        // Set up auto-hide when menu item is activated
+        popover.connect_closed(move |_| {
+            // Context menu closed
+        });
     }
 
     fn app_menu_action(&self, action_name: &str) -> SimpleAction {
@@ -426,12 +435,6 @@ impl GPSApp {
         window.present();
         self.set_app_state(AppState::Ready);
         self.setup_app_actions(application);
-
-        let pop_menu: PopoverMenu = self
-            .builder
-            .object("app_pop_menu")
-            .expect("Couldn't get app_pop_menu");
-        pop_menu.set_parent(window);
 
         let app_weak = self.downgrade();
         self.connect_app_menu_action("new-window", move |_, _| {

@@ -306,16 +306,10 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             let point = values[1]
                 .get::<graphene::Point>()
                 .expect("point in args[2]");
-            let pop_menu = app.app_pop_menu_at_position(
-                &*current_graphtab(&app).graphview(),
-                point.to_vec2().x() as f64,
-                point.to_vec2().y() as f64,
-            );
             let menu: gio::MenuModel = app
                 .builder
                 .object("graph_menu")
                 .expect("Couldn't graph_menu");
-            pop_menu.set_menu_model(Some(&menu));
             let app_weak = app.downgrade();
             app.connect_app_menu_action("graph.clear", move |_, _| {
                 let app = upgrade_weak!(app_weak);
@@ -349,7 +343,12 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                 let app = upgrade_weak!(app_weak);
                 GPSUI::properties::display_pipeline_details(&app);
             });
-            pop_menu.present();
+            app.show_context_menu_at_position(
+                &*current_graphtab(&app).graphview(),
+                point.to_vec2().x() as f64,
+                point.to_vec2().y() as f64,
+                &menu,
+            );
             None
         }),
     );
@@ -364,16 +363,10 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             let point = values[3]
                 .get::<graphene::Point>()
                 .expect("point in args[3]");
-            let pop_menu = app.app_pop_menu_at_position(
-                &*current_graphtab(&app).graphview(),
-                point.to_vec2().x() as f64,
-                point.to_vec2().y() as f64,
-            );
             let menu: gio::MenuModel = app
                 .builder
                 .object("port_menu")
                 .expect("Couldn't get menu model for port");
-            pop_menu.set_menu_model(Some(&menu));
 
             if current_graphtab(&app)
                 .graphview()
@@ -405,7 +398,12 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                     port_id,
                 );
             });
-            pop_menu.present();
+            app.show_context_menu_at_position(
+                &*current_graphtab(&app).graphview(),
+                point.to_vec2().x() as f64,
+                point.to_vec2().y() as f64,
+                &menu,
+            );
             None
         });
 
@@ -422,16 +420,10 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             let point = values[2]
                 .get::<graphene::Point>()
                 .expect("point in args[2]");
-            let pop_menu = app.app_pop_menu_at_position(
-                &*current_graphtab(&app).graphview(),
-                point.to_vec2().x() as f64,
-                point.to_vec2().y() as f64,
-            );
             let menu: gio::MenuModel = app
                 .builder
                 .object("node_menu")
                 .expect("Couldn't get menu model for node");
-            pop_menu.set_menu_model(Some(&menu));
 
             let app_weak = app.downgrade();
             app.connect_app_menu_action("node.delete", move |_, _| {
@@ -504,7 +496,12 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                     };
                 });
             }
-            pop_menu.present();
+            app.show_context_menu_at_position(
+                &*current_graphtab(&app).graphview(),
+                point.to_vec2().x() as f64,
+                point.to_vec2().y() as f64,
+                &menu,
+            );
             None
         }),
     );

@@ -111,19 +111,18 @@ pub fn setup_favorite_list(app: &GPSApp) {
                     let element_name = model.get::<String>(&iter, 0);
                     GPS_DEBUG!("Element {} selected", element_name);
 
-                    let pop_menu = app.app_pop_menu_at_position(&favorite_list, x, y);
                     let menu: gio::MenuModel = app
                         .builder
                         .object("fav_menu")
                         .expect("Couldn't get fav_menu model");
-                    pop_menu.set_menu_model(Some(&menu));
 
+                    let favorite_list_clone = favorite_list.clone();
                     app.connect_app_menu_action("favorite.remove", move |_, _| {
                         Settings::remove_favorite(&element_name);
-                        reset_elements_list(&favorite_list, get_favorite_elements());
+                        reset_elements_list(&favorite_list_clone, get_favorite_elements());
                     });
 
-                    pop_menu.present();
+                    app.show_context_menu_at_position(&favorite_list, x, y, &menu);
                 }
             }
         }

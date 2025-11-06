@@ -61,18 +61,17 @@ pub fn setup_logger_list(app: &GPSApp, logger_name: &str, log_type: logger::LogT
         move |gesture, _n_press, x, y| {
             let app = upgrade_weak!(app_weak);
             if gesture.current_button() == gtk::gdk::BUTTON_SECONDARY {
-                let pop_menu = app.app_pop_menu_at_position(&logger_list, x, y);
                 let menu: gio::MenuModel = app
                     .builder
                     .object("logger_menu")
                     .expect("Couldn't get fav_menu model");
-                pop_menu.set_menu_model(Some(&menu));
 
+                let logger_list_clone = logger_list.clone();
                 app.connect_app_menu_action("logger.clear", move |_, _| {
-                    reset_logger_list(&logger_list);
+                    reset_logger_list(&logger_list_clone);
                 });
 
-                pop_menu.present();
+                app.show_context_menu_at_position(&logger_list, x, y, &menu);
             }
         }
     ));

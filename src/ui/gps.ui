@@ -118,8 +118,6 @@
       </item>
     </section>
   </menu>
-  <object class="GtkPopoverMenu" id="app_pop_menu">
-  </object>
   <object class="GtkAdjustment" id="scale_adjustment">
     <property name="upper">100</property>
     <property name="step-increment">1</property>
