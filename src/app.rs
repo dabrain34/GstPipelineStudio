@@ -10,7 +10,7 @@ use glib::SignalHandlerId;
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk::{gio, gio::SimpleAction, glib};
-use gtk::{Application, ApplicationWindow, Builder, Button, Paned, PopoverMenu, Statusbar, Widget};
+use gtk::{Application, ApplicationWindow, Builder, Button, Label, Paned, PopoverMenu, Widget};
 use log::error;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -365,11 +365,11 @@ impl GPSApp {
     }
 
     pub fn set_app_state(&self, state: AppState) {
-        let status_bar: Statusbar = self
+        let status_bar: Label = self
             .builder
             .object("status_bar")
             .expect("Couldn't get status_bar");
-        status_bar.push(status_bar.context_id("Description"), &state.to_string());
+        status_bar.set_text(&state.to_string());
     }
 
     pub fn set_app_preview(&self, paintable: &gdk::Paintable, n_sink: usize) {
