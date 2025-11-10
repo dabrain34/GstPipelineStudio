@@ -11,6 +11,7 @@ pub mod dialog;
 pub mod elements;
 pub mod logger;
 pub mod message;
+pub mod models;
 pub mod preferences;
 pub mod properties;
 pub mod treeview;

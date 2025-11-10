@@ -225,7 +225,9 @@
                       <property name="child">
                         <object class="GtkScrolledWindow">
                           <property name="child">
-                            <object class="GtkTreeView" id="treeview-app-logger"/>
+                            <object class="GtkColumnView" id="treeview-app-logger">
+                              <property name="show-row-separators">1</property>
+                            </object>
                           </property>
                         </object>
                       </property>
@@ -241,7 +243,9 @@
                       <property name="child">
                         <object class="GtkScrolledWindow">
                           <property name="child">
-                            <object class="GtkTreeView" id="treeview-gst-logger"/>
+                            <object class="GtkColumnView" id="treeview-gst-logger">
+                              <property name="show-row-separators">1</property>
+                            </object>
                           </property>
                         </object>
                       </property>
@@ -257,7 +261,9 @@
                       <property name="child">
                         <object class="GtkScrolledWindow">
                           <property name="child">
-                            <object class="GtkTreeView" id="treeview-msg-logger"/>
+                            <object class="GtkColumnView" id="treeview-msg-logger">
+                              <property name="show-row-separators">1</property>
+                            </object>
                           </property>
                         </object>
                       </property>
