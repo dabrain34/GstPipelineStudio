@@ -1,20 +1,22 @@
 conf = configuration_data()
 conf.set_quoted('APP_ID', application_id)
 
-configure_file(
-    input: 'config.rs.in',
-    output: 'config.rs',
-    configuration: conf
-)
+configure_file(input: 'config.rs.in', output: 'config.rs', configuration: conf)
 
 # Copy the config.rs output to the source directory.
-run_command(python3, '-c', 'import shutil; shutil.copyfile("@0@", "@1@")'.format(join_paths(meson.project_build_root(), 'src', 'config.rs'), join_paths(meson.project_source_root(), 'src', 'config.rs')))
+run_command(
+  python3,
+  '-c', 'import shutil; shutil.copyfile("@0@", "@1@")'.format(
+    join_paths(meson.project_build_root(), 'src', 'config.rs'),
+    join_paths(meson.project_source_root(), 'src', 'config.rs'),
+  ),
+)
 
 rust_sources = files(
-  'gps/player.rs',
   'gps/element.rs',
-  'gps/pad.rs',
   'gps/mod.rs',
+  'gps/pad.rs',
+  'gps/player.rs',
   'graphmanager/graphview.rs',
   'graphmanager/link.rs',
   'graphmanager/mod.rs',
@@ -26,7 +28,6 @@ rust_sources = files(
   'ui/message.rs',
   'ui/mod.rs',
   'ui/properties.rs',
-  'ui/treeview.rs',
   'app.rs',
   'common.rs',
   'logger.rs',
@@ -59,5 +60,5 @@ cargo_release = custom_target(
     '@OUTPUT@',
     get_option('buildtype'),
     app_name,
-  ]
+  ],
 )
