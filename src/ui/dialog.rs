@@ -10,7 +10,8 @@ use crate::app::GPSApp;
 
 use gtk::glib;
 use gtk::prelude::*;
-use gtk::{ApplicationWindow, FileChooserAction, FileChooserDialog, FileFilter, ResponseType};
+use gtk::gio;
+use gtk::{ApplicationWindow, FileDialog, FileFilter};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FileDialogType {
@@ -113,54 +114,62 @@ pub fn get_input<F: Fn(GPSApp, String) + 'static>(
 }
 
 pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDialogType, f: F) {
-    let mut message = "Open file";
-    let mut ok_button = "Open";
-    let cancel_button = "Cancel";
-    let mut action = FileChooserAction::Open;
-    if dlg_type == FileDialogType::Save || dlg_type == FileDialogType::SaveAll {
-        message = "Save file";
-        ok_button = "Save";
-        action = FileChooserAction::Save;
-    }
     let window: ApplicationWindow = app
         .builder
         .object("mainwindow")
         .expect("Couldn't get main window");
-    let file_chooser: FileChooserDialog = FileChooserDialog::new(
-        Some(message),
-        Some(&window),
-        action,
-        &[
-            (ok_button, ResponseType::Ok),
-            (cancel_button, ResponseType::Cancel),
-        ],
-    );
-    if dlg_type == FileDialogType::Save {
-        file_chooser.set_current_name("untitled.gps");
+
+    let file_dialog = FileDialog::builder().modal(true).build();
+
+    // Set title and accept button label based on dialog type
+    if dlg_type == FileDialogType::Save || dlg_type == FileDialogType::SaveAll {
+        file_dialog.set_title("Save file");
+        file_dialog.set_accept_label(Some("Save"));
+        file_dialog.set_initial_name(Some("untitled.gps"));
+    } else {
+        file_dialog.set_title("Open file");
+        file_dialog.set_accept_label(Some("Open"));
     }
+
+    // Set up file filter for Open dialogs
     if dlg_type == FileDialogType::Open {
         let filter = FileFilter::new();
         filter.add_pattern("*.gps");
         filter.set_name(Some("GPS Files (*.gps)"));
-        file_chooser.add_filter(&filter);
+
+        let filters = gio::ListStore::new::<FileFilter>();
+        filters.append(&filter);
+        file_dialog.set_filters(Some(&filters));
     }
 
     let app_weak = app.downgrade();
-    file_chooser.connect_response(move |d: &FileChooserDialog, response: ResponseType| {
-        let app = upgrade_weak!(app_weak);
-        if response == ResponseType::Ok {
-            let file = d.file().expect("Couldn't get file");
-            let filename = String::from(
-                file.path()
-                    .expect("Couldn't get file path")
-                    .to_str()
-                    .expect("Unable to convert to string"),
-            );
-            f(app, filename);
-        }
 
-        d.close();
-    });
-
-    file_chooser.present();
+    // Use the appropriate method based on dialog type
+    if dlg_type == FileDialogType::Save || dlg_type == FileDialogType::SaveAll {
+        file_dialog.save(Some(&window), None::<&gio::Cancellable>, move |result| {
+            let app = upgrade_weak!(app_weak);
+            if let Ok(file) = result {
+                let filename = String::from(
+                    file.path()
+                        .expect("Couldn't get file path")
+                        .to_str()
+                        .expect("Unable to convert to string"),
+                );
+                f(app, filename);
+            }
+        });
+    } else {
+        file_dialog.open(Some(&window), None::<&gio::Cancellable>, move |result| {
+            let app = upgrade_weak!(app_weak);
+            if let Ok(file) = result {
+                let filename = String::from(
+                    file.path()
+                        .expect("Couldn't get file path")
+                        .to_str()
+                        .expect("Unable to convert to string"),
+                );
+                f(app, filename);
+            }
+        });
+    }
 }
