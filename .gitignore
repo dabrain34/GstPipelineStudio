@@ -28,3 +28,4 @@ subprojects/sassc.wrap
 subprojects/vorbis.wrap
 subprojects/wayland-protocols.wrap
 subprojects/wayland.wrap
+builddir/
