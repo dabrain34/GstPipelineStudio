@@ -8,9 +8,9 @@
 
 use crate::app::GPSApp;
 
+use gtk::gio;
 use gtk::glib;
 use gtk::prelude::*;
-use gtk::gio;
 use gtk::{ApplicationWindow, FileDialog, FileFilter};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,41 +21,51 @@ pub enum FileDialogType {
     SaveAll,
 }
 
-pub fn create<F: Fn(GPSApp, gtk::Dialog) + 'static>(
-    name: &str,
-    app: &GPSApp,
-    grid: &gtk::Grid,
-    f: F,
-) -> gtk::Dialog {
-    let dialog =
-        gtk::Dialog::with_buttons(Some(name), Some(&app.window), gtk::DialogFlags::MODAL, &[]);
+pub fn create<W, F>(name: &str, app: &GPSApp, content: &W, f: F) -> gtk::Window
+where
+    W: IsA<gtk::Widget>,
+    F: Fn(GPSApp, gtk::Window) + 'static,
+{
+    let window = gtk::Window::builder()
+        .title(name)
+        .transient_for(&app.window)
+        .modal(true)
+        .default_width(640)
+        .default_height(480)
+        .build();
 
-    dialog.set_default_size(640, 480);
-    dialog.set_modal(true);
+    let header_bar = gtk::HeaderBar::new();
+
+    // Add Apply button to the header bar
+    let apply_button = gtk::Button::with_label("Apply");
+    apply_button.add_css_class("suggested-action");
+
     let app_weak = app.downgrade();
-    dialog.connect_response(glib::clone!(
+    apply_button.connect_clicked(glib::clone!(
         #[weak]
-        dialog,
-        move |_, _| {
+        window,
+        move |_| {
             let app = upgrade_weak!(app_weak);
-            f(app, dialog)
+            f(app.clone(), window.clone());
         }
     ));
+
+    header_bar.pack_end(&apply_button);
+    window.set_titlebar(Some(&header_bar));
 
     let scrolledwindow = gtk::ScrolledWindow::builder()
         .hexpand(true)
         .vexpand(true)
+        .margin_start(10)
+        .margin_end(10)
+        .margin_top(10)
+        .margin_bottom(10)
         .build();
-    scrolledwindow.set_child(Some(grid));
-    let content_area = dialog.content_area();
-    content_area.append(&scrolledwindow);
-    content_area.set_vexpand(true);
-    content_area.set_margin_start(10);
-    content_area.set_margin_end(10);
-    content_area.set_margin_top(10);
-    content_area.set_margin_bottom(10);
+    scrolledwindow.set_child(Some(content.as_ref()));
 
-    dialog
+    window.set_child(Some(&scrolledwindow));
+
+    window
 }
 
 pub fn get_input<F: Fn(GPSApp, String) + 'static>(
@@ -65,14 +75,16 @@ pub fn get_input<F: Fn(GPSApp, String) + 'static>(
     default_value: &str,
     f: F,
 ) {
-    let dialog = gtk::Dialog::with_buttons(
-        Some(dialog_name),
-        Some(&app.window),
-        gtk::DialogFlags::MODAL,
-        &[("Ok", gtk::ResponseType::Apply)],
-    );
-    dialog.set_default_size(600, 100);
-    dialog.set_modal(true);
+    let window = gtk::Window::builder()
+        .title(dialog_name)
+        .transient_for(&app.window)
+        .modal(true)
+        .default_width(600)
+        .default_height(100)
+        .build();
+
+    let header_bar = gtk::HeaderBar::new();
+    let ok_button = gtk::Button::with_label("Ok");
 
     let label = gtk::Label::builder()
         .label(input_name)
@@ -88,29 +100,35 @@ pub fn get_input<F: Fn(GPSApp, String) + 'static>(
         .build();
     entry.set_text(default_value);
 
-    let content_area = dialog.content_area();
-    content_area.set_orientation(gtk::Orientation::Horizontal);
-    content_area.set_vexpand(true);
-    content_area.set_margin_start(10);
-    content_area.set_margin_end(10);
-    content_area.set_margin_top(10);
-    content_area.set_margin_bottom(10);
-    content_area.append(&label);
-    content_area.append(&entry);
+    let content_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .vexpand(true)
+        .margin_start(10)
+        .margin_end(10)
+        .margin_top(10)
+        .margin_bottom(10)
+        .build();
+    content_box.append(&label);
+    content_box.append(&entry);
+
     let app_weak = app.downgrade();
-    dialog.connect_response(glib::clone!(
+    ok_button.connect_clicked(glib::clone!(
         #[weak]
         entry,
-        move |dialog, response_type| {
+        #[weak]
+        window,
+        move |_| {
             let app = upgrade_weak!(app_weak);
-            if response_type == gtk::ResponseType::Apply {
-                f(app, entry.text().to_string());
-            }
-            dialog.close()
+            f(app, entry.text().to_string());
+            window.close();
         }
     ));
 
-    dialog.present();
+    header_bar.pack_end(&ok_button);
+    window.set_titlebar(Some(&header_bar));
+    window.set_child(Some(&content_box));
+
+    window.present();
 }
 
 pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDialogType, f: F) {
