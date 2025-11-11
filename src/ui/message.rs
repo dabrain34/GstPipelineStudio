@@ -21,19 +21,21 @@ pub fn display_message_dialog<F: Fn(Application) + 'static>(
         .downcast::<gtk::Application>()
         .expect("Default application has wrong type");
 
-    // AlertDialog doesn't have built-in message types, so format the message
-    let formatted_message = match message_type {
-        gtk::MessageType::Error => format!("Error: {message}"),
-        gtk::MessageType::Warning => format!("Warning: {message}"),
-        gtk::MessageType::Info => format!("Information: {message}"),
-        _ => message.to_string(),
+    // Create a more GNOME-friendly dialog with proper title and details
+    let (title, detail) = match message_type {
+        gtk::MessageType::Error => ("Error", message),
+        gtk::MessageType::Warning => ("Warning", message),
+        gtk::MessageType::Info => ("Information", message),
+        _ => ("Message", message),
     };
 
     let dialog = AlertDialog::builder()
-        .message(&formatted_message)
+        .message(title)
+        .detail(detail)
         .modal(true)
-        .buttons(["Ok"])
+        .buttons(["OK"])
         .default_button(0)
+        .cancel_button(0)
         .build();
 
     let app_weak = app.downgrade();
