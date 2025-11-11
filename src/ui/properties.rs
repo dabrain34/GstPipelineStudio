@@ -90,12 +90,11 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
         ]
         .contains(&t) =>
         {
-            let combo = gtk::ComboBoxText::new();
+            let string_list = gtk::StringList::new(&[]);
 
-            combo.set_widget_name(property_name);
-            GPS_TRACE!("add ComboBox property : {}", combo.widget_name());
             // Add an empty entry to be able to reset the value
-            combo.append_text("");
+            string_list.append("");
+
             if t.is_a(glib::ParamSpecEnum::static_type()) {
                 let param = param
                     .clone()
@@ -103,7 +102,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                     .expect("Should be a ParamSpecEnum");
                 let enums = param.enum_class();
                 for value in enums.values() {
-                    combo.append_text(&format!(
+                    string_list.append(&format!(
                         "{}:{}:{}",
                         value.value(),
                         value.nick(),
@@ -117,7 +116,7 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                     .expect("Should be a ParamSpecFlags");
                 let flags = param.flags_class();
                 for value in flags.values() {
-                    combo.append_text(&format!(
+                    string_list.append(&format!(
                         "{}:{}:{}",
                         value.value(),
                         value.nick(),
@@ -125,30 +124,39 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
                     ));
                 }
             }
+
+            let dropdown =
+                gtk::DropDown::new(Some(string_list.clone()), Option::<gtk::Expression>::None);
+            dropdown.set_widget_name(property_name);
+            GPS_TRACE!("add DropDown property : {}", dropdown.widget_name());
+
             if let Some(value) = app.element_property(node_id, property_name) {
                 //Retrieve the first value (index) from the property
-                combo.set_active(Some(value.parse::<u32>().unwrap_or(0) + 1));
+                dropdown.set_selected(value.parse::<u32>().unwrap_or(0) + 1);
             } else if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
                 || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
             {
                 if let Ok(value) =
                     GPS::ElementInfo::element_property_by_feature_name(element_name, param.name())
                 {
-                    combo.set_active(Some(value.parse::<u32>().unwrap_or(0) + 1));
+                    dropdown.set_selected(value.parse::<u32>().unwrap_or(0) + 1);
                 }
             }
 
-            combo.connect_changed(move |c| {
-                if let Some(text) = c.active_text() {
-                    let value = text.to_string();
-                    let value = value.split_once(':');
-                    f(
-                        c.widget_name().to_string(),
-                        value.unwrap_or_default().0.to_string(),
-                    );
+            dropdown.connect_selected_notify(move |d| {
+                if let Some(selected_item) = d.selected_item() {
+                    if let Some(string_object) = selected_item.downcast_ref::<gtk::StringObject>() {
+                        let text = string_object.string();
+                        let value = text.to_string();
+                        let value = value.split_once(':');
+                        f(
+                            d.widget_name().to_string(),
+                            value.unwrap_or_default().0.to_string(),
+                        );
+                    }
                 }
             });
-            Some(combo.upcast::<gtk::Widget>())
+            Some(dropdown.upcast::<gtk::Widget>())
         }
         _ => {
             GPS_INFO!(
