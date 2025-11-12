@@ -37,6 +37,16 @@ try
     $gstreamerPluginInstallDir= Join-Path $gstreamerInstallDir -ChildPath "lib"
     $gstreamerShareInstallDir= Join-Path $gstreamerInstallDir -ChildPath "share"
 
+    # Clean unnecessary folders to reduce installer size
+    $foldersToClean = @("doc", "gtk-doc", "man", "info", "devhelp")
+    foreach ($folder in $foldersToClean) {
+        $folderPath = Join-Path $gstreamerShareInstallDir -ChildPath $folder
+        if (Test-Path $folderPath) {
+            Write-Output "Cleaning $folderPath"
+            Remove-Item -Path $folderPath -Recurse -Force
+        }
+    }
+
     & "$heatToolPath" dir "$gstreamerBinInstallDir" -gg -sfrag -template:fragment -out gstreamer-1.0.wxs -cg "_gstreamer" -var var.gstreamerBinInstallDir -dr INSTALLFOLDER
     & "$heatToolPath" dir "$gstreamerPluginInstallDir" -gg -sfrag -template:fragment -out gstreamer-plugins-1.0.wxs -cg "_gstreamer_plugins" -var var.gstreamerPluginInstallDir -dr INSTALLFOLDER
     & "$heatToolPath" dir "$gstreamerShareInstallDir" -v -ke -gg -sfrag -template:fragment -out gstreamer-share-1.0.wxs -cg "_gstreamer_share" -var var.gstreamerShareInstallDir -dr INSTALLFOLDER
