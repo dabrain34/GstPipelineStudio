@@ -102,7 +102,6 @@ impl GPSApp {
         app.window
             .set_default_size(settings.app_width, settings.app_height);
 
-        #[cfg(not(target_os = "macos"))]
         if settings.app_maximized {
             app.window.maximize();
         }
