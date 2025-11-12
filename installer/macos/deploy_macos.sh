@@ -137,25 +137,7 @@ done
 
 test_ok cp -f "${PROJECTDIR}/macos/mac_launcher.sh" "${TARGETDIR}/bin/launcher.sh"
 
-# FIXME should build and install gtk4 instead of using homebrew
 
-# copy GTK runtime dependencies resource
-# echo -n "Copy GTK runtime resource......"
-# cp -rf /usr/local/lib/gio "${TARGETDIR}/lib/"
-# cp -rf /usr/local/lib/gtk-3.0 "${TARGETDIR}/lib/"
-# cp -rf /usr/local/lib/gdk-pixbuf-2.0 "${TARGETDIR}/lib/"
-# cp -rf /usr/local/lib/girepository-1.0 "${TARGETDIR}/lib/"
-# cp -rf /usr/local/lib/libgda-5.0 "${TARGETDIR}/lib/"
-# # Avoid override the latest locale file
-cp -r  /opt/homebrew/share/locale "${TARGETDIR}/share/"
-cp -rf /opt/homebrew/share/icons "${TARGETDIR}/share/"
-cp -rf /opt/homebrew/share/gtk4-0 "${TARGETDIR}/share/"
-# cp -rf /usr/local/share/fontconfig "${TARGETDIR}/share/"
-# cp -rf /usr/local/share/themes/Mac "${TARGETDIR}/share/themes/"
-# cp -rf /usr/local/share/themes/Default "${TARGETDIR}/share/themes/"
-# cp -rf /usr/local/share/gtksourceview-4 "${TARGETDIR}/share/"
-# glib-compile-schemas /usr/local/share/glib-2.0/schemas
-# cp -f /usr/local/share/glib-2.0/schemas/gschema* "${TARGETDIR}/share/glib-2.0/schemas"
 # # find "${TARGETDIR}/bin" -type f -path '*.dll.a' -exec rm '{}' \;
 lib_dependency_analyze ${TARGETDIR}/lib ${TARGETDIR}/bin
 lib_dependency_analyze ${TARGETDIR}/bin ${TARGETDIR}/bin
@@ -200,6 +182,36 @@ if [ ! -f "${TARGETDIR}/share/licenses/GstPipelineStudio/gpl-3.0.txt" ]; then
 else
   echo "[done]"
 fi
+
+# remove useless files
+echo -n "Cleaning unnecessary files........."
+
+# Clean unnecessary folders in share/ to reduce installer size
+shareFoldersToClean=("doc" "gtk-4.0" "man" "gdb" "aclocal" "bash-completion")
+for folder in "${shareFoldersToClean[@]}"; do
+  folderPath="${TARGETDIR}/share/${folder}"
+  if [ -d "$folderPath" ]; then
+    echo "Cleaning $folderPath"
+    rm -rf "$folderPath"
+  fi
+done
+
+# Clean unnecessary folders in lib/
+libFoldersToClean=("pkgconfig" "cmake" "gio" "glib-2.0" "graphene-1.0" "gstreamer-1.0/include" "gtk-4.0")
+for folder in "${libFoldersToClean[@]}"; do
+  folderPath="${TARGETDIR}/lib/${folder}"
+  if [ -d "$folderPath" ]; then
+    echo "Cleaning $folderPath"
+    rm -rf "$folderPath"
+  fi
+done
+
+# Clean other unnecessary files and directories
+rm -f ${TARGETDIR}/lib/*.a
+rm -rf ${TARGETDIR}/libexec
+rm -rf ${TARGETDIR}/etc
+
+echo "[done]"
 
 echo "make macos executable file(.app)......"
 cd "${PROJECTDIR}/${BUILD_DIR}"
