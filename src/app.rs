@@ -30,6 +30,22 @@ use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 use crate::graphmanager as GM;
 use crate::graphmanager::PropertyExt;
 use std::fmt;
+
+// Constants for paned widget names
+const PANED_GRAPH_DASHBOARD: &str = "graph_dashboard-paned";
+const PANED_GRAPH_LOGS: &str = "graph_logs-paned";
+const PANED_ELEMENTS_PREVIEW: &str = "elements_preview-paned";
+const PANED_ELEMENTS_PROPERTIES: &str = "elements_properties-paned";
+const PANED_PLAYCONTROLS_POSITION: &str = "playcontrols_position-paned";
+
+// Constants for default positions and ratios
+const DEFAULT_PANED_POSITION: i32 = 100;
+const PANED_RATIO_GRAPH: i32 = 3; // Graph area gets 4/5
+const PANED_RATIO_TOTAL: i32 = 4;
+const PANED_RATIO_ELEMENTS: i32 = 3; // Elements get 3/5 of their area
+const MAXIMIZE_TIMEOUT_MS: u64 = 500;
+const POSITION_UPDATE_TIMEOUT_MS: u64 = 500;
+const MIN_PANED_SIZE: i32 = 100;
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
@@ -106,11 +122,15 @@ impl GPSApp {
             app.window.maximize();
         }
 
-        app.set_paned_position(&settings, "graph_dashboard-paned", 100);
-        app.set_paned_position(&settings, "graph_logs-paned", 100);
-        app.set_paned_position(&settings, "elements_preview-paned", 100);
-        app.set_paned_position(&settings, "elements_properties-paned", 100);
-        app.set_paned_position(&settings, "playcontrols_position-paned", 100);
+        app.set_paned_position(&settings, PANED_GRAPH_DASHBOARD, DEFAULT_PANED_POSITION);
+        app.set_paned_position(&settings, PANED_GRAPH_LOGS, DEFAULT_PANED_POSITION);
+        app.set_paned_position(&settings, PANED_ELEMENTS_PREVIEW, DEFAULT_PANED_POSITION);
+        app.set_paned_position(&settings, PANED_ELEMENTS_PROPERTIES, DEFAULT_PANED_POSITION);
+        app.set_paned_position(
+            &settings,
+            PANED_PLAYCONTROLS_POSITION,
+            DEFAULT_PANED_POSITION,
+        );
 
         Ok(app)
     }
@@ -143,6 +163,105 @@ impl GPSApp {
             .insert(paned_name.to_string(), paned.position());
     }
 
+    fn apply_paned_positions(&self, is_maximized: bool) {
+        let graph_dashboard_paned: Paned = self
+            .builder
+            .object(PANED_GRAPH_DASHBOARD)
+            .expect("Couldn't get graph_dashboard-paned");
+        let graph_logs_paned: Paned = self
+            .builder
+            .object(PANED_GRAPH_LOGS)
+            .expect("Couldn't get graph_logs-paned");
+        let elements_preview_paned: Paned = self
+            .builder
+            .object(PANED_ELEMENTS_PREVIEW)
+            .expect("Couldn't get elements_preview-paned");
+        let elements_properties_paned: Paned = self
+            .builder
+            .object(PANED_ELEMENTS_PROPERTIES)
+            .expect("Couldn't get elements_properties-paned");
+        let playcontrols_position_paned: Paned = self
+            .builder
+            .object(PANED_PLAYCONTROLS_POSITION)
+            .expect("Couldn't get playcontrols_position-paned");
+
+        // Get the actual allocated dimensions
+        let h_allocation = graph_dashboard_paned.allocation();
+        let h_width = h_allocation.width();
+
+        let v_allocation = graph_logs_paned.allocation();
+        let v_height = v_allocation.height();
+
+        if h_width > MIN_PANED_SIZE && v_height > MIN_PANED_SIZE {
+            // Set horizontal split: graph area gets 4/5 of paned width
+            let h_position = (h_width * PANED_RATIO_GRAPH) / PANED_RATIO_TOTAL;
+            graph_dashboard_paned.set_position(h_position);
+
+            // Set vertical split: graph gets 4/5 of paned height
+            let v_position = (v_height * PANED_RATIO_GRAPH) / PANED_RATIO_TOTAL;
+            graph_logs_paned.set_position(v_position);
+
+            // Align elements_preview with graph_logs - use same position to align preview with logs
+            elements_preview_paned.set_position(v_position);
+            GPS_DEBUG!(
+                "elements_preview_paned: aligned with logs at position={}",
+                v_position
+            );
+
+            // Split elements from properties: 3/5 for elements, 2/5 for details
+            let elements_properties_position =
+                (v_position * PANED_RATIO_ELEMENTS) / PANED_RATIO_TOTAL;
+            elements_properties_paned.set_position(elements_properties_position);
+            GPS_DEBUG!(
+                "elements_properties_paned: position={} (3/5 of v_position={})",
+                elements_properties_position,
+                v_position
+            );
+
+            // Get the actual allocated width for the playcontrols_position paned
+            let playcontrols_allocation = playcontrols_position_paned.allocation();
+            let playcontrols_width = playcontrols_allocation.width();
+            if playcontrols_width > MIN_PANED_SIZE {
+                // Split playcontrols and position: 3/5 for playcontrols, 2/5 for position
+                let playcontrols_position =
+                    (playcontrols_width * PANED_RATIO_ELEMENTS) / PANED_RATIO_TOTAL;
+                playcontrols_position_paned.set_position(playcontrols_position);
+                GPS_DEBUG!(
+                    "playcontrols_position_paned: position={} (3/5 of width={})",
+                    playcontrols_position,
+                    playcontrols_width
+                );
+            }
+
+            let mode = if is_maximized {
+                "Maximized"
+            } else {
+                "Windowed mode"
+            };
+            GPS_DEBUG!(
+                "{} - Setting paned positions: h_width={}, v_height={}, h_pos={}, v_pos={}",
+                mode,
+                h_width,
+                v_height,
+                h_position,
+                v_position
+            );
+        } else if !is_maximized {
+            // Fallback to saved positions if allocation is not ready (only in windowed mode)
+            let settings = Settings::load_settings();
+            self.set_paned_position(&settings, PANED_GRAPH_DASHBOARD, 600);
+            self.set_paned_position(&settings, PANED_GRAPH_LOGS, 400);
+            self.set_paned_position(&settings, PANED_PLAYCONTROLS_POSITION, 400);
+            GPS_DEBUG!("Windowed mode - Using saved positions");
+        } else {
+            GPS_WARN!(
+                "Invalid paned sizes: h_width={}, v_height={}",
+                h_width,
+                v_height
+            );
+        }
+    }
+
     pub fn on_startup(application: &gtk::Application, pipeline_desc: &String) {
         // Create application and error out if that fails for whatever reason
         let app = match GPSApp::new(application) {
@@ -154,6 +273,97 @@ impl GPSApp {
         };
 
         app.build_ui(application, pipeline_desc);
+
+        // Setup dynamic paned positioning on maximize/unmaximize
+        let app_clone_for_maximize = app.clone();
+        let last_maximized_state = Rc::new(Cell::new(app.window.is_maximized()));
+
+        app.window
+            .connect_notify_local(Some("maximized"), move |window, _| {
+                let is_maximized = window.is_maximized();
+
+                // Only process if state actually changed
+                if last_maximized_state.get() == is_maximized {
+                    return;
+                }
+                last_maximized_state.set(is_maximized);
+
+                let app = app_clone_for_maximize.clone();
+
+                // Use timeout to ensure window is fully resized and allocated
+                glib::timeout_add_local_once(
+                    std::time::Duration::from_millis(MAXIMIZE_TIMEOUT_MS),
+                    move || {
+                        app.apply_paned_positions(is_maximized);
+                    },
+                );
+            });
+
+        // Setup dynamic paned positioning on window resize (for windowed mode)
+        let app_clone_for_resize = app.clone();
+        let resize_timeout_id: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
+
+        app.window.connect_default_width_notify(glib::clone!(
+            #[strong]
+            resize_timeout_id,
+            #[strong]
+            app_clone_for_resize,
+            move |window| {
+                // Only apply resize in windowed mode (not when maximized)
+                if window.is_maximized() {
+                    return;
+                }
+
+                // Cancel any pending resize timeout
+                if let Some(id) = resize_timeout_id.borrow_mut().take() {
+                    id.remove();
+                }
+
+                let app = app_clone_for_resize.clone();
+                let timeout_id_clone = resize_timeout_id.clone();
+
+                // Use timeout to debounce resize events
+                let new_id = glib::timeout_add_local_once(
+                    std::time::Duration::from_millis(MAXIMIZE_TIMEOUT_MS),
+                    move || {
+                        app.apply_paned_positions(false);
+                        timeout_id_clone.borrow_mut().take();
+                    },
+                );
+                *resize_timeout_id.borrow_mut() = Some(new_id);
+            }
+        ));
+
+        app.window.connect_default_height_notify(glib::clone!(
+            #[strong]
+            resize_timeout_id,
+            #[strong]
+            app_clone_for_resize,
+            move |window| {
+                // Only apply resize in windowed mode (not when maximized)
+                if window.is_maximized() {
+                    return;
+                }
+
+                // Cancel any pending resize timeout
+                if let Some(id) = resize_timeout_id.borrow_mut().take() {
+                    id.remove();
+                }
+
+                let app = app_clone_for_resize.clone();
+                let timeout_id_clone = resize_timeout_id.clone();
+
+                // Use timeout to debounce resize events
+                let new_id = glib::timeout_add_local_once(
+                    std::time::Duration::from_millis(MAXIMIZE_TIMEOUT_MS),
+                    move || {
+                        app.apply_paned_positions(false);
+                        timeout_id_clone.borrow_mut().take();
+                    },
+                );
+                *resize_timeout_id.borrow_mut() = Some(new_id);
+            }
+        ));
 
         let app_weak = app.downgrade();
         let slider: gtk::Scale = app
@@ -173,8 +383,9 @@ impl GPSApp {
             }
         });
         let app_weak = app.downgrade();
-        let timeout_id =
-            glib::timeout_add_local(std::time::Duration::from_millis(500), move || {
+        let timeout_id = glib::timeout_add_local(
+            std::time::Duration::from_millis(POSITION_UPDATE_TIMEOUT_MS),
+            move || {
                 let app = upgrade_weak!(app_weak, glib::ControlFlow::Break);
 
                 let label: gtk::Label = app
@@ -200,7 +411,8 @@ impl GPSApp {
                 label.set_text(&position_desc);
                 // Tell the callback to continue calling this closure.
                 glib::ControlFlow::Continue
-            });
+            },
+        );
 
         let timeout_id = RefCell::new(Some(timeout_id));
         let app_container = RefCell::new(Some(app));
@@ -218,11 +430,11 @@ impl GPSApp {
             settings.app_maximized = window.is_maximized();
             settings.app_width = window.default_width();
             settings.app_height = window.default_height();
-            app.save_paned_position(&mut settings, "graph_dashboard-paned");
-            app.save_paned_position(&mut settings, "graph_logs-paned");
-            app.save_paned_position(&mut settings, "elements_preview-paned");
-            app.save_paned_position(&mut settings, "elements_properties-paned");
-            app.save_paned_position(&mut settings, "playcontrols_position-paned");
+            app.save_paned_position(&mut settings, PANED_GRAPH_DASHBOARD);
+            app.save_paned_position(&mut settings, PANED_GRAPH_LOGS);
+            app.save_paned_position(&mut settings, PANED_ELEMENTS_PREVIEW);
+            app.save_paned_position(&mut settings, PANED_ELEMENTS_PROPERTIES);
+            app.save_paned_position(&mut settings, PANED_PLAYCONTROLS_POSITION);
 
             Settings::save_settings(&settings);
             if let Some(timeout_id) = timeout_id.borrow_mut().take() {
