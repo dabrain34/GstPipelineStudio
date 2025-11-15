@@ -475,7 +475,10 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("graph.check", None));
         application.add_action(&gio::SimpleAction::new("graph.clear", None));
-        application.add_action(&gio::SimpleAction::new("graph.pipeline_details", None));
+
+        let pipeline_details_action = gio::SimpleAction::new("graph.pipeline_details", None);
+        pipeline_details_action.set_enabled(false); // Initially disabled
+        application.add_action(&pipeline_details_action);
 
         application.add_action(&gio::SimpleAction::new("port.delete", None));
         application.add_action(&gio::SimpleAction::new("port.properties", None));
@@ -581,6 +584,18 @@ impl GPSApp {
             .object("status_bar")
             .expect("Couldn't get status_bar");
         status_bar.set_text(&state.to_string());
+
+        // Enable/disable pipeline details menu based on state
+        // Only update if the action exists (may not exist during early initialization)
+        if let Some(app) = gtk::gio::Application::default() {
+            if let Some(action) = app
+                .lookup_action("graph.pipeline_details")
+                .and_then(|a| a.downcast::<gio::SimpleAction>().ok())
+            {
+                let is_playing = matches!(state, AppState::Playing | AppState::Paused);
+                action.set_enabled(is_playing);
+            }
+        }
     }
 
     pub fn set_app_preview(&self, paintable: &gdk::Paintable, n_sink: usize) {
