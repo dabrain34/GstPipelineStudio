@@ -291,6 +291,48 @@ pub fn setup_elements_list(app: &GPSApp) {
         }
     }
 
+    // Add right-click context menu for adding to favorites
+    let gesture = gtk::GestureClick::new();
+    gesture.set_button(0);
+    let app_weak = app.downgrade();
+    gesture.connect_pressed(glib::clone!(
+        #[weak]
+        tree,
+        move |gesture, _n_press, x, y| {
+            let app = upgrade_weak!(app_weak);
+            if gesture.current_button() == BUTTON_SECONDARY {
+                if let Some(model) = tree.model() {
+                    if let Some(selection) = model.downcast_ref::<SingleSelection>() {
+                        if let Some(element_info) = selection.selected_item() {
+                            if let Some(element_info) =
+                                element_info.downcast_ref::<ElementInfoObject>()
+                            {
+                                let element_name = element_info.property::<String>("name");
+                                GPS_DEBUG!("Element {} right-clicked", element_name);
+
+                                let menu: gio::MenuModel = app
+                                    .builder
+                                    .object("elements_menu")
+                                    .expect("Couldn't get elements_menu model");
+
+                                let app_clone = app.clone();
+                                app.connect_app_menu_action(
+                                    "element.add-to-favorite",
+                                    move |_, _| {
+                                        add_to_favorite_list(&app_clone, element_name.clone());
+                                    },
+                                );
+
+                                app.show_context_menu_at_position(&tree, x, y, &menu);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ));
+    tree.add_controller(gesture);
+
     setup_search_entry(&tree, app)
 }
 

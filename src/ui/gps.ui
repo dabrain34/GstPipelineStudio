@@ -74,6 +74,14 @@
       </item>
     </section>
   </menu>
+  <menu id="elements_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes" comments="elements menu entry add to favorite">_Add to favorite</attribute>
+        <attribute name="action">app.element.add-to-favorite</attribute>
+      </item>
+    </section>
+  </menu>
     <menu id="logger_menu">
     <section>
       <item>

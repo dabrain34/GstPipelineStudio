@@ -469,6 +469,7 @@ impl GPSApp {
         application.set_accels_for_action("app.about", &["<primary>a"]);
 
         application.add_action(&gio::SimpleAction::new("favorite.remove", None));
+        application.add_action(&gio::SimpleAction::new("element.add-to-favorite", None));
 
         application.add_action(&gio::SimpleAction::new("logger.clear", None));
 
