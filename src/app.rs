@@ -1000,10 +1000,75 @@ impl GPSApp {
         file.read_to_end(&mut buffer).expect("buffer overflow");
         let graphtab = graphbook::current_graphtab(self);
         graphtab.graphview().load_from_xml(buffer)?;
+
+        // Restore static pads for nodes that have no ports
+        self.restore_static_pads();
+
         if !untitled {
             graphbook::current_graphtab_set_filename(self, filename);
         }
         Ok(())
+    }
+
+    fn restore_static_pads(&self) {
+        let graphtab = graphbook::current_graphtab(self);
+        let graphview = graphtab.graphview();
+        let nodes = graphview.all_nodes(GM::NodeType::All);
+
+        for node in nodes {
+            // Check if node has no ports
+            let has_ports = !node.ports().is_empty();
+
+            if !has_ports {
+                let node_id = node.id();
+                let element_name = node.name();
+                let position = node.position();
+
+                GPS_DEBUG!(
+                    "Restoring static pads for element: {} at position ({}, {})",
+                    element_name,
+                    position.0,
+                    position.1
+                );
+
+                // Get static pads from GStreamer element factory
+                let (inputs, outputs) = GPS::PadInfo::pads(&element_name, false);
+
+                // Add input pads
+                for input in inputs {
+                    self.create_port_with_caps(
+                        node_id,
+                        GM::PortDirection::Input,
+                        GM::PortPresence::Always,
+                        input.caps().to_string(),
+                    );
+                }
+
+                // Add output pads
+                for output in outputs {
+                    self.create_port_with_caps(
+                        node_id,
+                        GM::PortDirection::Output,
+                        GM::PortPresence::Always,
+                        output.caps().to_string(),
+                    );
+                }
+
+                // Ensure position is preserved after adding ports
+                if let Some(node) = graphview.node(node_id) {
+                    GPS_DEBUG!(
+                        "Position after adding ports: ({}, {})",
+                        node.position().0,
+                        node.position().1
+                    );
+                    // Re-apply position if it changed
+                    if node.position() != position {
+                        GPS_DEBUG!("Position changed! Restoring to ({}, {})", position.0, position.1);
+                        node.set_position(position.0, position.1);
+                    }
+                }
+            }
+        }
     }
 
     fn load_pipeline(&self, pipeline_desc: &str) -> anyhow::Result<()> {
