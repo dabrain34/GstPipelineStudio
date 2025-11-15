@@ -871,6 +871,8 @@ impl GraphView {
             .map_or(20_f32, |(_x, y)| y + 120.0);
 
         let node_id = node.id();
+        // Update the node's internal position so it gets saved correctly
+        node.set_position(x, y);
         private
             .nodes
             .borrow_mut()
@@ -1218,6 +1220,7 @@ impl GraphView {
             }
 
             for (name, value) in node.properties().iter() {
+                info!("  Saving property: {}={}", name, value);
                 writer.write(
                     XMLWEvent::start_element("Property")
                         .attr("name", name)
@@ -1282,6 +1285,9 @@ impl GraphView {
                             }
                         }
                         "Node" => {
+                            // Clear properties from any previous node before starting a new one
+                            current_node_properties.clear();
+
                             let id = attrs
                                 .get::<String>(&String::from("id"))
                                 .expect("Unable to find node id");
@@ -1398,6 +1404,12 @@ impl GraphView {
                                 let id = node.id();
                                 let position =
                                     graphene::Point::new(node.position().0, node.position().1);
+                                info!(
+                                    "Applying {} properties to node id {} ({})",
+                                    current_node_properties.len(),
+                                    id,
+                                    node.name()
+                                );
                                 node.update_properties(&current_node_properties);
                                 current_node_properties.clear();
                                 self.add_node(node);
@@ -1571,7 +1583,7 @@ impl GraphView {
         None
     }
 
-    fn graph_updated(&self) {
+    pub fn graph_updated(&self) {
         let private = imp::GraphView::from_obj(self);
         self.queue_allocate();
         self.emit_by_name::<()>("graph-updated", &[&private.id.get()]);
