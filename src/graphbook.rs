@@ -555,12 +555,17 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             GPS_TRACE!("link added id={}", link_id);
             let link = current_graphtab(&app).graphview().link(link_id).unwrap();
             let port_from = app.port(link.node_from, link.port_from);
-            let caps1 = PropertyExt::property(&port_from, "_caps").unwrap();
             let port_to = app.port(link.node_to, link.port_to);
-            let caps2 = PropertyExt::property(&port_to, "_caps").unwrap();
-            if !GPS::PadInfo::caps_compatible(&caps1, &caps2) {
-                GPS_WARN!("caps are not compatible caps1={} caps2={}", caps1, caps2);
-                current_graphtab(&app).graphview().remove_link(link_id);
+
+            // Check caps compatibility if both ports have caps defined
+            if let (Some(caps1), Some(caps2)) = (
+                PropertyExt::property(&port_from, "_caps"),
+                PropertyExt::property(&port_to, "_caps"),
+            ) {
+                if !GPS::PadInfo::caps_compatible(&caps1, &caps2) {
+                    GPS_WARN!("caps are not compatible caps1={} caps2={}", caps1, caps2);
+                    current_graphtab(&app).graphview().remove_link(link_id);
+                }
             }
             None
         }),
