@@ -925,6 +925,11 @@ impl GPSApp {
     pub fn update_element_properties(&self, node_id: u32, properties: &HashMap<String, String>) {
         let node = self.node(node_id);
         node.update_properties(properties);
+
+        // Trigger graph update to save to cache file
+        graphbook::current_graphtab(self)
+            .graphview()
+            .graph_updated();
     }
 
     pub fn update_pad_properties(
@@ -935,6 +940,11 @@ impl GPSApp {
     ) {
         let port = self.port(node_id, port_id);
         port.update_properties(properties);
+
+        // Trigger graph update to save to cache file
+        graphbook::current_graphtab(self)
+            .graphview()
+            .graph_updated();
     }
 
     pub fn element_property(&self, node_id: u32, property_name: &str) -> Option<String> {
@@ -1078,7 +1088,11 @@ impl GPSApp {
                     );
                     // Re-apply position if it changed
                     if node.position() != position {
-                        GPS_DEBUG!("Position changed! Restoring to ({}, {})", position.0, position.1);
+                        GPS_DEBUG!(
+                            "Position changed! Restoring to ({}, {})",
+                            position.0,
+                            position.1
+                        );
                         node.set_position(position.0, position.1);
                     }
                 }
