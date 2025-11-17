@@ -156,50 +156,51 @@
         <property name="orientation">vertical</property>
         <property name="spacing">1</property>
         <child>
-          <object class="GtkPaned" id="playcontrols_position-paned">
+          <object class="GtkBox" id="playcontrols_position-box">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">5</property>
             <property name="vexpand">0</property>
             <child>
               <object class="GtkBox">
+                <property name="spacing">2</property>
                 <child>
                   <object class="GtkButton" id="button-play">
-                    <property name="hexpand">1</property>
                     <property name="receives-default">1</property>
                     <property name="icon-name">media-playback-start-symbolic</property>
                   </object>
                 </child>
                 <child>
                   <object class="GtkButton" id="button-pause">
-                    <property name="hexpand">1</property>
                     <property name="receives-default">1</property>
                     <property name="icon-name">media-playback-pause-symbolic</property>
                   </object>
                 </child>
                 <child>
                   <object class="GtkButton" id="button-stop">
-                    <property name="hexpand">1</property>
                     <property name="receives-default">1</property>
                     <property name="icon-name">media-playback-stop-symbolic</property>
                   </object>
                 </child>
                 <child>
                   <object class="GtkButton" id="button-clear">
-                    <property name="hexpand">1</property>
                     <property name="receives-default">1</property>
                     <property name="icon-name">edit-clear</property>
                   </object>
                 </child>
-                <child>
-                  <object class="GtkLabel" id="label-position">
-                    <property name="label" translatable="yes">xx:xx:xx</property>
-                    <property name="hexpand">1</property>
-                  </object>
-                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="label-position">
+                <property name="label" translatable="yes">0:00:00/0:00:00</property>
+                <property name="margin-start">5</property>
+                <property name="margin-end">5</property>
               </object>
             </child>
             <child>
               <object class="GtkScale" id="scale-position">
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
+                <property name="hexpand">True</property>
                 <property name="adjustment">scale_adjustment</property>
                 <property name="round-digits">1</property>
               </object>

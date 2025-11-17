@@ -36,7 +36,6 @@ const PANED_GRAPH_DASHBOARD: &str = "graph_dashboard-paned";
 const PANED_GRAPH_LOGS: &str = "graph_logs-paned";
 const PANED_ELEMENTS_PREVIEW: &str = "elements_preview-paned";
 const PANED_ELEMENTS_PROPERTIES: &str = "elements_properties-paned";
-const PANED_PLAYCONTROLS_POSITION: &str = "playcontrols_position-paned";
 
 // Constants for default positions and ratios
 const DEFAULT_PANED_POSITION: i32 = 100;
@@ -126,11 +125,6 @@ impl GPSApp {
         app.set_paned_position(&settings, PANED_GRAPH_LOGS, DEFAULT_PANED_POSITION);
         app.set_paned_position(&settings, PANED_ELEMENTS_PREVIEW, DEFAULT_PANED_POSITION);
         app.set_paned_position(&settings, PANED_ELEMENTS_PROPERTIES, DEFAULT_PANED_POSITION);
-        app.set_paned_position(
-            &settings,
-            PANED_PLAYCONTROLS_POSITION,
-            DEFAULT_PANED_POSITION,
-        );
 
         Ok(app)
     }
@@ -180,10 +174,6 @@ impl GPSApp {
             .builder
             .object(PANED_ELEMENTS_PROPERTIES)
             .expect("Couldn't get elements_properties-paned");
-        let playcontrols_position_paned: Paned = self
-            .builder
-            .object(PANED_PLAYCONTROLS_POSITION)
-            .expect("Couldn't get playcontrols_position-paned");
 
         // Get the actual allocated dimensions
         let h_allocation = graph_dashboard_paned.allocation();
@@ -218,21 +208,6 @@ impl GPSApp {
                 v_position
             );
 
-            // Get the actual allocated width for the playcontrols_position paned
-            let playcontrols_allocation = playcontrols_position_paned.allocation();
-            let playcontrols_width = playcontrols_allocation.width();
-            if playcontrols_width > MIN_PANED_SIZE {
-                // Split playcontrols and position: 3/5 for playcontrols, 2/5 for position
-                let playcontrols_position =
-                    (playcontrols_width * PANED_RATIO_ELEMENTS) / PANED_RATIO_TOTAL;
-                playcontrols_position_paned.set_position(playcontrols_position);
-                GPS_DEBUG!(
-                    "playcontrols_position_paned: position={} (3/5 of width={})",
-                    playcontrols_position,
-                    playcontrols_width
-                );
-            }
-
             let mode = if is_maximized {
                 "Maximized"
             } else {
@@ -251,7 +226,6 @@ impl GPSApp {
             let settings = Settings::load_settings();
             self.set_paned_position(&settings, PANED_GRAPH_DASHBOARD, 600);
             self.set_paned_position(&settings, PANED_GRAPH_LOGS, 400);
-            self.set_paned_position(&settings, PANED_PLAYCONTROLS_POSITION, 400);
             GPS_DEBUG!("Windowed mode - Using saved positions");
         } else {
             GPS_WARN!(
@@ -434,7 +408,6 @@ impl GPSApp {
             app.save_paned_position(&mut settings, PANED_GRAPH_LOGS);
             app.save_paned_position(&mut settings, PANED_ELEMENTS_PREVIEW);
             app.save_paned_position(&mut settings, PANED_ELEMENTS_PROPERTIES);
-            app.save_paned_position(&mut settings, PANED_PLAYCONTROLS_POSITION);
 
             Settings::save_settings(&settings);
             if let Some(timeout_id) = timeout_id.borrow_mut().take() {
