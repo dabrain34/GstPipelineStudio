@@ -8,26 +8,9 @@ if (!$?) {
 }
 
 Set-Location C:\gstreamer
-
-# Copy the cache we already have in the image to avoid massive redownloads
-Move-Item C:/subprojects/*  C:\gstreamer\subprojects
-
-if (!$?) {
-  Write-Host "Failed to copy subprojects cache"
-  Exit 1
-}
-
-# Update the subprojects cache
-Write-Output "Running meson subproject reset"
-meson subprojects update --reset
-
-if (!$?) {
-  Write-Host "Failed to reset subprojects state"
-  Exit 1
-}
-
+# force fallback for glib is due to a bug when building libsoup. See https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/10136
 $env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release " +
-    "-Dglib:installed_tests=false " +
+    "-Dforce_fallback_for=glib " +
     "-Dlibnice:tests=disabled " +
     "-Dlibnice:examples=disabled " +
     "-Dffmpeg:tests=disabled " +
@@ -42,8 +25,7 @@ $env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release " +
     "-Dpython=disabled " +
     "-Dlibav=disabled " +
     "-Dvaapi=disabled " +
-    "-Dgst-plugins-base:pango=enabled " +
-    "-Dgst-plugins-good:cairo=enabled " +
+    "-Dlibxml2:python=false " +
     "-Dgpl=enabled "
 
 Write-Output "Building gst"

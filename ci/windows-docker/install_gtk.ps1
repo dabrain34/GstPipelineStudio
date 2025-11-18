@@ -1,13 +1,13 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
 
 $env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release" +
-" -Dwrap_mode=forcefallback" +
 " -Dintrospection=disabled" +
 " -Dbuild-examples=false" +
 " -Dbuild-tests=false" +
+" -Dbuild-demos=false" +
 " -Dmedia-gstreamer=disabled" +
 " -Dx11-backend=false" +
-" -Dmacos-backend=true" +
+" -Dmacos-backend=false" +
 " -Dvulkan=disabled" +
 " -Dprint-cups=disabled"
 
