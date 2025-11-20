@@ -1,0 +1,5 @@
+# This file is used by pre-commit to add word to the dictionary
+[default.extend-words]
+# GStreamer-related terms
+thumbnailers = "thumbnailers"
+gst-plugins-base = "gst-plugins-base"

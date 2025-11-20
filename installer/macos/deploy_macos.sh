@@ -187,7 +187,7 @@ fi
 echo -n "Cleaning unnecessary files........."
 
 # Clean unnecessary folders in share/ to reduce installer size
-shareFoldersToClean=("doc" "gtk-4.0" "man" "gdb" "aclocal" "bash-completion")
+shareFoldersToClean=("doc" "gtk-4.0" "man" "gdb" "aclocal" "bash-completion" "cmake" "gettext" "glib-2.0" "gst-plugins-base" "gstreamer-1.0" "installed-tests" "themes" "thumbnailers")
 for folder in "${shareFoldersToClean[@]}"; do
   folderPath="${TARGETDIR}/share/${folder}"
   if [ -d "$folderPath" ]; then
@@ -197,7 +197,7 @@ for folder in "${shareFoldersToClean[@]}"; do
 done
 
 # Clean unnecessary folders in lib/
-libFoldersToClean=("pkgconfig" "cmake" "gio" "glib-2.0" "graphene-1.0" "gstreamer-1.0/include" "gtk-4.0")
+libFoldersToClean=("pkgconfig" "cmake" "gio" "glib-2.0" "graphene-1.0" "gstreamer-1.0/include" "gtk-4.0" "cairo" "gdk-pixbuf-2.0")
 for folder in "${libFoldersToClean[@]}"; do
   folderPath="${TARGETDIR}/lib/${folder}"
   if [ -d "$folderPath" ]; then
