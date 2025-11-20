@@ -11,13 +11,11 @@ mod macros;
 mod app;
 mod common;
 mod config;
-mod graphbook;
 mod graphmanager;
 mod ui;
 #[macro_use]
 mod logger;
 mod gps;
-mod settings;
 use gtk::prelude::*;
 
 use crate::app::GPSApp;

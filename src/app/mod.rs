@@ -1,0 +1,262 @@
+// mod.rs
+//
+// Copyright 2025 Stéphane Cerveau <scerveau@igalia.com>
+//
+// This file is part of GstPipelineStudio
+//
+// SPDX-License-Identifier: GPL-3.0-only
+
+use glib::SignalHandlerId;
+use gtk::glib;
+use gtk::prelude::*;
+use gtk::{ApplicationWindow, Builder};
+use log::error;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::ops;
+use std::rc::{Rc, Weak};
+
+use std::fmt;
+
+// Submodules
+pub mod core;
+pub mod settings;
+
+// Re-export commonly used types
+pub use settings::Settings;
+
+// Re-export commonly used constants from core panels module
+pub use core::panels::{
+    DEFAULT_PANED_POSITION, PANED_ELEMENTS_PREVIEW, PANED_ELEMENTS_PROPERTIES,
+    PANED_GRAPH_DASHBOARD, PANED_GRAPH_LOGS,
+};
+
+const MAXIMIZE_TIMEOUT_MS: u64 = 500;
+
+#[derive(Debug)]
+pub struct GPSAppInner {
+    pub window: gtk::ApplicationWindow,
+    pub current_graphtab: Cell<u32>,
+    pub graphbook: RefCell<HashMap<u32, core::graphbook::GraphTab>>,
+    pub builder: Builder,
+    pub signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
+}
+
+#[derive(Debug)]
+pub enum AppState {
+    Ready,
+    Playing,
+    Paused,
+    Stopped,
+    Error,
+}
+
+impl fmt::Display for AppState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{self:?}",)
+    }
+}
+
+// This represents our main application window.
+#[derive(Debug, Clone)]
+pub struct GPSApp(Rc<GPSAppInner>);
+
+// Deref into the contained struct to make usage a bit more ergonomic
+impl ops::Deref for GPSApp {
+    type Target = GPSAppInner;
+
+    fn deref(&self) -> &GPSAppInner {
+        &self.0
+    }
+}
+
+// Weak reference to our application struct
+//
+// Weak references are important to prevent reference cycles. Reference cycles are cases where
+// struct A references directly or indirectly struct B, and struct B references struct A again
+// while both are using reference counting.
+pub struct GPSAppWeak(Weak<GPSAppInner>);
+impl GPSAppWeak {
+    // Upgrade to a strong reference if it still exists
+    pub fn upgrade(&self) -> Option<GPSApp> {
+        self.0.upgrade().map(GPSApp)
+    }
+}
+
+impl GPSApp {
+    fn new(application: &gtk::Application) -> anyhow::Result<GPSApp> {
+        let glade_src = include_str!("../ui/gps.ui");
+        let builder = Builder::from_string(glade_src);
+        let window: ApplicationWindow = builder
+            .object("mainwindow")
+            .expect("Couldn't get the main window");
+        window.set_application(Some(application));
+        window.set_title(Some("GStreamer Pipeline Studio"));
+
+        let app = GPSApp(Rc::new(GPSAppInner {
+            window,
+            current_graphtab: Cell::new(0),
+            graphbook: RefCell::new(HashMap::new()),
+            builder,
+            signal_handlers: RefCell::new(HashMap::new()),
+        }));
+        let settings = Settings::load_settings();
+
+        app.window
+            .set_default_size(settings.app_width, settings.app_height);
+
+        if settings.app_maximized {
+            app.window.maximize();
+        }
+
+        app.set_paned_position(&settings, PANED_GRAPH_DASHBOARD, DEFAULT_PANED_POSITION);
+        app.set_paned_position(&settings, PANED_GRAPH_LOGS, DEFAULT_PANED_POSITION);
+        app.set_paned_position(&settings, PANED_ELEMENTS_PREVIEW, DEFAULT_PANED_POSITION);
+        app.set_paned_position(&settings, PANED_ELEMENTS_PROPERTIES, DEFAULT_PANED_POSITION);
+
+        Ok(app)
+    }
+
+    pub fn on_startup(application: &gtk::Application, pipeline_desc: &String) {
+        // Create application and error out if that fails for whatever reason
+        let app = match GPSApp::new(application) {
+            Ok(app) => app,
+            Err(err) => {
+                error!("Error creating application: {}", err);
+                return;
+            }
+        };
+
+        app.build_ui(application, pipeline_desc);
+
+        // Setup dynamic paned positioning on maximize/unmaximize
+        let app_clone_for_maximize = app.clone();
+        let last_maximized_state = Rc::new(Cell::new(app.window.is_maximized()));
+
+        app.window
+            .connect_notify_local(Some("maximized"), move |window, _| {
+                let is_maximized = window.is_maximized();
+
+                // Only process if state actually changed
+                if last_maximized_state.get() == is_maximized {
+                    return;
+                }
+                last_maximized_state.set(is_maximized);
+
+                let app = app_clone_for_maximize.clone();
+
+                // Use timeout to ensure window is fully resized and allocated
+                glib::timeout_add_local_once(
+                    std::time::Duration::from_millis(MAXIMIZE_TIMEOUT_MS),
+                    move || {
+                        app.apply_paned_positions(is_maximized);
+                    },
+                );
+            });
+
+        // Setup dynamic paned positioning on window resize (for windowed mode)
+        let app_clone_for_resize = app.clone();
+        let resize_timeout_id: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
+
+        app.window.connect_default_width_notify(glib::clone!(
+            #[strong]
+            resize_timeout_id,
+            #[strong]
+            app_clone_for_resize,
+            move |window| {
+                // Only apply resize in windowed mode (not when maximized)
+                if window.is_maximized() {
+                    return;
+                }
+
+                // Cancel any pending resize timeout
+                if let Some(id) = resize_timeout_id.borrow_mut().take() {
+                    id.remove();
+                }
+
+                let app = app_clone_for_resize.clone();
+                let timeout_id_clone = resize_timeout_id.clone();
+
+                // Use timeout to debounce resize events
+                let new_id = glib::timeout_add_local_once(
+                    std::time::Duration::from_millis(MAXIMIZE_TIMEOUT_MS),
+                    move || {
+                        app.apply_paned_positions(false);
+                        timeout_id_clone.borrow_mut().take();
+                    },
+                );
+                *resize_timeout_id.borrow_mut() = Some(new_id);
+            }
+        ));
+
+        app.window.connect_default_height_notify(glib::clone!(
+            #[strong]
+            resize_timeout_id,
+            #[strong]
+            app_clone_for_resize,
+            move |window| {
+                // Only apply resize in windowed mode (not when maximized)
+                if window.is_maximized() {
+                    return;
+                }
+
+                // Cancel any pending resize timeout
+                if let Some(id) = resize_timeout_id.borrow_mut().take() {
+                    id.remove();
+                }
+
+                let app = app_clone_for_resize.clone();
+                let timeout_id_clone = resize_timeout_id.clone();
+
+                // Use timeout to debounce resize events
+                let new_id = glib::timeout_add_local_once(
+                    std::time::Duration::from_millis(MAXIMIZE_TIMEOUT_MS),
+                    move || {
+                        app.apply_paned_positions(false);
+                        timeout_id_clone.borrow_mut().take();
+                    },
+                );
+                *resize_timeout_id.borrow_mut() = Some(new_id);
+            }
+        ));
+
+        let timeout_id = app.setup_position_slider();
+
+        let timeout_id = RefCell::new(Some(timeout_id));
+        let app_container = RefCell::new(Some(app));
+
+        application.connect_shutdown(move |_| {
+            let app = app_container
+                .borrow_mut()
+                .take()
+                .expect("Shutdown called multiple times");
+            let window: ApplicationWindow = app
+                .builder
+                .object("mainwindow")
+                .expect("Couldn't get the main window");
+            let mut settings = Settings::load_settings();
+            settings.app_maximized = window.is_maximized();
+            settings.app_width = window.default_width();
+            settings.app_height = window.default_height();
+            app.save_paned_position(&mut settings, PANED_GRAPH_DASHBOARD);
+            app.save_paned_position(&mut settings, PANED_GRAPH_LOGS);
+            app.save_paned_position(&mut settings, PANED_ELEMENTS_PREVIEW);
+            app.save_paned_position(&mut settings, PANED_ELEMENTS_PROPERTIES);
+
+            Settings::save_settings(&settings);
+            if let Some(timeout_id) = timeout_id.borrow_mut().take() {
+                timeout_id.remove();
+            }
+
+            app.drop();
+        });
+    }
+
+    // Downgrade to a weak reference
+    pub fn downgrade(&self) -> GPSAppWeak {
+        GPSAppWeak(Rc::downgrade(&self.0))
+    }
+
+    // Called when the application shuts down. We drop our app struct here
+    fn drop(self) {}
+}

@@ -6,10 +6,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::app::settings;
 use crate::app::GPSApp;
-
 use crate::logger;
-use crate::settings;
 use crate::ui as GPSUI;
 use gtk::glib;
 use gtk::prelude::*;

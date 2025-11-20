@@ -1,6 +1,6 @@
 // settings.rs
 //
-// Copyright 2022 Stéphane Cerveau <scerveau@collabora.com>
+// Copyright 2025 Stéphane Cerveau <scerveau@igalia.com>
 //
 // This file is part of GstPipelineStudio
 //
@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config;
 use crate::logger;
+use crate::GPS_ERROR;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(default)]

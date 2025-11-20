@@ -6,10 +6,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::app::core::graphbook;
 use crate::app::GPSApp;
 use crate::common;
 use crate::gps as GPS;
-use crate::graphbook;
 use crate::logger;
 use crate::ui as GPSUI;
 use crate::{GPS_INFO, GPS_TRACE};

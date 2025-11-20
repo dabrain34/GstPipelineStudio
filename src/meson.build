@@ -28,12 +28,19 @@ rust_sources = files(
   'ui/message.rs',
   'ui/mod.rs',
   'ui/properties.rs',
-  'app.rs',
+  'app/mod.rs',
+  'app/settings.rs',
+  'app/core/mod.rs',
+  'app/core/actions.rs',
+  'app/core/bootstrap.rs',
+  'app/core/elements.rs',
+  'app/core/graphbook.rs',
+  'app/core/menu.rs',
+  'app/core/panels.rs',
   'common.rs',
   'logger.rs',
   'macros.rs',
   'main.rs',
-  'settings.rs',
 )
 
 sources = [cargo_sources, rust_sources]

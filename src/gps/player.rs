@@ -6,14 +6,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::app::settings;
 use crate::app::{AppState, GPSApp, GPSAppWeak};
-use crate::graphmanager as GM;
-use crate::graphmanager::PropertyExt;
-
 use crate::common;
 use crate::gps::ElementInfo;
+use crate::graphmanager as GM;
+use crate::graphmanager::PropertyExt;
 use crate::logger;
-use crate::settings;
 use crate::GPS_INFO;
 
 use gst::glib;

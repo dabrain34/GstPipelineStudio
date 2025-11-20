@@ -1,23 +1,36 @@
 // graphbook.rs
 //
-// Copyright 2021 Stéphane Cerveau <scerveau@collabora.com>
+// Copyright 2025 Stéphane Cerveau <scerveau@igalia.com>
 //
 // This file is part of GstPipelineStudio
 //
 // SPDX-License-Identifier: GPL-3.0-only
-use crate::app::{GPSApp, GPSAppWeak};
+
+//! Graph tab management and serialization.
+//!
+//! Manages the notebook containing multiple graph tabs, each representing a separate
+//! pipeline workspace. Handles tab lifecycle, XML serialization/deserialization,
+//! and comprehensive event handling for graph interactions (node/port/link events).
+//! Includes automatic static pad restoration and caps validation.
+
+use glib::Value;
+use gtk::glib;
+use gtk::prelude::*;
+use gtk::{gio, graphene};
+use std::cell::{Cell, Ref, RefCell};
+use std::fs::File;
+use std::io::{Read, Write};
+use std::path::Path;
+
 use crate::gps as GPS;
 use crate::graphmanager as GM;
 use crate::graphmanager::PropertyExt;
 use crate::logger;
-use crate::settings::Settings;
 use crate::ui as GPSUI;
 use crate::{GPS_DEBUG, GPS_TRACE, GPS_WARN};
-use glib::Value;
-use gtk::prelude::*;
-use gtk::{gio, glib, graphene};
-use std::cell::{Cell, Ref, RefCell};
-use std::path::Path;
+
+use super::super::settings::Settings;
+use super::super::{GPSApp, GPSAppWeak};
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum TabState {
@@ -26,6 +39,7 @@ enum TabState {
     Modified,
     Saved,
 }
+
 #[derive(Debug, Clone, Default)]
 pub struct GraphTab {
     graphview: RefCell<GM::GraphView>,
@@ -570,4 +584,108 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             None
         }),
     );
+}
+
+impl GPSApp {
+    pub fn clear_graph(&self) {
+        current_graphtab(self).graphview().clear();
+    }
+
+    pub fn save_graph(&self, filename: &str) -> anyhow::Result<()> {
+        let mut file = File::create(filename)?;
+        let buffer = current_graphtab(self).graphview().render_xml()?;
+        file.write_all(&buffer)?;
+
+        Ok(())
+    }
+
+    pub fn load_graph(&self, filename: &str, untitled: bool) -> anyhow::Result<()> {
+        let mut file = File::open(filename)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).expect("buffer overflow");
+        let graphtab = current_graphtab(self);
+        graphtab.graphview().load_from_xml(buffer)?;
+
+        // Restore static pads for nodes that have no ports
+        self.restore_static_pads();
+
+        if !untitled {
+            current_graphtab_set_filename(self, filename);
+        }
+        Ok(())
+    }
+
+    pub fn restore_static_pads(&self) {
+        let graphtab = current_graphtab(self);
+        let graphview = graphtab.graphview();
+        let nodes = graphview.all_nodes(GM::NodeType::All);
+
+        for node in nodes {
+            // Check if node has no ports
+            let has_ports = !node.ports().is_empty();
+
+            if !has_ports {
+                let node_id = node.id();
+                let element_name = node.name();
+                let position = node.position();
+
+                GPS_DEBUG!(
+                    "Restoring static pads for element: {} at position ({}, {})",
+                    element_name,
+                    position.0,
+                    position.1
+                );
+
+                // Get static pads from GStreamer element factory
+                let (inputs, outputs) = GPS::PadInfo::pads(&element_name, false);
+
+                // Add input pads
+                for input in inputs {
+                    self.create_port_with_caps(
+                        node_id,
+                        GM::PortDirection::Input,
+                        GM::PortPresence::Always,
+                        input.caps().unwrap_or("ANY").to_string(),
+                    );
+                }
+
+                // Add output pads
+                for output in outputs {
+                    self.create_port_with_caps(
+                        node_id,
+                        GM::PortDirection::Output,
+                        GM::PortPresence::Always,
+                        output.caps().unwrap_or("ANY").to_string(),
+                    );
+                }
+
+                // Ensure position is preserved after adding ports
+                if let Some(node) = graphview.node(node_id) {
+                    GPS_DEBUG!(
+                        "Position after adding ports: ({}, {})",
+                        node.position().0,
+                        node.position().1
+                    );
+                    // Re-apply position if it changed
+                    if node.position() != position {
+                        GPS_DEBUG!(
+                            "Position changed! Restoring to ({}, {})",
+                            position.0,
+                            position.1
+                        );
+                        node.set_position(position.0, position.1);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn load_pipeline(&self, pipeline_desc: &str) -> anyhow::Result<()> {
+        let graphtab = current_graphtab(self);
+        let pd_parsed = pipeline_desc.replace('\\', "");
+        graphtab
+            .player()
+            .graphview_from_pipeline_description(&graphtab.graphview(), &pd_parsed);
+        Ok(())
+    }
 }
