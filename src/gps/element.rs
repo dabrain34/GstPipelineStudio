@@ -184,15 +184,27 @@ impl ElementInfo {
         }
     }
 
+    /// Creates an element instance from its feature name.
+    /// This is a helper method to avoid code duplication when creating elements from feature names.
+    fn create_element_from_feature_name(element_name: &str) -> anyhow::Result<gst::Element> {
+        let feature = ElementInfo::element_feature(element_name).ok_or_else(|| {
+            anyhow::anyhow!("Unable to get feature for element: {}", element_name)
+        })?;
+        let factory = feature.downcast::<gst::ElementFactory>().map_err(|_| {
+            anyhow::anyhow!(
+                "Unable to get the factory from the feature for element: {}",
+                element_name
+            )
+        })?;
+        let element = factory.create().build()?;
+        Ok(element)
+    }
+
     pub fn element_property_by_feature_name(
         element_name: &str,
         property_name: &str,
     ) -> anyhow::Result<String> {
-        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
-        let factory = feature
-            .downcast::<gst::ElementFactory>()
-            .expect("Unable to get the factory from the feature");
-        let element = factory.create().build()?;
+        let element = ElementInfo::create_element_from_feature_name(element_name)?;
         ElementInfo::element_property(&element, property_name)
     }
 
@@ -229,12 +241,7 @@ impl ElementInfo {
     pub fn element_properties_by_feature_name(
         element_name: &str,
     ) -> anyhow::Result<HashMap<String, glib::ParamSpec>> {
-        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
-
-        let factory = feature
-            .downcast::<gst::ElementFactory>()
-            .expect("Unable to get the factory from the feature");
-        let element = factory.create().build()?;
+        let element = ElementInfo::create_element_from_feature_name(element_name)?;
         ElementInfo::element_properties(&element)
     }
 
@@ -246,16 +253,10 @@ impl ElementInfo {
     }
 
     pub fn element_is_uri_src_handler(element_name: &str) -> Option<(String, bool)> {
-        let feature: gst::PluginFeature =
-            ElementInfo::element_feature(element_name).expect("Unable to get feature");
+        let feature = ElementInfo::element_feature(element_name)?;
         let mut file_chooser = false;
-        let factory = feature
-            .downcast::<gst::ElementFactory>()
-            .expect("Unable to get the factory from the feature");
-        let element = factory
-            .create()
-            .build()
-            .expect("Unable to create an element from the feature");
+        let factory = feature.downcast::<gst::ElementFactory>().ok()?;
+        let element = factory.create().build().ok()?;
         if let Ok(uri_handler) = element.clone().dynamic_cast::<gst::URIHandler>() {
             let search_strings = ["file", "pushfile"];
             file_chooser = search_strings
@@ -276,15 +277,10 @@ impl ElementInfo {
     }
 
     pub fn element_is_uri_sink_handler(element_name: &str) -> Option<(String, bool)> {
-        let feature = ElementInfo::element_feature(element_name).expect("Unable to get feature");
+        let feature = ElementInfo::element_feature(element_name)?;
         let mut file_chooser = false;
-        let factory = feature
-            .downcast::<gst::ElementFactory>()
-            .expect("Unable to get the factory from the feature");
-        let element = factory
-            .create()
-            .build()
-            .expect("Unable to create an element from the feature");
+        let factory = feature.downcast::<gst::ElementFactory>().ok()?;
+        let element = factory.create().build().ok()?;
 
         if let Ok(uri_handler) = element.clone().dynamic_cast::<gst::URIHandler>() {
             file_chooser = uri_handler
