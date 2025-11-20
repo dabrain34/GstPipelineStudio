@@ -184,7 +184,7 @@ test-stable:
     - cargo build --color=always --all-targets
     - >
       xvfb-run -a -s "-screen 0 1024x768x24"
-      cargo test --color=always
+      ./run-tests.sh
 
 rustdoc:
   extends:
