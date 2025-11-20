@@ -52,8 +52,12 @@ impl PadInfo {
     }
 
     pub fn caps_compatible(caps1: &str, caps2: &str) -> bool {
-        let caps1 = gst::Caps::from_str(caps1).unwrap();
-        let caps2 = gst::Caps::from_str(caps2).unwrap();
+        let Ok(caps1) = gst::Caps::from_str(caps1) else {
+            return false;
+        };
+        let Ok(caps2) = gst::Caps::from_str(caps2) else {
+            return false;
+        };
         caps1.can_intersect(&caps2)
     }
 
