@@ -868,7 +868,7 @@ impl GPSApp {
                 node_id,
                 GM::PortDirection::Input,
                 GM::PortPresence::Always,
-                input.caps().to_string(),
+                input.caps().unwrap_or("ANY").to_string(),
             );
         }
         for output in outputs {
@@ -876,7 +876,7 @@ impl GPSApp {
                 node_id,
                 GM::PortDirection::Output,
                 GM::PortPresence::Always,
-                output.caps().to_string(),
+                output.caps().unwrap_or("ANY").to_string(),
             );
         }
     }
@@ -1038,7 +1038,7 @@ impl GPSApp {
                         node_id,
                         GM::PortDirection::Input,
                         GM::PortPresence::Always,
-                        input.caps().to_string(),
+                        input.caps().unwrap_or("ANY").to_string(),
                     );
                 }
 
@@ -1048,7 +1048,7 @@ impl GPSApp {
                         node_id,
                         GM::PortDirection::Output,
                         GM::PortPresence::Always,
-                        output.caps().to_string(),
+                        output.caps().unwrap_or("ANY").to_string(),
                     );
                 }
 

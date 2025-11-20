@@ -47,8 +47,8 @@ impl PadInfo {
         }
     }
 
-    pub fn caps(&self) -> &str {
-        self.caps.as_ref().unwrap()
+    pub fn caps(&self) -> Option<&str> {
+        self.caps.as_deref()
     }
 
     pub fn caps_compatible(caps1: &str, caps2: &str) -> bool {
@@ -72,8 +72,10 @@ impl PadInfo {
                         GPS_TRACE!("Found a pad name {}", pad.name_template());
                         if pad.presence() == gst::PadPresence::Always
                             || (include_on_request
-                                && (pad.presence() == gst::PadPresence::Request
-                                    || pad.presence() == gst::PadPresence::Sometimes))
+                                && matches!(
+                                    pad.presence(),
+                                    gst::PadPresence::Request | gst::PadPresence::Sometimes
+                                ))
                         {
                             if pad.direction() == gst::PadDirection::Src {
                                 output.push(PadInfo {
@@ -96,9 +98,7 @@ impl PadInfo {
                     }
                 }
             }
-            (input, output)
-        } else {
-            (input, output)
         }
+        (input, output)
     }
 }

@@ -454,7 +454,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                             node_id,
                             GM::PortDirection::Input,
                             GM::PortPresence::Sometimes,
-                            input.caps().to_string(),
+                            input.caps().unwrap_or("ANY").to_string(),
                         );
                     });
                 } else {
@@ -473,7 +473,7 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                             node_id,
                             GM::PortDirection::Output,
                             GM::PortPresence::Sometimes,
-                            output.caps().to_string(),
+                            output.caps().unwrap_or("ANY").to_string(),
                         );
                     });
                 } else {
