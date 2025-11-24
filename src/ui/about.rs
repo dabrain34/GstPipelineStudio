@@ -29,7 +29,7 @@ pub fn display_about_dialog(app: &GPSApp) {
             gtk::major_version(),
             gtk::minor_version(),
             gtk::micro_version(),
-            GPS::Player::get_version()
+            GPS::Player::version()
         ))
         .website("https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio")
         .authors(vec!["Stéphane Cerveau".to_string()])

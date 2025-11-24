@@ -19,7 +19,7 @@ use gst::glib;
 use gst::prelude::*;
 use gtk::gdk;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Write as _;
 use std::ops;
@@ -70,17 +70,18 @@ fn gst_log_handler(
     _obj: Option<&gst::LoggedObject>,
     message: &gst::DebugMessage,
 ) {
-    let log_message = format!(
-        "{}\t{}\t{}:{}:{}\t{}",
-        level,
-        category.name(),
-        line,
-        file.as_str(),
-        function.as_str(),
-        message.get().unwrap().as_str()
-    );
-
-    GPS_GST_LOG!("{}", log_message);
+    if let Some(msg) = message.get() {
+        let log_message = format!(
+            "{}\t{}\t{}:{}:{}\t{}",
+            level,
+            category.name(),
+            line,
+            file.as_str(),
+            function.as_str(),
+            msg.as_str()
+        );
+        GPS_GST_LOG!("{}", log_message);
+    }
 }
 
 #[derive(Debug, Default)]
@@ -105,7 +106,7 @@ impl Player {
         Ok(pipeline)
     }
 
-    pub fn get_version() -> String {
+    pub fn version() -> String {
         let version_string = gst::version_string().to_string();
         // Extract just the version part after "GStreamer Library "
         version_string
@@ -114,20 +115,37 @@ impl Player {
             .to_string()
     }
 
-    pub fn set_app(&self, app: GPSAppWeak) {
-        *self.app.borrow_mut() = Some(app.upgrade().unwrap());
+    pub fn set_app(&self, app: GPSAppWeak) -> anyhow::Result<()> {
+        let upgraded_app = app
+            .upgrade()
+            .ok_or_else(|| anyhow::anyhow!("Failed to upgrade app weak reference"))?;
+        *self.app.borrow_mut() = Some(upgraded_app);
+        Ok(())
+    }
+
+    /// Helper method to access the app with proper error handling
+    fn with_app<F, R>(&self, f: F) -> anyhow::Result<R>
+    where
+        F: FnOnce(&GPSApp) -> R,
+    {
+        let app = self.app.borrow();
+        let app = app
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("App not initialized"))?;
+        Ok(f(app))
     }
 
     pub fn create_pipeline(&self, description: &str) -> anyhow::Result<gst::Pipeline> {
         GPS_INFO!("Creating pipeline {}", description);
         self.n_video_sink.set(0);
-        if settings::Settings::load_settings()
+        let use_gtk4_sink = settings::Settings::load_settings()
             .preferences
             .get("use_gtk4_sink")
             .unwrap_or(&"true".to_string())
             .parse::<bool>()
-            .expect("Should a boolean value")
-        {
+            .unwrap_or(true); // Default to true if invalid value
+
+        if use_gtk4_sink {
             ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::PRIMARY);
         } else {
             ElementInfo::element_update_rank("gtk4paintablesink", gst::Rank::MARGINAL);
@@ -135,15 +153,12 @@ impl Player {
         gst::log::set_threshold_from_string(settings::Settings::gst_log_level().as_str(), true);
         // Create pipeline from the description
         let pipeline = gst::parse::launch(description)?;
-        let pipeline = pipeline.downcast::<gst::Pipeline>();
-        /* start playing */
-        if pipeline.is_err() {
-            GPS_ERROR!("Can not create a proper pipeline from gstreamer parse_launch");
-            return Err(anyhow::anyhow!(
-                "Unable to create a pipeline from the given parse launch"
-            ));
-        }
-        self.check_for_gtk4sink(pipeline.as_ref().unwrap());
+        let pipeline = pipeline.downcast::<gst::Pipeline>().map_err(|_| {
+            GPS_ERROR!("Cannot create a proper pipeline from gstreamer parse_launch");
+            anyhow::anyhow!("Unable to create a pipeline from the given parse launch")
+        })?;
+
+        self.check_for_gtk4sink(&pipeline)?;
         // GPSApp is not Send(trait) ready , so we use a channel to exchange the given data with the main thread and use
         // GPSApp.
         let (ready_tx, ready_rx) = async_channel::unbounded::<gst::Element>();
@@ -153,43 +168,45 @@ impl Player {
                 let player = upgrade_weak!(player_weak, glib::ControlFlow::Break);
                 let paintable = element.property::<gdk::Paintable>("paintable");
                 let n_sink = player.n_video_sink.get();
-                player
-                    .app
-                    .borrow()
-                    .as_ref()
-                    .expect("App should be available")
-                    .set_app_preview(&paintable, n_sink);
+                if let Err(e) = player.with_app(|app| app.set_app_preview(&paintable, n_sink)) {
+                    GPS_ERROR!("Failed to set app preview: {}", e);
+                    return glib::ControlFlow::Break;
+                }
                 player.n_video_sink.set(n_sink + 1);
             }
             glib::ControlFlow::Continue
         });
-        let bin = pipeline.unwrap().dynamic_cast::<gst::Bin>();
-        if let Ok(bin) = bin.as_ref() {
-            bin.connect_deep_element_added(move |_, _, element| {
-                if let Some(factory) = element.factory() {
-                    GPS_INFO!("Received the signal deep element added {}", factory.name());
-                    if factory.name() == "gtk4paintablesink" {
-                        let _ = ready_tx.try_send(element.clone());
-                    }
+        let bin = pipeline
+            .dynamic_cast::<gst::Bin>()
+            .map_err(|_| anyhow::anyhow!("Pipeline cannot be cast to Bin"))?;
+
+        bin.connect_deep_element_added(move |_, _, element| {
+            if let Some(factory) = element.factory() {
+                GPS_INFO!("Received the signal deep element added {}", factory.name());
+                if factory.name() == "gtk4paintablesink" {
+                    let _ = ready_tx.try_send(element.clone());
                 }
-            });
-        }
-        let pipeline = bin.unwrap().dynamic_cast::<gst::Pipeline>();
-        Ok(pipeline.unwrap())
+            }
+        });
+
+        let pipeline = bin
+            .dynamic_cast::<gst::Pipeline>()
+            .map_err(|_| anyhow::anyhow!("Bin cannot be cast to Pipeline"))?;
+        Ok(pipeline)
     }
 
-    pub fn check_for_gtk4sink(&self, pipeline: &gst::Pipeline) {
-        let bin = pipeline.clone().dynamic_cast::<gst::Bin>().unwrap();
+    pub fn check_for_gtk4sink(&self, pipeline: &gst::Pipeline) -> anyhow::Result<()> {
+        let bin = pipeline
+            .clone()
+            .dynamic_cast::<gst::Bin>()
+            .map_err(|_| anyhow::anyhow!("Pipeline cannot be cast to Bin"))?;
         let gtksinks = ElementInfo::search_for_element(&bin, "gtk4paintablesink");
 
         for (first_sink, gtksink) in gtksinks.into_iter().enumerate() {
             let paintable = gtksink.property::<gdk::Paintable>("paintable");
-            self.app
-                .borrow()
-                .as_ref()
-                .expect("App should be available")
-                .set_app_preview(&paintable, first_sink);
+            self.with_app(|app| app.set_app_preview(&paintable, first_sink))?;
         }
+        Ok(())
     }
 
     pub fn start_pipeline(
@@ -205,7 +222,9 @@ impl Player {
                     err
                 })?;
 
-            let bus = pipeline.bus().expect("Pipeline had no bus");
+            let bus = pipeline
+                .bus()
+                .ok_or_else(|| anyhow::anyhow!("Pipeline has no bus"))?;
             let pipeline_weak = self.downgrade();
             let bus_watch_guard = bus.add_watch_local(move |_bus, msg| {
                 let pipeline = upgrade_weak!(pipeline_weak, glib::ControlFlow::Break);
@@ -227,20 +246,19 @@ impl Player {
     pub fn set_state(&self, new_state: PipelineState) -> anyhow::Result<PipelineState> {
         if let Some(pipeline) = self.pipeline.borrow().to_owned() {
             match new_state {
-                PipelineState::Playing => pipeline.set_state(gst::State::Playing)?,
-                PipelineState::Paused => pipeline.set_state(gst::State::Paused)?,
+                PipelineState::Playing => {
+                    pipeline.set_state(gst::State::Playing)?;
+                }
+                PipelineState::Paused => {
+                    pipeline.set_state(gst::State::Paused)?;
+                }
                 PipelineState::Stopped | PipelineState::Error => {
                     pipeline.set_state(gst::State::Null)?;
                     self.n_video_sink.set(0);
-                    gst::StateChangeSuccess::Success
                 }
-            };
+            }
             self.current_state.set(new_state);
-            self.app
-                .borrow()
-                .as_ref()
-                .expect("App should be available")
-                .set_app_state(Player::state_to_app_state(new_state));
+            self.with_app(|app| app.set_app_state(Player::state_to_app_state(new_state)))?;
         }
         Ok(new_state)
     }
@@ -260,28 +278,33 @@ impl Player {
     }
 
     pub fn position(&self) -> u64 {
-        let mut position = gst::ClockTime::NONE;
-        if let Some(pipeline) = self.pipeline.borrow().to_owned() {
-            position = pipeline.query_position::<gst::ClockTime>();
-        }
-        position.unwrap_or_default().mseconds()
+        self.pipeline
+            .borrow()
+            .as_ref()
+            .and_then(|p| p.query_position::<gst::ClockTime>())
+            .unwrap_or_default()
+            .mseconds()
     }
 
     pub fn duration(&self) -> u64 {
-        let mut duration = gst::ClockTime::NONE;
-        if let Some(pipeline) = self.pipeline.borrow().to_owned() {
-            duration = pipeline.query_duration::<gst::ClockTime>();
-        }
-        duration.unwrap_or_default().mseconds()
+        self.pipeline
+            .borrow()
+            .as_ref()
+            .and_then(|p| p.query_duration::<gst::ClockTime>())
+            .unwrap_or_default()
+            .mseconds()
     }
 
     pub fn position_description(&self) -> String {
-        let mut position = gst::ClockTime::NONE;
-        let mut duration = gst::ClockTime::NONE;
-        if let Some(pipeline) = self.pipeline.borrow().to_owned() {
-            position = pipeline.query_position::<gst::ClockTime>();
-            duration = pipeline.query_duration::<gst::ClockTime>();
-        }
+        let (position, duration) = if let Some(pipeline) = self.pipeline.borrow().as_ref() {
+            (
+                pipeline.query_position::<gst::ClockTime>(),
+                pipeline.query_duration::<gst::ClockTime>(),
+            )
+        } else {
+            (None, None)
+        };
+
         format!(
             "{:.0}/{:.0}",
             position.unwrap_or_default().display(),
@@ -298,9 +321,10 @@ impl Player {
         }
     }
 
-    pub fn playing(&self) -> bool {
+    pub fn is_playing(&self) -> bool {
         self.state() == PipelineState::Playing || self.state() == PipelineState::Paused
     }
+
     pub fn n_video_sink(&self) -> usize {
         self.n_video_sink.get()
     }
@@ -317,25 +341,30 @@ impl Player {
         match msg.view() {
             MessageView::Eos(_) => {
                 GPS_INFO!("EOS received");
-                self.set_state(PipelineState::Stopped)
-                    .expect("Unable to set state to stopped");
+                if let Err(e) = self.set_state(PipelineState::Stopped) {
+                    GPS_ERROR!("Failed to set stopped state: {}", e);
+                }
             }
             MessageView::Error(err) => {
                 GPS_ERROR!(
                     "Error from {:?}: {} ({:?})",
-                    err.src().map(|s| s.path_string()),
+                    err.src().map(gst::Object::path_string),
                     err.error(),
                     err.debug()
                 );
-                self.set_state(PipelineState::Error)
-                    .expect("Unable to set state to Error");
+                if let Err(e) = self.set_state(PipelineState::Error) {
+                    GPS_ERROR!("Failed to set error state: {}", e);
+                }
             }
             MessageView::Application(msg) => match msg.structure() {
                 // Here we can send ourselves messages from any thread and show them to the user in
                 // the UI in case something goes wrong
                 Some(s) if s.name() == "warning" => {
-                    let text = s.get::<&str>("text").expect("Warning message without text");
-                    GPS_WARN!("{}", text);
+                    if let Ok(text) = s.get::<&str>("text") {
+                        GPS_WARN!("{}", text);
+                    } else {
+                        GPS_WARN!("Warning message without text");
+                    }
                 }
                 _ => (),
             },
@@ -344,43 +373,42 @@ impl Player {
     }
 
     pub fn pipeline_elements(&self) -> Option<Vec<String>> {
-        if self.playing() {
+        if self.is_playing() {
             let bin = self
                 .pipeline
                 .borrow()
-                .clone()
-                .unwrap()
+                .clone()?
                 .dynamic_cast::<gst::Bin>()
-                .unwrap();
-            let elements_name: Vec<String> = ElementInfo::search_for_element(&bin, "")
-                .iter()
-                .map(|e| e.factory().unwrap().name().to_string())
-                .collect();
-            return Some(elements_name);
+                .ok()?;
+            Some(
+                ElementInfo::search_for_element(&bin, "")
+                    .iter()
+                    .filter_map(|e| e.factory().map(|f| f.name().to_string()))
+                    .collect(),
+            )
+        } else {
+            None
         }
-        None
     }
 
     // Render graph methods
-    #[allow(clippy::only_used_in_recursion)]
     fn process_gst_node(
-        &self,
         graphview: &GM::GraphView,
         node: &GM::Node,
-        elements: &mut HashMap<String, String>,
-        mut description: String,
-    ) -> String {
+        elements: &mut HashSet<String>,
+        description: &mut String,
+    ) {
         let unique_name = node.unique_name();
         let _ = write!(description, "{} name={} ", node.name(), unique_name);
-        elements.insert(unique_name.clone(), unique_name.clone());
+        elements.insert(unique_name.clone());
         // Node properties
         for (name, value) in node.properties().iter() {
-            //This allow to have an index in front of a property such as an enum.
+            // This allows having an index in front of a property such as an enum.
             if !node.hidden_property(name) {
                 let _ = write!(description, "{name}={value} ");
             }
         }
-        //Port properties
+        // Port properties
         let ports = node.all_ports(GM::PortDirection::All);
         for port in ports {
             for (name, value) in port.properties().iter() {
@@ -405,34 +433,32 @@ impl Player {
                     description.push_str("! ");
                 }
                 if let Some(node) = graphview.node(node_to) {
-                    if elements.contains_key(&node.unique_name()) {
+                    if elements.contains(&node.unique_name()) {
                         let _ = write!(description, "{}. ", node.unique_name());
                     } else {
-                        description =
-                            self.process_gst_node(graphview, &node, elements, description.clone());
+                        Self::process_gst_node(graphview, &node, elements, description);
                     }
                 }
             }
         }
-        description
     }
 
     pub fn pipeline_description_from_graphview(&self, graphview: &GM::GraphView) -> String {
         let source_nodes = graphview.all_nodes(GM::NodeType::Source);
-        let mut elements: HashMap<String, String> = HashMap::new();
-        let mut description = String::from("");
+        let mut elements: HashSet<String> = HashSet::new();
+        let mut description = String::new();
         for source_node in source_nodes {
-            description =
-                self.process_gst_node(graphview, &source_node, &mut elements, description.clone());
+            Self::process_gst_node(graphview, &source_node, &mut elements, &mut description);
         }
         description
     }
 
     pub fn create_links_for_element(&self, element: &gst::Element, graphview: &GM::GraphView) {
         let mut iter = element.iterate_pads();
-        let node = graphview
-            .node_by_unique_name(&element.name())
-            .expect("node should exists");
+        let Some(node) = graphview.node_by_unique_name(&element.name()) else {
+            GPS_ERROR!("Node not found for element: {}", element.name());
+            return;
+        };
 
         loop {
             match iter.next() {
@@ -440,23 +466,33 @@ impl Player {
                     GPS_INFO!("Found pad: {}", pad.name());
 
                     if pad.direction() == gst::PadDirection::Src {
-                        let port = node
-                            .port_by_name(&pad.name())
-                            .expect("The port should exist here");
+                        let Some(port) = node.port_by_name(&pad.name()) else {
+                            GPS_ERROR!("Port not found: {}", pad.name());
+                            continue;
+                        };
                         if let Some(peer_pad) = pad.peer() {
                             if let Some(peer_element) = peer_pad.parent_element() {
-                                let peer_node = graphview
-                                    .node_by_unique_name(&peer_element.name())
-                                    .expect("The node should exists here");
-                                let peer_port = peer_node
-                                    .port_by_name(&peer_pad.name())
-                                    .expect("The port should exists here");
-                                self.app.borrow().as_ref().unwrap().create_link(
-                                    node.id(),
-                                    peer_node.id(),
-                                    port.id(),
-                                    peer_port.id(),
-                                );
+                                let Some(peer_node) =
+                                    graphview.node_by_unique_name(&peer_element.name())
+                                else {
+                                    GPS_ERROR!("Peer node not found: {}", peer_element.name());
+                                    continue;
+                                };
+                                let Some(peer_port) = peer_node.port_by_name(&peer_pad.name())
+                                else {
+                                    GPS_ERROR!("Peer port not found: {}", peer_pad.name());
+                                    continue;
+                                };
+                                if let Err(e) = self.with_app(|app| {
+                                    app.create_link(
+                                        node.id(),
+                                        peer_node.id(),
+                                        port.id(),
+                                        peer_port.id(),
+                                    );
+                                }) {
+                                    GPS_ERROR!("Failed to create link: {}", e);
+                                }
                             }
                         }
                     }
@@ -474,20 +510,28 @@ impl Player {
                 Ok(Some(pad)) => {
                     let pad_name = pad.name().to_string();
                     GPS_INFO!("Found pad: {}", pad_name);
-                    let mut port_direction = GM::PortDirection::Input;
-                    if pad.direction() == gst::PadDirection::Src {
-                        port_direction = GM::PortDirection::Output;
-                    }
-                    let port_id = self.app.borrow().as_ref().unwrap().create_port_with_caps(
-                        node.id(),
-                        port_direction,
-                        GM::PortPresence::Always,
-                        pad.current_caps()
-                            .unwrap_or_else(|| pad.query_caps(None))
-                            .to_string(),
-                    );
-                    if let Some(port) = node.port(port_id) {
-                        port.set_name(&pad_name);
+                    let port_direction = if pad.direction() == gst::PadDirection::Src {
+                        GM::PortDirection::Output
+                    } else {
+                        GM::PortDirection::Input
+                    };
+
+                    let caps = pad.current_caps().unwrap_or_else(|| pad.query_caps(None));
+
+                    match self.with_app(|app| {
+                        app.create_port_with_caps(
+                            node.id(),
+                            port_direction,
+                            GM::PortPresence::Always,
+                            caps.to_string(),
+                        )
+                    }) {
+                        Ok(port_id) => {
+                            if let Some(port) = node.port(port_id) {
+                                port.set_name(&pad_name);
+                            }
+                        }
+                        Err(e) => GPS_ERROR!("Failed to create port: {}", e),
                     }
                 }
                 Err(gst::IteratorError::Resync) => iter.resync(),
@@ -497,8 +541,13 @@ impl Player {
     }
 
     pub fn create_properties_for_element(&self, element: &gst::Element, node: &GM::Node) {
-        let properties = ElementInfo::element_properties(element)
-            .unwrap_or_else(|_| panic!("Couldn't get properties for {}", node.name()));
+        let properties = match ElementInfo::element_properties(element) {
+            Ok(props) => props,
+            Err(e) => {
+                GPS_ERROR!("Couldn't get properties for {}: {}", node.name(), e);
+                return;
+            }
+        };
         for (property_name, property_value) in properties {
             if property_name == "name"
                 || property_name == "parent"
@@ -538,16 +587,20 @@ impl Player {
                 match iter.next() {
                     Ok(Some(element)) => {
                         GPS_INFO!("Found element: {}", element.name());
-                        let element_factory_name = element.factory().unwrap().name().to_string();
-                        let node = graphview.create_node(
-                            &element_factory_name,
-                            ElementInfo::element_type(&element_factory_name),
-                        );
-                        node.set_unique_name(&element.name());
-                        graphview.add_node(node.clone());
-                        self.create_pads_for_element(&element, &node);
-                        self.create_properties_for_element(&element, &node);
-                        elements.push(element);
+                        if let Some(factory) = element.factory() {
+                            let element_factory_name = factory.name().to_string();
+                            let node = graphview.create_node(
+                                &element_factory_name,
+                                ElementInfo::element_type(&element_factory_name),
+                            );
+                            node.set_unique_name(&element.name());
+                            graphview.add_node(node.clone());
+                            self.create_pads_for_element(&element, &node);
+                            self.create_properties_for_element(&element, &node);
+                            elements.push(element);
+                        } else {
+                            GPS_WARN!("Element {} has no factory, skipping", element.name());
+                        }
                     }
                     Err(gst::IteratorError::Resync) => iter.resync(),
                     _ => break elements,

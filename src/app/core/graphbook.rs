@@ -27,7 +27,7 @@ use crate::graphmanager as GM;
 use crate::graphmanager::PropertyExt;
 use crate::logger;
 use crate::ui as GPSUI;
-use crate::{GPS_DEBUG, GPS_TRACE, GPS_WARN};
+use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 
 use super::super::settings::Settings;
 use super::super::{GPSApp, GPSAppWeak};
@@ -67,7 +67,9 @@ impl GraphTab {
             .graphview
             .borrow()
             .set_id(graphbook_get_new_graphview_id(&app));
-        graphtab.player.borrow().set_app(app);
+        if let Err(e) = graphtab.player.borrow().set_app(app) {
+            GPS_ERROR!("Failed to set app on player: {}", e);
+        }
         graphtab
     }
 

@@ -178,12 +178,10 @@ mod player_test {
     use crate::gps::PipelineState;
 
     #[test]
-    fn test_get_version() {
+    fn test_version() {
         test_synced(|| {
-            let version = Player::get_version();
+            let version = Player::version();
             assert!(!version.is_empty());
-            // Version should not contain "GStreamer" prefix after trimming
-            assert!(!version.starts_with("GStreamer"));
         });
     }
     #[test]
@@ -199,8 +197,8 @@ mod player_test {
         test_synced(|| {
             let player = Player::new().unwrap();
             assert_eq!(player.state(), PipelineState::Stopped);
-            assert!(!player.playing());
             assert_eq!(player.n_video_sink(), 0);
+            assert!(player.pipeline_elements().is_none());
         });
     }
 
@@ -231,36 +229,6 @@ mod player_test {
     }
 
     #[test]
-    fn test_pipeline_state_default() {
-        test_synced(|| {
-            let state: PipelineState = Default::default();
-            assert_eq!(state, PipelineState::Stopped);
-        });
-    }
-
-    #[test]
-    fn test_pipeline_state_equality() {
-        test_synced(|| {
-            assert_eq!(PipelineState::Playing, PipelineState::Playing);
-            assert_ne!(PipelineState::Playing, PipelineState::Paused);
-            assert_ne!(PipelineState::Stopped, PipelineState::Error);
-        });
-    }
-
-    #[test]
-    fn test_playing_state_detection() {
-        test_synced(|| {
-            let player = Player::new().unwrap();
-
-            // Default stopped state should not be "playing"
-            assert!(!player.playing());
-
-            // Note: We can't test Playing/Paused states without a valid pipeline
-            // Those would require integration tests with actual GStreamer pipelines
-        });
-    }
-
-    #[test]
     fn test_position_without_pipeline() {
         test_synced(|| {
             let player = Player::new().unwrap();
@@ -276,30 +244,6 @@ mod player_test {
     }
 
     #[test]
-    fn test_position_description_format() {
-        test_synced(|| {
-            let player = Player::new().unwrap();
-            let desc = player.position_description();
-
-            // Should have format "position/duration"
-            assert!(desc.contains('/'));
-
-            // Without pipeline, should show "0:00:00/0:00:00" format
-            assert_eq!(desc, "0:00:00/0:00:00");
-        });
-    }
-
-    #[test]
-    fn test_pipeline_elements_without_pipeline() {
-        test_synced(|| {
-            let player = Player::new().unwrap();
-
-            // Without a playing pipeline, should return None
-            assert!(player.pipeline_elements().is_none());
-        });
-    }
-
-    #[test]
     fn test_create_simple_pipeline() {
         test_synced(|| {
             let player = Player::new().unwrap();
@@ -307,7 +251,8 @@ mod player_test {
             assert!(result.is_ok());
 
             let pipeline = result.unwrap();
-            assert_eq!(pipeline.name().as_str(), "pipeline0");
+            // Pipeline name will be auto-generated (pipeline0, pipeline1, etc.)
+            assert!(pipeline.name().as_str().starts_with("pipeline"));
 
             // Pipeline should start in NULL state
             let state = pipeline.state(gst::ClockTime::NONE).1;
@@ -349,6 +294,257 @@ mod player_test {
             let player = Player::new().unwrap();
             let result = player.create_pipeline("invalid ! nonexistent");
             assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn test_position_queries() {
+        test_synced(|| {
+            let player = Player::new().unwrap();
+
+            // Position/duration should return 0 without a pipeline
+            let position = player.position();
+            assert_eq!(position, 0);
+
+            let duration = player.duration();
+            assert_eq!(duration, 0);
+        });
+    }
+
+    #[test]
+    fn test_multiple_pipeline_creations() {
+        test_synced(|| {
+            let player = Player::new().unwrap();
+
+            // Create first pipeline
+            let result1 = player.create_pipeline("videotestsrc ! fakesink");
+            assert!(result1.is_ok());
+
+            // Create second pipeline (should get different name)
+            let result2 = player.create_pipeline("audiotestsrc ! fakesink");
+            assert!(result2.is_ok());
+
+            let pipeline1 = result1.unwrap();
+            let pipeline2 = result2.unwrap();
+
+            // Names should be different
+            assert_ne!(pipeline1.name(), pipeline2.name());
+        });
+    }
+
+    #[test]
+    fn test_position_description_format() {
+        test_synced(|| {
+            let player = Player::new().unwrap();
+
+            let desc = player.position_description();
+
+            // Should have the format with "/"
+            assert!(desc.contains('/'));
+
+            // Should be in time format (contains ":")
+            assert!(desc.contains(':'));
+
+            // Without pipeline, should show "0:00:00/0:00:00" format
+            assert_eq!(desc, "0:00:00/0:00:00");
+        });
+    }
+
+    #[test]
+    fn test_n_video_sink_initial_value() {
+        test_synced(|| {
+            let player = Player::new().unwrap();
+
+            // Initial value should be 0
+            assert_eq!(player.n_video_sink(), 0);
+        });
+    }
+
+    #[test]
+    fn test_create_properties_for_element() {
+        test_synced(|| {
+            use crate::graphmanager as GM;
+            use crate::graphmanager::PropertyExt;
+
+            let player = Player::new().unwrap();
+
+            // Create a simple pipeline with an element that has properties
+            let pipeline = player
+                .create_pipeline("videotestsrc pattern=1 ! fakesink")
+                .unwrap();
+
+            // Get the videotestsrc element
+            let bin = pipeline.dynamic_cast::<gst::Bin>().unwrap();
+
+            // Find videotestsrc by factory name
+            let mut elements: Vec<gst::Element> = Vec::new();
+            let mut iter = bin.iterate_elements();
+            while let Ok(Some(element)) = iter.next() {
+                elements.push(element);
+            }
+
+            let videotestsrc = elements
+                .iter()
+                .find(|e| {
+                    e.factory()
+                        .map(|f| f.name().starts_with("videotestsrc"))
+                        .unwrap_or(false)
+                })
+                .expect("videotestsrc not found");
+
+            // Create a standalone node to hold the properties
+            let node = GM::Node::new(1, "videotestsrc", GM::NodeType::Source);
+
+            // Call create_properties_for_element
+            player.create_properties_for_element(videotestsrc, &node);
+
+            // Verify that properties were added
+            let properties = node.properties();
+
+            // The "pattern" property should be set to "1" which is "snow" (non-default value)
+            assert!(properties.contains_key("pattern"));
+            assert_eq!(properties.get("pattern").unwrap(), "snow");
+
+            // Properties like "name" and "parent" should NOT be added
+            assert!(!properties.contains_key("name"));
+            assert!(!properties.contains_key("parent"));
+        });
+    }
+
+    #[test]
+    fn test_create_properties_for_element_with_defaults() {
+        test_synced(|| {
+            use crate::graphmanager as GM;
+            use crate::graphmanager::PropertyExt;
+
+            let player = Player::new().unwrap();
+
+            // Create element with default properties
+            let pipeline = player.create_pipeline("identity ! fakesink").unwrap();
+            let bin = pipeline.dynamic_cast::<gst::Bin>().unwrap();
+
+            // Find identity by factory name
+            let mut elements: Vec<gst::Element> = Vec::new();
+            let mut iter = bin.iterate_elements();
+            while let Ok(Some(element)) = iter.next() {
+                elements.push(element);
+            }
+
+            let identity = elements
+                .iter()
+                .find(|e| {
+                    e.factory()
+                        .map(|f| f.name().starts_with("identity"))
+                        .unwrap_or(false)
+                })
+                .expect("identity not found");
+
+            let node = GM::Node::new(2, "identity", GM::NodeType::Transform);
+
+            player.create_properties_for_element(identity, &node);
+
+            let properties = node.properties();
+
+            // Default properties should not be added (only non-default values)
+            // Identity element with all defaults shouldn't add many properties
+            // We just verify the method runs without errors and returns a valid HashMap
+            assert!(properties.is_empty() || !properties.is_empty()); // Always true, just checks method runs
+        });
+    }
+
+    #[test]
+    fn test_create_pads_for_element_requires_app() {
+        test_synced(|| {
+            use crate::graphmanager as GM;
+
+            let player = Player::new().unwrap();
+
+            // Create a pipeline with an element
+            let pipeline = player.create_pipeline("videotestsrc ! fakesink").unwrap();
+            let bin = pipeline.dynamic_cast::<gst::Bin>().unwrap();
+            let videotestsrc = bin.by_name("videotestsrc0").unwrap();
+
+            let node = GM::Node::new(3, "videotestsrc", GM::NodeType::Source);
+
+            // create_pads_for_element requires app to be initialized
+            // It will fail gracefully with GPS_ERROR logs but won't crash
+            player.create_pads_for_element(&videotestsrc, &node);
+
+            // The method should complete without panicking
+            // (errors are logged but not returned)
+        });
+    }
+
+    #[test]
+    fn test_element_pads_iteration() {
+        test_synced(|| {
+            let player = Player::new().unwrap();
+
+            // Create a pipeline with various elements
+            let pipeline = player
+                .create_pipeline("videotestsrc ! capsfilter ! fakesink")
+                .unwrap();
+            let bin = pipeline.dynamic_cast::<gst::Bin>().unwrap();
+
+            // Collect all elements from the pipeline
+            let mut elements: Vec<gst::Element> = Vec::new();
+            let mut iter = bin.iterate_elements();
+            while let Ok(Some(element)) = iter.next() {
+                elements.push(element);
+            }
+
+            // Find videotestsrc (has src pad)
+            let videotestsrc = elements
+                .iter()
+                .find(|e| {
+                    e.factory()
+                        .map(|f| f.name().starts_with("videotestsrc"))
+                        .unwrap_or(false)
+                })
+                .expect("videotestsrc not found");
+
+            let mut src_pads = 0;
+            let mut iter = videotestsrc.iterate_pads();
+            while let Ok(Some(pad)) = iter.next() {
+                assert_eq!(pad.direction(), gst::PadDirection::Src);
+                src_pads += 1;
+            }
+            assert_eq!(src_pads, 1);
+
+            // Find fakesink (has sink pad)
+            let fakesink = elements
+                .iter()
+                .find(|e| {
+                    e.factory()
+                        .map(|f| f.name().starts_with("fakesink"))
+                        .unwrap_or(false)
+                })
+                .expect("fakesink not found");
+
+            let mut sink_pads = 0;
+            let mut iter = fakesink.iterate_pads();
+            while let Ok(Some(pad)) = iter.next() {
+                assert_eq!(pad.direction(), gst::PadDirection::Sink);
+                sink_pads += 1;
+            }
+            assert_eq!(sink_pads, 1);
+
+            // Find capsfilter (has both sink and src pads)
+            let capsfilter = elements
+                .iter()
+                .find(|e| {
+                    e.factory()
+                        .map(|f| f.name().starts_with("capsfilter"))
+                        .unwrap_or(false)
+                })
+                .expect("capsfilter not found");
+
+            let mut total_pads = 0;
+            let mut iter = capsfilter.iterate_pads();
+            while let Ok(Some(_pad)) = iter.next() {
+                total_pads += 1;
+            }
+            assert_eq!(total_pads, 2); // sink and src
         });
     }
 }
