@@ -261,9 +261,6 @@ macos installer stable:
     # Get tomlib
     - pip3 install -U tomli
   script:
-    # rust toolchain
-    - curl https://sh.rustup.rs -sSf | sh -s -- -y
-    - source $HOME/.cargo/env
     # brew install
     - /bin/bash -c "./installer/macos/package_setup.sh"
     - /bin/bash -c "./installer/macos/deploy_macos.sh"

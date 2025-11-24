@@ -25,15 +25,23 @@ echo "VERSION=$VERSION"
 
 pip3 install docutils
 
+# rust toolchain
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+source $HOME/.cargo/env
+cargo install cargo-c
+
 GSTREAMER_OPTS="
         -Dforce_fallback_for=gstreamer-1.0,gtk,glib \
         -Dglib:introspection=disabled \
-        -Dgstreamer-1.0:libav=disabled \
+        -Dglib:tests=false \
+        -Dgstreamer-1.0:libav=enabled \
         -Dgstreamer-1.0:examples=disabled \
         -Dgstreamer-1.0:introspection=disabled \
         -Dgstreamer-1.0:rtsp_server=disabled \
         -Dgstreamer-1.0:devtools=disabled \
         -Dgstreamer-1.0:ges=disabled \
+        -Dgstreamer-1.0:rs=enabled \
+        -Dgstreamer-1.0:gpl=enabled \
         -Dgstreamer-1.0:python=disabled \
         -Dgstreamer-1.0:tests=disabled \
         -Dgstreamer-1.0:gtk=enabled \
