@@ -11,19 +11,18 @@ Set-Location C:\gstreamer
 # force fallback for glib is due to a bug when building libsoup. See https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/10136
 $env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release " +
     "-Dforce_fallback_for=glib " +
+    "-Dglib:tests=false " +
+    "-Dglib:introspection=disabled " +
     "-Dlibnice:tests=disabled " +
     "-Dlibnice:examples=disabled " +
     "-Dffmpeg:tests=disabled " +
     "-Dopenh264:tests=disabled " +
     "-Dpygobject:tests=false " +
-    "-Dugly=enabled " +
-    "-Dbad=enabled " +
-    "-Dges=enabled " +
+    "-Dges=disabled " +
     "-Drtsp_server=disabled " +
     "-Ddevtools=disabled " +
     "-Dsharp=disabled " +
     "-Dpython=disabled " +
-    "-Dlibav=disabled " +
     "-Dvaapi=disabled " +
     "-Dlibxml2:python=false " +
     "-Dgpl=enabled "
@@ -36,7 +35,7 @@ if (!$?) {
   Exit 1
 }
 
-cd C:\
+Set-Location C:\
 cmd /c rmdir /s /q  C:\gstreamer
 if (!$?) {
   Write-Host "Failed to remove gst checkout"

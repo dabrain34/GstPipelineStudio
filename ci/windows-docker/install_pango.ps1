@@ -24,8 +24,9 @@ if (!$?) {
 }
 
 
-# cmd /c rmdir /s /q  C:\pango
-# if (!$?) {
-#   Write-Host "Failed to remove pango checkout"
-#   Exit 1
-# }
+Set-Location C:\
+cmd /c rmdir /s /q  C:\pango
+if (!$?) {
+  Write-Host "Failed to remove pango checkout"
+  Exit 1
+}

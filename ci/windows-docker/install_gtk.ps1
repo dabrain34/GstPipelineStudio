@@ -28,7 +28,7 @@ if (!$?) {
   Exit 1
 }
 
-cd C:\
+Set-Location C:\
 cmd /c rmdir /s /q  C:\gtk
 if (!$?) {
   Write-Host "Failed to remove gtk checkout"
