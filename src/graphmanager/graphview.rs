@@ -209,6 +209,14 @@ mod imp {
                                     &graphene::Point::new(x as f32, y as f32),
                                 ],
                             );
+                        } else if let Some(link) = widget.point_on_link(&graphene::Point::new(
+                            x.floor() as f32,
+                            y.floor() as f32,
+                        )) {
+                            obj.emit_by_name::<()>(
+                                "link-right-clicked",
+                                &[&link.id, &graphene::Point::new(x as f32, y as f32)],
+                            );
                         } else if let Some(target) = target.ancestor(Node::static_type()) {
                             let node = target
                                 .dynamic_cast::<Node>()
@@ -427,6 +435,9 @@ mod imp {
                         .param_types([u32::static_type(), graphene::Point::static_type()])
                         .build(),
                     Signal::builder("node-double-clicked")
+                        .param_types([u32::static_type(), graphene::Point::static_type()])
+                        .build(),
+                    Signal::builder("link-right-clicked")
                         .param_types([u32::static_type(), graphene::Point::static_type()])
                         .build(),
                     Signal::builder("graph-right-clicked")
