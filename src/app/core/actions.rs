@@ -41,6 +41,9 @@
 //! - `node.request-pad-output` - Request output pad
 //! - `node.properties` - Show element properties
 //! - `node.duplicate` - Duplicate element
+//! - `port.delete` - Delete port
+//! - `port.properties` - Show port properties
+//! - `link.delete` - Delete link
 //!
 //! ## Other
 //! - `preferences` - Show preferences dialog (<Ctrl+P>)
@@ -79,7 +82,7 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("save_as", None));
 
         application.add_action(&gio::SimpleAction::new("delete", None));
-        application.set_accels_for_action("app.delete", &["<primary>d", "Delete"]);
+        application.set_accels_for_action("app.delete", &["<primary>d", "Delete", "BackSpace"]);
 
         application.add_action(&gio::SimpleAction::new("preferences", None));
         application.set_accels_for_action("app.preferences", &["<primary>p"]);
@@ -101,6 +104,8 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("port.delete", None));
         application.add_action(&gio::SimpleAction::new("port.properties", None));
+
+        application.add_action(&gio::SimpleAction::new("link.delete", None));
 
         application.add_action(&gio::SimpleAction::new("node.add-to-favorite", None));
         application.add_action(&gio::SimpleAction::new("node.delete", None));

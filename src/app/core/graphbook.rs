@@ -423,6 +423,31 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             None
         });
 
+    // When user clicks on link with right button
+    let app_weak = app.downgrade();
+    gt.graphview()
+        .connect_local("link-right-clicked", false, move |values: &[Value]| {
+            let app = upgrade_weak!(app_weak, None);
+            let link_id = values[1].get::<u32>().ok()?;
+            let point = values[2].get::<graphene::Point>().ok()?;
+            let menu: gio::MenuModel = app.builder.object("link_menu")?;
+
+            let app_weak = app.downgrade();
+            app.connect_app_menu_action("link.delete", move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                GPS_DEBUG!("link.delete id: {}", link_id);
+                current_graphtab(&app).graphview().remove_link(link_id);
+            });
+
+            app.show_context_menu_at_position(
+                &*current_graphtab(&app).graphview(),
+                point.to_vec2().x() as f64,
+                point.to_vec2().y() as f64,
+                &menu,
+            );
+            None
+        });
+
     // When user clicks on node with right button
     let app_weak = app.downgrade();
     gt.graphview().connect_local(

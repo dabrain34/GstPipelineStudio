@@ -96,6 +96,14 @@
       </item>
     </section>
   </menu>
+  <menu id="link_menu">
+    <section>
+      <item>
+        <attribute name="label" translatable="yes" comments="Link menu entry delete the link">_Delete link</attribute>
+        <attribute name="action">app.link.delete</attribute>
+      </item>
+    </section>
+  </menu>
   <menu id="node_menu">
     <section>
       <item>
