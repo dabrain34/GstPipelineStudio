@@ -9,14 +9,21 @@
 use anyhow::Result;
 use gtk::glib;
 
-pub fn init() -> Result<()> {
+/// Initialize GTK only. Call this first to enable showing splash screen.
+pub fn init_gtk() -> Result<()> {
+    gtk::init()?;
+    Ok(())
+}
+
+/// Initialize GStreamer. This can be slow as it scans the registry.
+/// Should be called after showing the splash screen.
+pub fn init_gst() -> Result<()> {
     std::env::set_var("GST_XINITTHREADS", "1");
     gst::init()?;
     #[cfg(feature = "gtk4-plugin")]
     {
         gstgtk4::plugin_register_static().expect("Failed to register gstgtk4 plugin");
     }
-    gtk::init()?;
     Ok(())
 }
 

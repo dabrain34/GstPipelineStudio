@@ -117,17 +117,42 @@ impl GPSApp {
         Ok(app)
     }
 
-    pub fn on_startup(application: &gtk::Application, pipeline_desc: &String) {
-        // Create application and error out if that fails for whatever reason
-        let app = match GPSApp::new(application) {
-            Ok(app) => app,
+    /// Creates and shows the main window (empty).
+    /// This is phase 1 of startup - allows showing a splash screen on top while GStreamer initializes.
+    pub fn create_window(application: &gtk::Application) -> Option<GPSApp> {
+        match GPSApp::new(application) {
+            Ok(app) => {
+                // Show the empty window so splash can be transient to it
+                app.window.present();
+                Some(app)
+            }
             Err(err) => {
                 error!("Error creating application: {}", err);
-                return;
+                None
             }
-        };
+        }
+    }
 
-        app.build_ui(application, pipeline_desc);
+    /// Initializes the UI content and sets up signal handlers.
+    /// This is phase 2 of startup - called after GStreamer has initialized.
+    pub fn initialize_ui(self, application: &gtk::Application, pipeline_desc: &String) {
+        self.build_ui(application, pipeline_desc);
+
+        // Apply paned positions after UI is built and allocated
+        let app_for_paned = self.clone();
+        let is_maximized = self.window.is_maximized();
+        glib::timeout_add_local_once(
+            std::time::Duration::from_millis(MAXIMIZE_TIMEOUT_MS),
+            move || {
+                app_for_paned.apply_paned_positions(is_maximized);
+            },
+        );
+
+        self.setup_signal_handlers(application);
+    }
+
+    fn setup_signal_handlers(self, application: &gtk::Application) {
+        let app = self;
 
         // Setup dynamic paned positioning on maximize/unmaximize
         let app_clone_for_maximize = app.clone();
