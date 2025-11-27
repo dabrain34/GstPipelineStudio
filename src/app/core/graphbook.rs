@@ -283,7 +283,12 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                         caps.clone().unwrap_or_else(|| "caps unknown".to_string()),
                         port.id()
                     );
-                    port.set_tooltip_markup(caps.as_deref());
+                    let tooltip = format!(
+                        "<b>{}</b>\n{}",
+                        port.name(),
+                        caps.unwrap_or_else(|| "caps unknown".to_string())
+                    );
+                    port.set_tooltip_markup(Some(&tooltip));
                 }
             }
 
@@ -313,7 +318,12 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                         caps.clone().unwrap_or_else(|| "caps unknown".to_string()),
                         port.id()
                     );
-                    port.set_tooltip_markup(caps.as_deref());
+                    let tooltip = format!(
+                        "<b>{}</b>\n{}",
+                        port.name(),
+                        caps.unwrap_or_else(|| "caps unknown".to_string())
+                    );
+                    port.set_tooltip_markup(Some(&tooltip));
                 }
             }
             None
