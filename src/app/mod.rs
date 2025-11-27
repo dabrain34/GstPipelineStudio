@@ -120,6 +120,13 @@ impl GPSApp {
     /// Creates and shows the main window (empty).
     /// This is phase 1 of startup - allows showing a splash screen on top while GStreamer initializes.
     pub fn create_window(application: &gtk::Application) -> Option<GPSApp> {
+        // Apply system-wide dark theme early so splash screen inherits it
+        if Settings::dark_theme() {
+            if let Some(gtk_settings) = gtk::Settings::default() {
+                gtk_settings.set_gtk_application_prefer_dark_theme(true);
+            }
+        }
+
         match GPSApp::new(application) {
             Ok(app) => {
                 // Show the empty window so splash can be transient to it

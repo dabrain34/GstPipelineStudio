@@ -67,6 +67,13 @@ impl GraphTab {
             .graphview
             .borrow()
             .set_id(graphbook_get_new_graphview_id(&app));
+
+        // Apply saved dark theme setting
+        graphtab
+            .graphview
+            .borrow()
+            .set_dark_theme(Settings::dark_theme());
+
         if let Err(e) = graphtab.player.borrow().set_app(app) {
             GPS_ERROR!("Failed to set app on player: {}", e);
         }

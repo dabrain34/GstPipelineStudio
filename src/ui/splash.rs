@@ -6,14 +6,18 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+use gtk::gdk_pixbuf::Pixbuf;
 use gtk::prelude::*;
 use gtk::{Box, CssProvider, Image, Label, Orientation, Spinner, Window};
 
 use crate::config;
 
-const SPLASH_WIDTH: i32 = 400;
-const SPLASH_HEIGHT: i32 = 280;
-const LOGO_SIZE: i32 = 64;
+// Embed the logo PNG directly in the binary
+static LOGO_PNG: &[u8] = include_bytes!("../../data/icons/org.freedesktop.dabrain34.GstPipelineStudio.png");
+
+const SPLASH_WIDTH: i32 = 500;
+const SPLASH_HEIGHT: i32 = 420;
+const LOGO_SIZE: i32 = 192;
 
 /// Creates and shows a splash screen window during application initialization.
 /// The splash is shown as a transient modal window on top of the parent window.
@@ -59,9 +63,18 @@ pub fn create_splash_window(parent: &impl IsA<Window>) -> Window {
     container.set_hexpand(true);
     container.set_vexpand(true);
 
-    // App logo
-    let logo = Image::from_icon_name(config::APP_ID);
-    logo.set_pixel_size(LOGO_SIZE);
+    // App logo - load from embedded PNG bytes (same approach as about.rs)
+    let logo = if let Ok(pixbuf) = Pixbuf::from_read(std::io::Cursor::new(LOGO_PNG)) {
+        let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
+        let img = Image::from_paintable(Some(&texture));
+        img.set_pixel_size(LOGO_SIZE);
+        img
+    } else {
+        // Fallback to icon name if embedded image fails
+        let img = Image::from_icon_name(config::APP_ID);
+        img.set_pixel_size(LOGO_SIZE);
+        img
+    };
 
     // App title
     let title_label = Label::new(Some("GStreamer Pipeline Studio"));

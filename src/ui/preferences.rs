@@ -64,12 +64,18 @@ const STR_SEARCH_PLACEHOLDER: &str = "Search preferences...";
 const STR_TAB_GENERAL: &str = "General";
 /// Label for the Logging settings tab
 const STR_TAB_LOGGING: &str = "Logging";
+/// Header for the Appearance category
+const STR_CATEGORY_APPEARANCE: &str = "Appearance";
 /// Header for the Video Rendering category
 const STR_CATEGORY_VIDEO: &str = "Video Rendering";
 /// Header for the Application Logging category
 const STR_CATEGORY_APP_LOGGING: &str = "Application Logging";
 /// Header for the GStreamer Logging category
 const STR_CATEGORY_GST_LOGGING: &str = "GStreamer Logging";
+/// Label for dark theme preference
+const STR_PREF_DARK_THEME: &str = "Dark Theme";
+/// Tooltip for dark theme preference
+const STR_TOOLTIP_DARK_THEME: &str = "Enable dark theme for the graph view with gradient styling";
 /// Label for GTK4 sink preference
 const STR_PREF_GTK4_SINK: &str = "Use GTK4 Paintable Sink";
 /// Tooltip for GTK4 sink preference
@@ -270,6 +276,42 @@ pub fn display_settings(app: &GPSApp) {
         .build();
 
     let general_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
+
+    // Appearance Category
+    let (appearance_category, appearance_listbox) =
+        create_settings_category(STR_CATEGORY_APPEARANCE);
+
+    let dark_theme_switch = gtk::CheckButton::new();
+    dark_theme_switch.set_active(settings::Settings::dark_theme());
+
+    // Clone app for the closure to apply theme immediately
+    let app_weak = app.downgrade();
+    dark_theme_switch.connect_toggled(move |c| {
+        let is_dark = c.is_active();
+        settings::Settings::set_dark_theme(is_dark);
+
+        // Apply system-wide GTK dark theme
+        if let Some(gtk_settings) = gtk::Settings::default() {
+            gtk_settings.set_gtk_application_prefer_dark_theme(is_dark);
+        }
+
+        // Apply theme to all open graph views
+        if let Some(app) = app_weak.upgrade() {
+            let graphbook = app.graphbook.borrow();
+            for (_, graph_tab) in graphbook.iter() {
+                graph_tab.graphview().set_dark_theme(is_dark);
+            }
+        }
+    });
+
+    let appearance_row = create_checkbox_preference_row(
+        STR_PREF_DARK_THEME,
+        &dark_theme_switch,
+        Some(STR_TOOLTIP_DARK_THEME),
+    );
+    appearance_listbox.append(&appearance_row);
+
+    general_box.append(&appearance_category);
 
     // Video Rendering Category
     let (video_category, video_listbox) = create_settings_category(STR_CATEGORY_VIDEO);

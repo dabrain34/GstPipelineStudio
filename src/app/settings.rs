@@ -24,6 +24,7 @@ pub struct Settings {
     pub app_width: i32,
     pub app_height: i32,
     pub recent_pipeline: String,
+    pub dark_theme: bool,
 
     // values must be emitted before tables
     pub favorites: Vec<String>,
@@ -91,6 +92,17 @@ impl Settings {
     pub fn recent_pipeline_description() -> String {
         let settings = Settings::load_settings();
         settings.recent_pipeline
+    }
+
+    pub fn set_dark_theme(dark: bool) {
+        let mut settings = Settings::load_settings();
+        settings.dark_theme = dark;
+        Settings::save_settings(&settings);
+    }
+
+    pub fn dark_theme() -> bool {
+        let settings = Settings::load_settings();
+        settings.dark_theme
     }
 
     pub fn add_favorite(favorite: &str) {

@@ -9,17 +9,27 @@
 use crate::app::GPSApp;
 use crate::config;
 use crate::gps as GPS;
+use gtk::gdk_pixbuf::Pixbuf;
 use gtk::prelude::*;
 use gtk::AboutDialog;
 
 use gtk::ApplicationWindow;
+
+// Embed the logo PNG directly in the binary
+static LOGO_PNG: &[u8] = include_bytes!("../../data/icons/org.freedesktop.dabrain34.GstPipelineStudio.png");
 
 pub fn display_about_dialog(app: &GPSApp) {
     let window: ApplicationWindow = app
         .builder
         .object("mainwindow")
         .expect("Couldn't get window");
-    let about_dialog = AboutDialog::builder()
+
+    // Load logo from embedded PNG
+    let logo = Pixbuf::from_read(std::io::Cursor::new(LOGO_PNG))
+        .ok()
+        .map(|pixbuf| gtk::gdk::Texture::for_pixbuf(&pixbuf));
+
+    let mut builder = AboutDialog::builder()
         .modal(true)
         .program_name("GstPipelineStudio")
         .version(config::VERSION)
@@ -35,10 +45,15 @@ pub fn display_about_dialog(app: &GPSApp) {
         .authors(vec!["Stéphane Cerveau".to_string()])
         .artists(vec!["Stéphane Cerveau".to_string()])
         .translator_credits("translator-credits")
-        .logo_icon_name(config::APP_ID)
         .license_type(gtk::License::Gpl30)
-        .transient_for(&window)
-        .build();
+        .transient_for(&window);
 
+    if let Some(texture) = logo {
+        builder = builder.logo(&texture);
+    } else {
+        builder = builder.logo_icon_name(config::APP_ID);
+    }
+
+    let about_dialog = builder.build();
     about_dialog.present();
 }
