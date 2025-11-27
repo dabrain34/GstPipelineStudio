@@ -7,14 +7,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use gtk::{
-    glib::{self},
-    prelude::*,
-    subclass::prelude::*,
-};
+use gtk::prelude::*;
+use gtk::subclass::prelude::*;
+use gtk::{glib, graphene};
 use log::trace;
-use std::cell::RefCell;
-use std::cell::{Cell, Ref};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -78,11 +75,11 @@ mod imp {
     /// Graphical representation of a port.
     #[derive(Default)]
     pub struct Port {
-        pub(super) label: gtk::Label,
         pub(super) id: OnceCell<u32>,
-        pub(super) direction: OnceCell<PortDirection>,
+        pub(super) name: RefCell<String>,
+        pub(super) port_direction: OnceCell<super::PortDirection>,
         pub(super) selected: Cell<bool>,
-        pub(super) presence: OnceCell<PortPresence>,
+        pub(super) presence: OnceCell<super::PortPresence>,
         pub(super) properties: RefCell<HashMap<String, String>>,
     }
 
@@ -93,62 +90,61 @@ mod imp {
         type ParentType = gtk::Widget;
 
         fn class_init(klass: &mut Self::Class) {
-            klass.set_layout_manager_type::<gtk::BinLayout>();
-
-            // Make it look like a GTK button.
-            klass.set_css_name("button");
-        }
-
-        fn new() -> Self {
-            let label = gtk::Label::new(None);
-            Self {
-                label,
-                id: OnceCell::new(),
-                direction: OnceCell::new(),
-                selected: Cell::new(false),
-                presence: OnceCell::new(),
-                properties: RefCell::new(HashMap::new()),
-            }
+            klass.set_css_name("port");
         }
     }
 
     impl ObjectImpl for Port {
         fn constructed(&self) {
-            let obj = self.obj();
             self.parent_constructed();
-            self.label.set_parent(&*obj);
-        }
-        fn dispose(&self) {
-            self.label.unparent()
+
+            let obj = &*self.obj();
+            obj.set_halign(gtk::Align::Center);
+            obj.set_valign(gtk::Align::Center);
         }
     }
-    impl WidgetImpl for Port {}
+
+    impl WidgetImpl for Port {
+        fn request_mode(&self) -> gtk::SizeRequestMode {
+            gtk::SizeRequestMode::ConstantSize
+        }
+
+        fn measure(&self, _orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
+            (Self::HANDLE_SIZE, Self::HANDLE_SIZE, -1, -1)
+        }
+    }
+
+    impl Port {
+        pub const HANDLE_SIZE: i32 = 10;
+    }
 }
 
 glib::wrapper! {
     pub struct Port(ObjectSubclass<imp::Port>)
-        @extends gtk::Widget, gtk::Box, gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+        @extends gtk::Widget,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl Port {
     /// Create a new port
-    ///
     pub fn new(id: u32, name: &str, direction: PortDirection, presence: PortPresence) -> Self {
-        // Create the widget and initialize needed fields
-        let port: Self = glib::Object::new::<Self>();
-        port.add_css_class("port");
+        let port: Self = glib::Object::new();
         let private = imp::Port::from_obj(&port);
+
         private.id.set(id).expect("Port id already set");
         private.selected.set(false);
         private
-            .direction
+            .port_direction
             .set(direction)
             .expect("Port direction already set");
+
+        // Add CSS classes
         if direction == PortDirection::Input {
             port.add_css_class("port-in");
         } else {
             port.add_css_class("port-out");
         }
+
         private
             .presence
             .set(presence)
@@ -158,44 +154,52 @@ impl Port {
         } else {
             port.add_css_class("port-sometimes");
         }
-        private.label.set_text(name);
+
+        // Store the name internally - shown in tooltip only
+        *private.name.borrow_mut() = name.to_string();
 
         port
     }
 
     /// Retrieves the port id
-    ///
     pub fn id(&self) -> u32 {
         let private = imp::Port::from_obj(self);
         private.id.get().copied().expect("Port id is not set")
     }
 
     /// Retrieves the port name
-    ///
     pub fn name(&self) -> String {
         let private = imp::Port::from_obj(self);
-        private.label.text().to_string()
+        private.name.borrow().clone()
     }
 
     /// Set the port name
-    ///
     pub fn set_name(&self, name: &str) {
         let private = imp::Port::from_obj(self);
-        private.label.set_text(name);
+        *private.name.borrow_mut() = name.to_string();
     }
 
     /// Retrieves the port direction
-    ///
     pub fn direction(&self) -> PortDirection {
         let private = imp::Port::from_obj(self);
-        *private.direction.get().expect("Port direction is not set")
+        *private
+            .port_direction
+            .get()
+            .expect("Port direction is not set")
     }
 
     /// Retrieves the port presence
-    ///
     pub fn presence(&self) -> PortPresence {
         let private = imp::Port::from_obj(self);
         *private.presence.get().expect("Port presence is not set")
+    }
+
+    /// Get link anchor point for drawing connections
+    pub fn get_link_anchor(&self) -> graphene::Point {
+        graphene::Point::new(
+            imp::Port::HANDLE_SIZE as f32 / 2.0,
+            imp::Port::HANDLE_SIZE as f32 / 2.0,
+        )
     }
 }
 
@@ -221,8 +225,6 @@ impl SelectionExt for Port {
 }
 
 impl PropertyExt for Port {
-    /// Add a port property with a name and a value.
-    ///
     fn add_property(&self, name: &str, value: &str) {
         let private = imp::Port::from_obj(self);
         trace!("property name={} updated with value={}", name, value);
@@ -232,16 +234,12 @@ impl PropertyExt for Port {
             .insert(name.to_string(), value.to_string());
     }
 
-    /// Remove a port property with a name.
-    ///
     fn remove_property(&self, name: &str) {
         let private = imp::Port::from_obj(self);
         trace!("property name={} removed", name);
         private.properties.borrow_mut().remove(name);
     }
 
-    /// Retrieves node properties.
-    ///
     fn properties(&self) -> Ref<'_, HashMap<String, String>> {
         let private = imp::Port::from_obj(self);
         private.properties.borrow()

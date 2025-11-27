@@ -18,31 +18,35 @@ button.node-light {
   border-style: dashed;
 }
 
-button.port {
-  color: rgb(0, 0, 255);
+/* Port - visual 10x10px elements */
+port {
+  min-width: 10px;
+  min-height: 10px;
   border-width: 2px;
   border-style: solid;
   border-radius: 10px;
   border-color: rgb(0, 0, 0);
 }
 
-button.port-selected {
+port.port-selected {
   border-color: rgb(255, 0, 0);
 }
 
-button.port-out {
+port.port-out {
   background: rgb(255, 170, 170);
+  transform: translateX(25px);
 }
 
-button.port-in {
+port.port-in {
   background: rgb(170, 170, 255);
+  transform: translateX(-25px);
 }
 
-button.port-sometimes {
+port.port-sometimes {
   border-style: dashed;
 }
 
-button.port-always {
+port.port-always {
   border-style: solid;
 }
 

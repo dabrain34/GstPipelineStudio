@@ -41,6 +41,10 @@ pub static GRAPHVIEW_XML_VERSION: &str = "0.1";
 
 const CANVAS_SIZE: f64 = 5000.0;
 
+// Default link colors (RGB values 0.0-1.0)
+const LINK_COLOR_DEFAULT: (f64, f64, f64) = (0.5, 0.5, 0.5); // Gray
+const LINK_COLOR_SELECTED: (f64, f64, f64) = (1.0, 0.18, 0.18); // Red
+
 mod imp {
     use super::*;
 
@@ -57,7 +61,6 @@ mod imp {
         offset: graphene::Point,
     }
 
-    #[derive(Default)]
     pub struct GraphView {
         pub(super) id: Cell<u32>,
         pub(super) nodes: RefCell<HashMap<u32, (Node, graphene::Point)>>,
@@ -71,6 +74,31 @@ mod imp {
         pub hadjustment: RefCell<Option<gtk::Adjustment>>,
         pub vadjustment: RefCell<Option<gtk::Adjustment>>,
         pub zoom_factor: Cell<f64>,
+        /// RGB color for links (0.0-1.0 range)
+        pub(super) link_color: Cell<(f64, f64, f64)>,
+        /// Custom CSS provider for app-injected styles
+        pub(super) custom_css_provider: RefCell<Option<gtk::CssProvider>>,
+    }
+
+    impl Default for GraphView {
+        fn default() -> Self {
+            Self {
+                id: Cell::new(0),
+                nodes: RefCell::new(HashMap::new()),
+                links: RefCell::new(HashMap::new()),
+                current_node_id: Cell::new(0),
+                current_port_id: Cell::new(0),
+                current_link_id: Cell::new(0),
+                port_selected: RefCell::new(None),
+                mouse_position: Cell::new((0.0, 0.0)),
+                dragged_node: RefCell::new(None),
+                hadjustment: RefCell::new(None),
+                vadjustment: RefCell::new(None),
+                zoom_factor: Cell::new(1.0),
+                link_color: Cell::new(LINK_COLOR_DEFAULT),
+                custom_css_provider: RefCell::new(None),
+            }
+        }
     }
 
     #[glib::object_subclass]
@@ -640,12 +668,10 @@ mod imp {
                 .port(port_from)
                 .unwrap_or_else(|| panic!("Unable to get port from {}", port_from));
 
+            // Get the port's center position for link anchor
+            let anchor = from_port.get_link_anchor();
             let (x, y) = from_port
-                .translate_coordinates(
-                    widget,
-                    (from_port.width() / 2) as f64,
-                    (from_port.height() / 2) as f64,
-                )
+                .translate_coordinates(widget, anchor.x() as f64, anchor.y() as f64)
                 .unwrap();
 
             (x, y)
@@ -662,12 +688,11 @@ mod imp {
                 .0
                 .port(port_to)
                 .unwrap_or_else(|| panic!("Unable to get port to {}", port_to));
+
+            // Get the port's center position for link anchor
+            let anchor = to_port.get_link_anchor();
             let (x, y) = to_port
-                .translate_coordinates(
-                    widget,
-                    (to_port.width() / 2) as f64,
-                    (to_port.height() / 2) as f64,
-                )
+                .translate_coordinates(widget, anchor.x() as f64, anchor.y() as f64)
                 .unwrap();
 
             (x, y)
@@ -707,11 +732,14 @@ mod imp {
             } else {
                 link_cr.set_dash(&[10.0, 5.0], 0.0);
             }
-            if selected {
-                link_cr.set_source_rgb(1.0, 0.18, 0.18);
+
+            // Set link color based on selection state or custom color
+            let color = if selected {
+                LINK_COLOR_SELECTED
             } else {
-                link_cr.set_source_rgb(0.0, 0.0, 0.0);
-            }
+                self.link_color.get()
+            };
+            link_cr.set_source_rgb(color.0, color.1, color.2);
 
             link_cr.move_to(point_from.x() as f64, point_from.y() as f64);
             link_cr.line_to(point_to.x() as f64, point_to.y() as f64);
@@ -769,6 +797,74 @@ impl GraphView {
     pub fn id(&self) -> u32 {
         let private = imp::GraphView::from_obj(self);
         private.id.get()
+    }
+
+    /// Set dark theme mode
+    ///
+    /// When enabled, applies the dark-theme CSS class for dark mode styling
+    pub fn set_dark_theme(&self, dark: bool) {
+        if dark {
+            self.add_css_class("dark-theme");
+        } else {
+            self.remove_css_class("dark-theme");
+        }
+    }
+
+    /// Check if dark theme is enabled
+    pub fn is_dark_theme(&self) -> bool {
+        self.has_css_class("dark-theme")
+    }
+
+    /// Set the link color for rendering
+    ///
+    /// Changes the color of all links in the graph view.
+    /// Color values should be in the range 0.0-1.0 for RGB.
+    pub fn set_link_color(&self, r: f64, g: f64, b: f64) {
+        let private = imp::GraphView::from_obj(self);
+        let new_color = (r, g, b);
+        if private.link_color.get() != new_color {
+            private.link_color.set(new_color);
+            self.queue_draw();
+        }
+    }
+
+    /// Get the current link color
+    pub fn link_color(&self) -> (f64, f64, f64) {
+        let private = imp::GraphView::from_obj(self);
+        private.link_color.get()
+    }
+
+    /// Set custom CSS for the graphview
+    ///
+    /// This allows the app to inject custom CSS that overrides the default styles.
+    /// The CSS is applied with USER priority, which is higher than the default
+    /// APPLICATION priority, allowing it to override built-in styles.
+    ///
+    /// # Arguments
+    /// * `css` - CSS string to apply. Pass an empty string to clear custom CSS.
+    pub fn set_custom_css(&self, css: &str) {
+        let private = imp::GraphView::from_obj(self);
+        let display = gtk::gdk::Display::default().expect("Could not get default display");
+
+        // Remove existing custom provider if any
+        if let Some(old_provider) = private.custom_css_provider.borrow().as_ref() {
+            gtk::style_context_remove_provider_for_display(&display, old_provider);
+        }
+
+        if css.is_empty() {
+            *private.custom_css_provider.borrow_mut() = None;
+        } else {
+            let provider = gtk::CssProvider::new();
+            provider.load_from_data(css);
+            gtk::style_context_add_provider_for_display(
+                &display,
+                &provider,
+                gtk::STYLE_PROVIDER_PRIORITY_USER,
+            );
+            *private.custom_css_provider.borrow_mut() = Some(provider);
+        }
+
+        self.queue_draw();
     }
 
     /// Clear the graphview

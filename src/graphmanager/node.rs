@@ -81,20 +81,32 @@ mod imp {
 
         fn new() -> Self {
             let layoutgrid = gtk::Grid::builder()
-                .margin_start(6)
-                .margin_end(6)
+                .margin_start(0)
+                .margin_end(0)
                 .margin_top(6)
                 .margin_bottom(6)
                 .halign(gtk::Align::Center)
                 .valign(gtk::Align::Center)
                 .row_spacing(6)
-                .column_spacing(6)
+                .column_spacing(12)
                 .build();
 
+            // Invisible placeholders to ensure all 3 columns exist (keeps name centered)
+            let placeholder_left = gtk::Label::new(None);
+            placeholder_left.set_width_request(10); // Match port width
+            layoutgrid.attach(&placeholder_left, 0, 0, 1, 1);
+
+            let placeholder_right = gtk::Label::new(None);
+            placeholder_right.set_width_request(10); // Match port width
+            layoutgrid.attach(&placeholder_right, 2, 0, 1, 1);
+
             let name = gtk::Label::new(None);
+            name.add_css_class("node-name");
+            name.set_halign(gtk::Align::Center);
             layoutgrid.attach(&name, 1, 0, 1, 1);
 
             let description = gtk::Label::new(None);
+            description.set_halign(gtk::Align::Center);
             layoutgrid.attach(&description, 1, 1, 1, 1);
 
             // Display a grab cursor when the mouse is over the name so the user knows the node can be dragged.
@@ -114,6 +126,10 @@ mod imp {
             let obj = self.obj();
             self.parent_constructed();
             self.layoutgrid.set_parent(&*obj);
+
+            // Allow child widgets (ports) to overflow the node bounds
+            obj.set_overflow(gtk::Overflow::Visible);
+            self.layoutgrid.set_overflow(gtk::Overflow::Visible);
         }
 
         fn dispose(&self) {
@@ -121,7 +137,12 @@ mod imp {
         }
     }
 
-    impl WidgetImpl for Node {}
+    impl WidgetImpl for Node {
+        fn snapshot(&self, snapshot: &gtk::Snapshot) {
+            // Just call parent - allow overflow rendering
+            self.parent_snapshot(snapshot);
+        }
+    }
 }
 
 glib::wrapper! {
