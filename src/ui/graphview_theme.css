@@ -1,0 +1,122 @@
+/* Custom GraphView Theme CSS
+   This CSS is applied by the app to override the default graphmanager styles.
+   It provides a refined visual appearance with gradients and shadows.
+*/
+
+@define-color graphview-link #808080;
+
+/* ============================================
+   Light Theme (default)
+   ============================================ */
+
+/* Nodes - Green gradient */
+button.node {
+  color: #1a5f1a;
+  background: linear-gradient(180deg, #b8ffb8 0%, #7ddf7d 50%, #5ac85a 100%);
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 10px;
+  border-color: #2d7d2d;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+button.node-selected {
+  border-color: #ff3333;
+  border-width: 3px;
+  box-shadow: 0 0 8px rgba(255,0,0,0.4);
+}
+
+button.node-light {
+  border-style: dashed;
+}
+
+/* Node name label - bold and centered */
+button.node .node-name {
+  font-weight: bold;
+}
+
+/* Port - visual 10x10px elements */
+port {
+  min-width: 10px;
+  min-height: 10px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 2px;
+  border-color: #333333;
+  box-shadow: 0 0 0 1px rgba(51,51,51,0.4), 0 1px 3px rgba(0,0,0,0.15);
+}
+
+port.port-selected {
+  border-color: #ff3333;
+  border-width: 3px;
+  box-shadow: 0 0 0 1px rgba(255,51,51,0.6), 0 1px 3px rgba(255,0,0,0.3);
+}
+
+/* Output ports - Pink/Red gradient */
+port.port-out {
+  background: linear-gradient(180deg, #ffc8c8 0%, #e89090 50%, #d06868 100%);
+  border-color: #8a4a4a;
+  transform: translateX(25px);
+}
+
+/* Input ports - Blue gradient */
+port.port-in {
+  background: linear-gradient(180deg, #c8c8ff 0%, #9090e8 50%, #6868d0 100%);
+  border-color: #4a4a8a;
+  transform: translateX(-25px);
+}
+
+port.port-sometimes {
+  border-style: dashed;
+}
+
+port.port-always {
+  border-style: solid;
+}
+
+/* Canvas background */
+graphview {
+  background: #e8eaec;
+}
+
+/* ============================================
+   Dark Theme
+   ============================================ */
+
+graphview.dark-theme {
+  background: #2a2d30;
+}
+
+graphview.dark-theme button.node {
+  color: #90ff90;
+  background: linear-gradient(180deg, #2d5a2d 0%, #1f4a1f 50%, #153515 100%);
+  border-color: #4a8a4a;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+graphview.dark-theme button.node-selected {
+  border-color: #ff6666;
+  box-shadow: 0 0 8px rgba(255,100,100,0.5);
+}
+
+graphview.dark-theme port {
+  border-color: #555555;
+  box-shadow: 0 0 0 1px rgba(85,85,85,0.4), 0 1px 3px rgba(0,0,0,0.3);
+}
+
+graphview.dark-theme port.port-out {
+  background: linear-gradient(180deg, #6a3a3a 0%, #5a2a2a 50%, #4a1a1a 100%);
+  border-color: #8a5a5a;
+  transform: translateX(25px);
+}
+
+graphview.dark-theme port.port-in {
+  background: linear-gradient(180deg, #3a3a6a 0%, #2a2a5a 50%, #1a1a4a 100%);
+  border-color: #5a5a8a;
+  transform: translateX(-25px);
+}
+
+graphview.dark-theme port.port-selected {
+  border-color: #ff6666;
+  box-shadow: 0 0 0 1px rgba(255,102,102,0.6), 0 1px 3px rgba(255,0,0,0.4);
+}

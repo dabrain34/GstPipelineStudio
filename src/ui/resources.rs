@@ -17,6 +17,9 @@ pub static SPLASH_BANNER_PNG: &[u8] = include_bytes!("../../data/icons/splash-ba
 /// Application-wide CSS styles
 static APP_CSS: &str = include_str!("app.css");
 
+/// Custom GraphView theme CSS (gradient/shadow styling)
+pub static GRAPHVIEW_THEME_CSS: &str = include_str!("graphview_theme.css");
+
 /// Ensures the app CSS is loaded only once
 static CSS_INIT: Once = Once::new();
 

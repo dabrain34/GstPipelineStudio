@@ -27,6 +27,7 @@ use crate::graphmanager as GM;
 use crate::graphmanager::PropertyExt;
 use crate::logger;
 use crate::ui as GPSUI;
+use crate::ui::resources::GRAPHVIEW_THEME_CSS;
 use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 
 use super::super::settings::Settings;
@@ -73,6 +74,12 @@ impl GraphTab {
             .graphview
             .borrow()
             .set_dark_theme(Settings::dark_theme());
+
+        // Apply custom graphview theme CSS from app
+        graphtab
+            .graphview
+            .borrow()
+            .set_custom_css(GRAPHVIEW_THEME_CSS);
 
         if let Err(e) = graphtab.player.borrow().set_app(app) {
             GPS_ERROR!("Failed to set app on player: {}", e);

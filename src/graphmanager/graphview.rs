@@ -443,6 +443,13 @@ mod imp {
         }
 
         fn dispose(&self) {
+            // Remove custom CSS provider from display
+            if let Some(provider) = self.custom_css_provider.borrow().as_ref() {
+                if let Some(display) = gtk::gdk::Display::default() {
+                    gtk::style_context_remove_provider_for_display(&display, provider);
+                }
+            }
+
             self.nodes
                 .borrow()
                 .values()
