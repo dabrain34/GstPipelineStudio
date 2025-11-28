@@ -333,6 +333,29 @@ deb package release:
       - installer/linux/*.deb
   when: "always"
 
+appimage stable:
+  extends: ".ubuntu-rust"
+  stage: test
+  script:
+    - ./installer/linux/build_appimage.sh
+  artifacts:
+    name: "AppImage"
+    paths:
+      - installer/linux/*.AppImage
+    expire_in: 14 days
+  when: "manual"
+
+appimage release:
+  extends: "appimage stable"
+  stage: release
+  only:
+    - tags
+  artifacts:
+    name: "AppImage"
+    paths:
+      - installer/linux/*.AppImage
+  when: "always"
+
 pages:
   image: ruby:2.7
   stage: deploy

@@ -29,7 +29,8 @@ subprojects/vorbis.wrap
 subprojects/wayland-protocols.wrap
 subprojects/wayland.wrap
 builddir/
+builddir-appimage/
 
 # Generated packages
 installer/linux/*.deb
-
+installer/linux/*.AppImage
