@@ -29,3 +29,7 @@ subprojects/vorbis.wrap
 subprojects/wayland-protocols.wrap
 subprojects/wayland.wrap
 builddir/
+
+# Generated packages
+installer/linux/*.deb
+
