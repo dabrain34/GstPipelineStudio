@@ -28,6 +28,11 @@ use super::graphbook;
 
 const POSITION_UPDATE_TIMEOUT_MS: u64 = 500;
 
+// Link colors for different pipeline states (RGB values 0.0-1.0)
+const LINK_COLOR_PLAYING: (f64, f64, f64) = (0.2, 0.8, 0.2); // Green
+const LINK_COLOR_PAUSED: (f64, f64, f64) = (1.0, 0.6, 0.0); // Orange
+const LINK_COLOR_IDLE: (f64, f64, f64) = (0.5, 0.5, 0.5); // Gray
+
 impl GPSApp {
     pub fn set_app_state(&self, state: AppState) {
         let status_bar: Label = self
@@ -47,6 +52,16 @@ impl GPSApp {
                 action.set_enabled(is_playing);
             }
         }
+
+        // Update link color on the active graph tab only
+        let (r, g, b) = match state {
+            AppState::Playing => LINK_COLOR_PLAYING,
+            AppState::Paused => LINK_COLOR_PAUSED,
+            _ => LINK_COLOR_IDLE,
+        };
+        graphbook::current_graphtab(self)
+            .graphview()
+            .set_link_color(r, g, b);
     }
 
     pub fn set_app_preview(&self, paintable: &gdk::Paintable, n_sink: usize) {
