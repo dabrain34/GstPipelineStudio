@@ -10,49 +10,18 @@ use crate::app::settings::Settings;
 use crate::app::GPSApp;
 use crate::gps as GPS;
 use crate::logger;
+use crate::ui::common::create_column_view_column_with_width;
 use crate::ui::models::ElementInfoObject;
 use crate::GPS_DEBUG;
 use gtk::prelude::*;
 use gtk::{gdk::BUTTON_SECONDARY, Box, Label, SearchEntry};
 use gtk::{gio, glib};
-use gtk::{ColumnView, ColumnViewColumn, FilterListModel, SignalListItemFactory, SingleSelection};
+use gtk::{ColumnView, FilterListModel, SingleSelection};
 
-// Helper function to create a column for ColumnView
-fn create_column_view_column(title: &str, property: &str) -> ColumnViewColumn {
-    let factory = SignalListItemFactory::new();
-    let property_name = property.to_string();
-    let property_name_clone = property_name.clone();
-
-    factory.connect_setup(move |_, list_item| {
-        let label = gtk::Label::new(None);
-        label.set_halign(gtk::Align::Start);
-        label.set_margin_start(4);
-        label.set_margin_end(4);
-        list_item
-            .downcast_ref::<gtk::ListItem>()
-            .expect("Needs to be ListItem")
-            .set_child(Some(&label));
-    });
-
-    factory.connect_bind(move |_, list_item| {
-        let list_item = list_item
-            .downcast_ref::<gtk::ListItem>()
-            .expect("Needs to be ListItem");
-        let element_info = list_item
-            .item()
-            .and_downcast::<ElementInfoObject>()
-            .expect("The item has to be an ElementInfoObject");
-        let label = list_item
-            .child()
-            .and_downcast::<gtk::Label>()
-            .expect("The child has to be a Label");
-
-        let text = element_info.property::<String>(&property_name_clone);
-        label.set_text(&text);
-    });
-
-    ColumnViewColumn::new(Some(title), Some(factory))
-}
+// Column width constants
+const COL_WIDTH_NAME: i32 = 200;
+const COL_WIDTH_PLUGIN: i32 = 150;
+const COL_WIDTH_RANK: i32 = 100;
 
 fn setup_search_entry(column_view: &ColumnView, app: &GPSApp) {
     let search_entry: SearchEntry = app
@@ -101,10 +70,22 @@ pub fn setup_favorite_list(app: &GPSApp) {
         .object("treeview-favorites")
         .expect("Couldn't get treeview-favorites");
 
-    // Add columns
-    favorite_list.append_column(&create_column_view_column("Name", "name"));
-    favorite_list.append_column(&create_column_view_column("Plugin", "plugin"));
-    favorite_list.append_column(&create_column_view_column("Rank", "rank"));
+    // Add columns with appropriate widths
+    favorite_list.append_column(&create_column_view_column_with_width(
+        "Name",
+        "name",
+        Some(COL_WIDTH_NAME),
+    ));
+    favorite_list.append_column(&create_column_view_column_with_width(
+        "Plugin",
+        "plugin",
+        Some(COL_WIDTH_PLUGIN),
+    ));
+    favorite_list.append_column(&create_column_view_column_with_width(
+        "Rank",
+        "rank",
+        Some(COL_WIDTH_RANK),
+    ));
 
     let get_favorite_elements = || -> Vec<GPS::ElementInfo> {
         let favorite_names = Settings::favorites_list();
@@ -253,10 +234,22 @@ pub fn setup_elements_list(app: &GPSApp) {
         .object("treeview-elements")
         .expect("Couldn't get treeview-elements");
 
-    // Add columns
-    tree.append_column(&create_column_view_column("Name", "name"));
-    tree.append_column(&create_column_view_column("Plugin", "plugin"));
-    tree.append_column(&create_column_view_column("Rank", "rank"));
+    // Add columns with appropriate widths
+    tree.append_column(&create_column_view_column_with_width(
+        "Name",
+        "name",
+        Some(COL_WIDTH_NAME),
+    ));
+    tree.append_column(&create_column_view_column_with_width(
+        "Plugin",
+        "plugin",
+        Some(COL_WIDTH_PLUGIN),
+    ));
+    tree.append_column(&create_column_view_column_with_width(
+        "Rank",
+        "rank",
+        Some(COL_WIDTH_RANK),
+    ));
 
     let elements = GPS::ElementInfo::elements_list().expect("Unable to obtain element's list");
     reset_elements_list(&tree, elements);
