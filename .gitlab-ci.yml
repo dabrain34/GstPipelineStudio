@@ -8,6 +8,7 @@ stages:
   - prepare
   - lint
   - test
+  - packaging
   - release
   - deploy
 
@@ -105,6 +106,7 @@ windows rust docker stable:
     - "2022"
 
 windows installer stable:
+  stage: packaging
   needs:
     - job: "windows rust docker stable"
       artifacts: false
@@ -214,7 +216,8 @@ dist-package:
 
 flatpak:
   image: $GNOME_RUNTIME_IMAGE
-  stage: test
+  stage: packaging
+  needs: []
   variables:
     MANIFEST_PATH: "build-aux/org.freedesktop.dabrain34.GstPipelineStudio.Devel.json"
     APP_ID: "org.freedesktop.dabrain34.GstPipelineStudio.Devel"
@@ -245,7 +248,8 @@ flatpak:
     - gst-mac-arm
 
 macos installer stable:
-  stage: test
+  stage: packaging
+  needs: []
   extends:
     - ".macos image"
   before_script:
@@ -312,7 +316,8 @@ macos installer release:
 
 deb package stable:
   extends: ".ubuntu-rust"
-  stage: test
+  stage: packaging
+  needs: []
   script:
     - ./installer/linux/build_deb.sh
   artifacts:
@@ -335,7 +340,8 @@ deb package release:
 
 appimage stable:
   extends: ".ubuntu-rust"
-  stage: test
+  stage: packaging
+  needs: []
   script:
     - ./installer/linux/build_appimage.sh
   artifacts:
