@@ -335,17 +335,24 @@ impl Player {
 
     fn on_pipeline_message(&self, msg: &gst::MessageRef) {
         use gst::MessageView;
-        if let Some(message) = msg.structure() {
-            GPS_MSG_LOG!("{:?}", message);
-        }
+
+        // Get source element name - use borrowed str to avoid allocations
+        let src_name = msg
+            .src()
+            .map(|s| s.name())
+            .unwrap_or_else(|| glib::GString::from("unknown"));
+
+        // Format: src\tmessage_type\tdetails
         match msg.view() {
             MessageView::Eos(_) => {
+                GPS_MSG_LOG!("{}\tEos\tEnd of stream", src_name);
                 GPS_INFO!("EOS received");
                 if let Err(e) = self.set_state(PipelineState::Stopped) {
                     GPS_ERROR!("Failed to set stopped state: {}", e);
                 }
             }
             MessageView::Error(err) => {
+                GPS_MSG_LOG!("{}\tError\t{}", src_name, err.error());
                 GPS_ERROR!(
                     "Error from {:?}: {} ({:?})",
                     err.src().map(gst::Object::path_string),
@@ -356,19 +363,147 @@ impl Player {
                     GPS_ERROR!("Failed to set error state: {}", e);
                 }
             }
-            MessageView::Application(msg) => match msg.structure() {
-                // Here we can send ourselves messages from any thread and show them to the user in
-                // the UI in case something goes wrong
-                Some(s) if s.name() == "warning" => {
-                    if let Ok(text) = s.get::<&str>("text") {
-                        GPS_WARN!("{}", text);
-                    } else {
-                        GPS_WARN!("Warning message without text");
+            MessageView::Warning(warn) => {
+                GPS_MSG_LOG!("{}\tWarning\t{}", src_name, warn.error());
+            }
+            MessageView::Info(info) => {
+                GPS_MSG_LOG!("{}\tInfo\t{}", src_name, info.error());
+            }
+            MessageView::StateChanged(sc) => {
+                GPS_MSG_LOG!(
+                    "{}\tStateChanged\t{:?} → {:?}",
+                    src_name,
+                    sc.old(),
+                    sc.current()
+                );
+            }
+            MessageView::StreamStatus(ss) => {
+                let (status_type, owner) = ss.get();
+                let owner_name = owner.name();
+                GPS_MSG_LOG!(
+                    "{}\tStreamStatus\t{:?} (owner: {})",
+                    src_name,
+                    status_type,
+                    owner_name
+                );
+            }
+            MessageView::Tag(tag) => {
+                let tags = tag.tags();
+                GPS_MSG_LOG!("{}\tTag\t{} tag(s)", src_name, tags.n_tags());
+            }
+            MessageView::Buffering(buf) => {
+                GPS_MSG_LOG!("{}\tBuffering\t{}%", src_name, buf.percent());
+            }
+            MessageView::DurationChanged(_) => {
+                GPS_MSG_LOG!("{}\tDurationChanged\tDuration changed", src_name);
+            }
+            MessageView::AsyncDone(_) => {
+                GPS_MSG_LOG!("{}\tAsyncDone\tAsync operation completed", src_name);
+            }
+            MessageView::Latency(_) => {
+                GPS_MSG_LOG!("{}\tLatency\tLatency changed", src_name);
+            }
+            MessageView::ClockLost(_) => {
+                GPS_MSG_LOG!("{}\tClockLost\tClock lost", src_name);
+            }
+            MessageView::NewClock(nc) => {
+                let clock_name = nc
+                    .clock()
+                    .map(|c| c.name())
+                    .unwrap_or_else(|| glib::GString::from("none"));
+                GPS_MSG_LOG!("{}\tNewClock\t{}", src_name, clock_name);
+            }
+            MessageView::StructureChange(sc) => {
+                GPS_MSG_LOG!("{}\tStructureChange\t{:?}", src_name, sc.get());
+            }
+            MessageView::StreamStart(_) => {
+                GPS_MSG_LOG!("{}\tStreamStart\tStream started", src_name);
+            }
+            MessageView::NeedContext(nc) => {
+                GPS_MSG_LOG!("{}\tNeedContext\t{}", src_name, nc.context_type());
+            }
+            MessageView::HaveContext(hc) => {
+                let context = hc.context();
+                GPS_MSG_LOG!("{}\tHaveContext\t{}", src_name, context.context_type());
+            }
+            MessageView::Element(elem) => {
+                let structure_name = elem
+                    .structure()
+                    .map(|s| s.name().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                GPS_MSG_LOG!("{}\tElement\t{}", src_name, structure_name);
+            }
+            MessageView::SegmentDone(_) => {
+                GPS_MSG_LOG!("{}\tSegmentDone\tSegment done", src_name);
+            }
+            MessageView::Qos(qos) => {
+                let (live, running_time, stream_time, timestamp, duration) = qos.get();
+                GPS_MSG_LOG!(
+                    "{}\tQos\tlive: {}, running time: {:?}, stream time: {:?}, timestamp: {:?}, duration: {:?}",
+                    src_name,
+                    live,
+                    running_time,
+                    stream_time,
+                    timestamp,
+                    duration
+                );
+            }
+            MessageView::Toc(_) => {
+                GPS_MSG_LOG!("{}\tToc\tTable of Contents", src_name);
+            }
+            MessageView::ResetTime(_) => {
+                GPS_MSG_LOG!("{}\tResetTime\tReset time", src_name);
+            }
+            MessageView::StreamCollection(sc) => {
+                GPS_MSG_LOG!(
+                    "{}\tStreamCollection\t{} stream(s)",
+                    src_name,
+                    sc.stream_collection().len()
+                );
+            }
+            MessageView::StreamsSelected(ss) => {
+                GPS_MSG_LOG!(
+                    "{}\tStreamsSelected\t{} stream(s)",
+                    src_name,
+                    ss.stream_collection().len()
+                );
+            }
+            MessageView::Redirect(red) => {
+                let count = red.entries().count();
+                GPS_MSG_LOG!("{}\tRedirect\t{} entries", src_name, count);
+            }
+            MessageView::PropertyNotify(_) => {
+                GPS_MSG_LOG!("{}\tPropertyNotify\tProperty changed", src_name);
+            }
+            MessageView::Application(app_msg) => {
+                match app_msg.structure() {
+                    // Here we can send ourselves messages from any thread and show them to the user in
+                    // the UI in case something goes wrong
+                    Some(s) if s.name() == "warning" => {
+                        if let Ok(text) = s.get::<&str>("text") {
+                            GPS_MSG_LOG!("{}\tApplication\tWarning: {}", src_name, text);
+                            GPS_WARN!("{}", text);
+                        } else {
+                            GPS_MSG_LOG!("{}\tApplication\tWarning (no text)", src_name);
+                            GPS_WARN!("Warning message without text");
+                        }
+                    }
+                    Some(s) => {
+                        GPS_MSG_LOG!("{}\tApplication\t{}", src_name, s.name());
+                    }
+                    None => {
+                        GPS_MSG_LOG!("{}\tApplication\tApplication message", src_name);
                     }
                 }
-                _ => (),
-            },
-            _ => (),
+            }
+            _ => {
+                // Fallback for unknown message types
+                if let Some(structure) = msg.structure() {
+                    GPS_MSG_LOG!("{}\tUnknown\t{:?}", src_name, structure);
+                } else {
+                    GPS_MSG_LOG!("{}\tUnknown\tUnknown message", src_name);
+                }
+            }
         };
     }
 
