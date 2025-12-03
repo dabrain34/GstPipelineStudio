@@ -4,6 +4,8 @@
     "background": "gps_dmg_background.png",
     "contents": [
       { "x": 948, "y": 270, "type": "link", "path": "/Applications" },
-      { "x": 692, "y": 270, "type": "file", "path": "GstPipelineStudio.app" }
+      { "x": 692, "y": 270, "type": "file", "path": "GstPipelineStudio.app" },
+      { "x": 1000, "y": 3000, "type": "position", "path": ".VolumeIcon.icns" },
+      { "x": 1000, "y": 3000, "type": "position", "path": ".background" }
     ]
 }
