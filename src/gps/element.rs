@@ -9,7 +9,7 @@
 use crate::gps::PadInfo;
 use crate::graphmanager::{NodeType, PortDirection, PortPresence};
 use crate::logger;
-use crate::GPS_INFO;
+use crate::{GPS_DEBUG, GPS_INFO};
 
 use gst::glib;
 use gst::prelude::*;
@@ -320,6 +320,11 @@ impl ElementInfo {
         } else {
             GPS_ERROR!("Port direction unknown");
         }
+        GPS_DEBUG!(
+            "Element '{}' does not support request pad for direction {:?}",
+            element_name,
+            direction
+        );
         None
     }
 
