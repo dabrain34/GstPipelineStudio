@@ -32,7 +32,7 @@
 //! - `graph.check` - Validate pipeline
 //! - `graph.clear` - Clear current graph
 //! - `graph.pipeline_details` - Show pipeline details (enabled only when playing)
-//! - `delete` - Delete selected elements (<Ctrl+D> or Delete)
+//! - `delete` - Delete selected elements (<Ctrl+D>, <Delete>, or <Ctrl+BackSpace>)
 //!
 //! ## Element Operations
 //! - `node.add-to-favorite` - Add element to favorites
@@ -82,7 +82,10 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("save_as", None));
 
         application.add_action(&gio::SimpleAction::new("delete", None));
-        application.set_accels_for_action("app.delete", &["<primary>d", "Delete", "BackSpace"]);
+        application.set_accels_for_action(
+            "app.delete",
+            &["<primary>d", "Delete", "<primary>BackSpace"],
+        );
 
         application.add_action(&gio::SimpleAction::new("preferences", None));
         application.set_accels_for_action("app.preferences", &["<primary>p"]);
