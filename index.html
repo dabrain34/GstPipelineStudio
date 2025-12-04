@@ -1,53 +1,217 @@
-<html>
-< <head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GstPipelineStudio</title>
-    <link rel="stylesheet" href="data/css/style.css">
     <link rel="icon" href="data/icons/org.freedesktop.dabrain34.GstPipelineStudio.ico">
-    </head>
+    <link rel="stylesheet" href="data/css/landing.css">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-brand">
+                <img src="data/icons/org.freedesktop.dabrain34.GstPipelineStudio.png" alt="GPS">
+                <span>GstPipelineStudio</span>
+            </a>
+            <div class="nav-links">
+                <a href="#install">Install</a>
+                <a href="#features">Features</a>
+                <a href="https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio">GitLab</a>
+                <span class="version-badge">v0.3.6</span>
+            </div>
+        </div>
+    </nav>
 
-    <body>
-        <div class="container">
-            <h1 id="logo"></h1>
-            <h1>GstPipelineStudio: Draw your own pipeline ...</h1>
-            <p><img src="data/screenshots/gps_screenshot.png" alt=""></p>
-            <p>GstPipelineStudio aims to provide a graphical user interface to the GStreamer framework. From a first
-                step in the framework with a simple pipeline to a complex pipeline debugging, the tool provides a
-                friendly interface to add elements to a pipeline and debug it.</p>
-            <h2>GstPipelineStudio 0.3.6 is out, checkout the <a
-                    href="https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/blob/main/ChangeLog.md?ref_type=heads#anchor-033">
-                    Release Notes</a> !
-                <br>
-                <br>
-                <p>Download:</p>
-                <ul>
-                    <li><a href="https://flathub.org/apps/org.freedesktop.dabrain34.GstPipelineStudio">Flathub</a></li>
-                    <li><a
-                            href="https://gitlab.freedesktop.org/-/project/12908/uploads/b4fd6ce64c62fb6b96a63a3e5d61d82a/GstPipelineStudio-0.3.6.msi">Windows
-                            MSI</a>
+    <section class="hero">
+        <div class="hero-inner">
+            <div class="hero-content">
+                <div class="hero-card">
+                    <div class="hero-brand">
+                        <img src="data/icons/org.freedesktop.dabrain34.GstPipelineStudio.png" alt="GPS Logo" class="hero-logo">
+                        <h1 class="hero-title">GstPipeline<span>Studio</span></h1>
+                    </div>
+                    <p class="subtitle">
+                    The visual way to build GStreamer pipelines.<br>
+                    Drag, drop, and play multimedia workflows without writing a single command.
+                    Built with Rust and GTK4 for Linux, Windows, and macOS.
+                    </p>
+                </div>
+                <div class="hero-buttons">
+                    <a href="#install" class="btn btn-primary">Get Started</a>
+                    <a href="https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio" class="btn btn-secondary">View on GitLab</a>
+                </div>
+            </div>
+            <div class="hero-screenshot">
+                <img src="data/screenshots/gps_screenshot.png" alt="GstPipelineStudio Screenshot">
+            </div>
+        </div>
+    </section>
 
-                    </li>
-                    <li><a
-                            href="https://gitlab.freedesktop.org/-/project/12908/uploads/ce5125abc94b2ab736c040f27a4da1a2/GstPipelineStudio-0.3.6.dmg">MacOS</a>
+    <section class="install-section" id="install">
+        <div class="install-inner">
+            <h2 class="section-title">Quick Install</h2>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v10zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.59-2.59L7.5 9l4 4-4 4z"/></svg>
+                    <span>user@linux:~</span>
+                </div>
+                <div class="terminal-body">
+                    <div class="terminal-line">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-comment"># Install from Flathub (recommended)</span>
+                    </div>
+                    <div class="terminal-line">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command">flatpak install flathub org.freedesktop.dabrain34.GstPipelineStudio</span>
+                    </div>
+                    <div class="terminal-line">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-comment"># Run the application</span>
+                    </div>
+                    <div class="terminal-line">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-command">flatpak run org.freedesktop.dabrain34.GstPipelineStudio</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-                    </li>
-                </ul>
+    <section class="features" id="features">
+        <div class="features-inner">
+            <h2 class="section-title">Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24"><path d="M15 7v4h1v2h-3V7h2zm6 8v-2h-3v-2h3V9h-3V7h2v2h1V5c0-1.1-.9-2-2-2h-4v2h2v2h-3v6h3v2h-2v2h-1v-2H9v2H8v-2H5c-1.1 0-2 .9-2 2v4h2v-2h2v2h2v-1h2v1h4v-2h2v2h2v-4c0-1.1-.9-2-2-2zM7 17H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V7h2v2z"/></svg>
+                        Visual Pipeline Builder
+                    </h3>
+                    <p>Drag and drop GStreamer elements to build complex multimedia pipelines.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24"><path d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
+                        Real-time Debugging
+                    </h3>
+                    <p>Monitor pipeline state and view logs with the integrated debug console.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                        Property Editor
+                    </h3>
+                    <p>Fine-tune element properties in real-time during pipeline execution.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        Element Browser
+                    </h3>
+                    <p>Search through all available GStreamer elements with documentation.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                        Save & Export
+                    </h3>
+                    <p>Save pipelines to files and share them with your team.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                        Cross-Platform
+                    </h3>
+                    <p>Native GTK4 application for Linux, Windows, and macOS.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-                <h2 id="getting-gps">Contributing to GstPipelineStudio</h2>
-                <p>If you want to get the the code from Gitlab, you can visit this <a
-                        href="https://flathub.org/apps/org.freedesktop.dabrain34.GstPipelineStudio">webpage</a>
-                    and follow the <a
-                        href="https://flathub.org/apps/org.freedesktop.dabrain34.GstPipelineStudio/README.md">README</a>
-                    to build your own version of GstPipelineStudio.
-                </p>
+    <section class="downloads" id="downloads">
+        <div class="downloads-inner">
+            <h2 class="section-title">Downloads</h2>
+            <div class="download-list">
+                <a href="https://flathub.org/apps/org.freedesktop.dabrain34.GstPipelineStudio" class="download-item">
+                    <div class="download-info">
+                        <div class="download-icon">
+                            <svg viewBox="0 0 24 24" fill="#4A90D9">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="download-name">Flathub</div>
+                            <div class="download-desc">Recommended for Linux</div>
+                        </div>
+                    </div>
+                    <span class="download-badge">Download</span>
+                </a>
+                <a href="https://gitlab.freedesktop.org/-/project/12908/uploads/b4fd6ce64c62fb6b96a63a3e5d61d82a/GstPipelineStudio-0.3.6.msi" class="download-item">
+                    <div class="download-info">
+                        <div class="download-icon">
+                            <svg viewBox="0 0 24 24" fill="#00ADEF">
+                                <path d="M3 12V6.75l6-1.32v6.48L3 12zm17-9v8.75l-10 .15V5.21L20 3zM3 13l6 .09v6.81l-6-1.15V13zm17 .25V22l-10-1.91V13.1l10 .15z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="download-name">Windows</div>
+                            <div class="download-desc">MSI Installer</div>
+                        </div>
+                    </div>
+                    <span class="download-badge">Download</span>
+                </a>
+                <a href="https://gitlab.freedesktop.org/-/project/12908/uploads/ce5125abc94b2ab736c040f27a4da1a2/GstPipelineStudio-0.3.6.dmg" class="download-item">
+                    <div class="download-info">
+                        <div class="download-icon">
+                            <svg viewBox="0 0 24 24" fill="#A2AAAD">
+                                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="download-name">macOS</div>
+                            <div class="download-desc">DMG Package</div>
+                        </div>
+                    </div>
+                    <span class="download-badge">Download</span>
+                </a>
+                <a href="#" class="download-item">
+                    <div class="download-info">
+                        <div class="download-icon">
+                            <svg viewBox="0 0 24 24" fill="#A80030">
+                                <path d="M12.208 2.003c-1.2.026-2.166.345-2.235.385.273.084.594.2.863.347-.356.141-.665.347-.927.59a4.857 4.857 0 0 0-.23.225c-.18-.064-.414-.12-.638-.143.12.15.265.34.385.524a5.584 5.584 0 0 0-1.19 1.603c-.066-.19-.19-.44-.31-.598-.01.26.01.574.05.79-.41.78-.65 1.66-.7 2.59-.17-.07-.44-.14-.64-.15.09.22.22.52.35.72-.04.73.03 1.44.21 2.12-.22.01-.48.07-.67.14.15.16.38.37.57.51.29.86.75 1.67 1.38 2.37-.16.11-.35.29-.46.43.2.06.49.12.71.13.78.77 1.73 1.36 2.78 1.73-.1.17-.19.42-.22.62.19-.03.46-.1.65-.19.47.14.97.23 1.48.27v.01c-.06.18-.1.43-.09.62.17-.08.4-.22.55-.35.52 0 1.04-.05 1.54-.14.02.18.01.43.04.61.13-.12.31-.32.41-.48.5-.12.98-.29 1.44-.5.06.17.11.42.18.58.09-.15.2-.39.24-.56.42-.22.82-.48 1.18-.78.1.15.22.37.33.5.05-.17.08-.42.07-.59.35-.32.66-.68.93-1.07.13.12.3.3.44.4 0-.18-.02-.42-.07-.59.26-.4.48-.83.65-1.28.15.08.36.2.51.26-.05-.17-.14-.41-.23-.56.16-.46.27-.94.33-1.43.16.04.39.1.55.11-.09-.15-.24-.36-.37-.48.04-.5.02-1.01-.05-1.5.15 0 .37-.02.52-.06-.11-.12-.3-.29-.46-.38a6.082 6.082 0 0 0-.42-1.4c.13-.05.32-.14.43-.22-.13-.08-.34-.19-.51-.24-.23-.43-.52-.84-.86-1.21.1-.09.23-.24.3-.35-.14-.03-.36-.05-.52-.03a5.78 5.78 0 0 0-1.24-.91c.06-.12.13-.3.15-.44-.15.02-.36.08-.51.15a6.415 6.415 0 0 0-1.51-.52c.02-.13.02-.32 0-.45-.13.07-.32.19-.44.3-.53-.08-1.07-.1-1.6-.05.09-.38.07-.64-.06-.78-.11.08-.23.27-.29.43zm.28 1.06c2.94-.05 5.53 2.08 5.93 5.04.45 3.33-1.95 6.4-5.28 6.75a5.95 5.95 0 0 1-5.09-2.13 5.87 5.87 0 0 1-1.27-3.36 5.953 5.953 0 0 1 5.71-6.3z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="download-name">Debian</div>
+                            <div class="download-desc">.deb package</div>
+                        </div>
+                    </div>
+                    <span class="download-badge">Coming Soon</span>
+                </a>
+                <a href="#" class="download-item">
+                    <div class="download-info">
+                        <div class="download-icon">
+                            <svg viewBox="0 0 24 24" fill="#2196F3">
+                                <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18l6.9 3.45L12 11.09 5.1 7.63 12 4.18zM4 8.82l7 3.5v7.36l-7-3.5V8.82zm9 10.86v-7.36l7-3.5v7.36l-7 3.5z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="download-name">AppImage</div>
+                            <div class="download-desc">Portable Linux</div>
+                        </div>
+                    </div>
+                    <span class="download-badge">Coming Soon</span>
+                </a>
+            </div>
+        </div>
+    </section>
 
-
-            </h2>
-    </body>
-    <footer class="site-footer">
-        <p>&copy; GstPipelineStudio, 2024</p>
-
-        <p><a href="https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio">Website source</a></p>
+    <footer>
+        <p>
+            &copy; 2024 GstPipelineStudio &mdash;
+            <a href="https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio">Source Code</a> &mdash;
+            <a href="https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/blob/main/ChangeLog.md">Changelog</a>
+        </p>
     </footer>
-
-
+</body>
 </html>

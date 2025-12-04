@@ -1,0 +1,542 @@
+/* landing.css
+ *
+ * Landing page styles for GstPipelineStudio
+ * Matches the application's visual language with node-style cards and port indicators
+ *
+ * Copyright 2025 Stéphane Cerveau <scerveau@igalia.com>
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* GPS App Colors */
+    --node-green: #90EE90;
+    --node-green-border: #228B22;
+    --port-red: #FF6B6B;
+    --port-red-border: #B22222;
+    --port-blue: #6495ED;
+    --port-blue-border: #4169E1;
+    --canvas: #c8c8c8;
+    --canvas-light: #e0e0e0;
+
+    /* UI */
+    --white: #ffffff;
+    --text-dark: #1a1a1a;
+    --text-gray: #555555;
+    --text-light: #777777;
+    --shadow: rgba(0, 0, 0, 0.15);
+    --rounded: 6px;
+    --rounded-lg: 10px;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--canvas);
+    color: var(--text-dark);
+    line-height: 1.6;
+}
+
+code, .mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Navigation - styled like app toolbar */
+.nav {
+    background: linear-gradient(180deg, #f0f0f0 0%, #d8d8d8 100%);
+    border-bottom: 1px solid #a0a0a0;
+    padding: 0.5rem 2rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.nav-brand img {
+    height: 36px;
+}
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nav-links a {
+    color: var(--text-gray);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: var(--rounded);
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.nav-links a:hover {
+    background: var(--white);
+    border-color: #b0b0b0;
+    box-shadow: 0 1px 3px var(--shadow);
+}
+
+.version-badge {
+    background: var(--node-green);
+    border: 2px solid var(--node-green-border);
+    color: var(--text-dark);
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--rounded);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Hero */
+.hero {
+    min-height: 100vh;
+    padding: 6rem 2rem 4rem;
+    display: flex;
+    align-items: center;
+    background:
+        linear-gradient(90deg, rgba(200,200,200,0.3) 1px, transparent 1px),
+        linear-gradient(rgba(200,200,200,0.3) 1px, transparent 1px),
+        var(--canvas);
+    background-size: 50px 50px;
+}
+
+.hero-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 4rem;
+    align-items: center;
+    width: 100%;
+}
+
+.hero-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* Node-style card for hero text */
+.hero-card {
+    background: var(--node-green);
+    border: 3px solid var(--node-green-border);
+    border-radius: var(--rounded-lg);
+    padding: 2.5rem;
+    box-shadow: 4px 4px 0 var(--node-green-border);
+    position: relative;
+}
+
+/* Port connectors */
+.hero-card::before {
+    content: 'src_0';
+    position: absolute;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--port-red);
+    border: 2px solid var(--port-red-border);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.hero-brand {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.hero-logo {
+    width: 80px;
+    height: auto;
+}
+
+.hero-title {
+    font-size: 2rem;
+    font-weight: 500;
+    color: #666666;
+    letter-spacing: -0.5px;
+    margin: 0;
+}
+
+.hero-title span {
+    color: #1a1a1a;
+    font-weight: 800;
+}
+
+.hero-card .subtitle {
+    font-size: 1.05rem;
+    color: var(--text-dark);
+    line-height: 1.7;
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--rounded);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: var(--port-blue);
+    border: 2px solid var(--port-blue-border);
+    color: white;
+    box-shadow: 2px 2px 0 var(--port-blue-border);
+}
+
+.btn-primary:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--port-blue-border);
+}
+
+.btn-secondary {
+    background: var(--white);
+    border: 2px solid #888;
+    color: var(--text-dark);
+    box-shadow: 2px 2px 0 #666;
+}
+
+.btn-secondary:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 #666;
+}
+
+.hero-screenshot {
+    position: relative;
+}
+
+.hero-screenshot img {
+    width: 100%;
+    border-radius: var(--rounded-lg);
+    border: 3px solid #666;
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.2);
+}
+
+/* Install Section */
+.install-section {
+    padding: 5rem 2rem;
+    background: var(--canvas-light);
+}
+
+.install-inner {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-dark);
+}
+
+.terminal {
+    background: #2d2d2d;
+    border: 3px solid #1a1a1a;
+    border-radius: var(--rounded-lg);
+    overflow: hidden;
+    box-shadow: 4px 4px 0 #1a1a1a;
+}
+
+.terminal-header {
+    background: #3d3d3d;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #888;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.terminal-header svg {
+    width: 14px;
+    height: 14px;
+    fill: var(--node-green);
+}
+
+.terminal-body {
+    padding: 1.25rem 1.5rem;
+}
+
+.terminal-line {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+}
+
+.terminal-prompt {
+    color: var(--node-green);
+    margin-right: 0.5rem;
+}
+
+.terminal-command {
+    color: #f0f0f0;
+}
+
+.terminal-comment {
+    color: #666;
+}
+
+/* Features */
+.features {
+    padding: 5rem 2rem;
+    background: var(--canvas);
+}
+
+.features-inner {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.features-inner .section-title {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Node-style feature cards */
+.feature-card {
+    background: var(--node-green);
+    border: 3px solid var(--node-green-border);
+    border-radius: var(--rounded-lg);
+    padding: 1.5rem;
+    box-shadow: 3px 3px 0 var(--node-green-border);
+    transition: all 0.2s;
+    position: relative;
+}
+
+.feature-card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 var(--node-green-border);
+}
+
+/* Sink port on left */
+.feature-card::before {
+    content: '';
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: var(--port-blue);
+    border: 2px solid var(--port-blue-border);
+    border-radius: 3px;
+}
+
+/* Src port on right */
+.feature-card::after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: var(--port-red);
+    border: 2px solid var(--port-red-border);
+    border-radius: 3px;
+}
+
+.feature-card h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.feature-card h3 svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-dark);
+}
+
+.feature-card p {
+    color: var(--text-gray);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+/* Downloads */
+.downloads {
+    padding: 5rem 2rem;
+    background: var(--canvas-light);
+}
+
+.downloads-inner {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.downloads-inner .section-title {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.download-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.download-item {
+    background: var(--white);
+    border: 2px solid #999;
+    border-radius: var(--rounded-lg);
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 2px 2px 0 #777;
+}
+
+.download-item:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 #777;
+    border-color: var(--node-green-border);
+    background: var(--node-green);
+}
+
+.download-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.download-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.download-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
+.download-name {
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.download-desc {
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+.download-badge {
+    background: var(--port-blue);
+    border: 2px solid var(--port-blue-border);
+    color: white;
+    padding: 0.4rem 1rem;
+    border-radius: var(--rounded);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.download-item:hover .download-badge {
+    background: var(--port-red);
+    border-color: var(--port-red-border);
+}
+
+/* Footer */
+footer {
+    padding: 2.5rem 2rem;
+    background: #b0b0b0;
+    border-top: 2px solid #888;
+    text-align: center;
+}
+
+footer p {
+    color: var(--text-gray);
+    font-size: 0.85rem;
+}
+
+footer a {
+    color: var(--port-blue-border);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .hero-inner {
+        grid-template-columns: 1fr;
+    }
+    .hero-card::before {
+        display: none;
+    }
+    .hero-screenshot {
+        order: -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-links a:not(.version-badge) {
+        display: none;
+    }
+    .feature-card::before,
+    .feature-card::after {
+        display: none;
+    }
+}
