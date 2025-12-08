@@ -225,6 +225,18 @@ impl GPSApp {
         });
 
         let app_weak = self.downgrade();
+        self.connect_app_menu_action("undo", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            graphbook::current_graphtab(&app).graphview().undo();
+        });
+
+        let app_weak = self.downgrade();
+        self.connect_app_menu_action("redo", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            graphbook::current_graphtab(&app).graphview().redo();
+        });
+
+        let app_weak = self.downgrade();
         self.connect_app_menu_action("about", move |_, _| {
             let app = upgrade_weak!(app_weak);
             GPSUI::about::display_about_dialog(&app);

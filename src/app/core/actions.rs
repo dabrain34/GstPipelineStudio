@@ -87,6 +87,18 @@ impl GPSApp {
             &["<primary>d", "Delete", "<primary>BackSpace"],
         );
 
+        application.add_action(&gio::SimpleAction::new("undo", None));
+        #[cfg(target_os = "macos")]
+        application.set_accels_for_action("app.undo", &["<Meta>z"]);
+        #[cfg(not(target_os = "macos"))]
+        application.set_accels_for_action("app.undo", &["<Control>z"]);
+
+        application.add_action(&gio::SimpleAction::new("redo", None));
+        #[cfg(target_os = "macos")]
+        application.set_accels_for_action("app.redo", &["<Meta><Shift>z"]);
+        #[cfg(not(target_os = "macos"))]
+        application.set_accels_for_action("app.redo", &["<Control><Shift>z"]);
+
         application.add_action(&gio::SimpleAction::new("preferences", None));
         application.set_accels_for_action("app.preferences", &["<primary>p"]);
 

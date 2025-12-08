@@ -125,13 +125,10 @@ impl GPSApp {
     }
 
     pub fn update_element_properties(&self, node_id: u32, properties: &HashMap<String, String>) {
-        let node = self.node(node_id);
-        node.update_properties(properties);
-
-        // Trigger graph update to save to cache file
+        // Use GraphView's update_node_properties which includes undo support
         graphbook::current_graphtab(self)
             .graphview()
-            .graph_updated();
+            .update_node_properties(node_id, properties);
     }
 
     pub fn update_pad_properties(
@@ -140,13 +137,10 @@ impl GPSApp {
         port_id: u32,
         properties: &HashMap<String, String>,
     ) {
-        let port = self.port(node_id, port_id);
-        port.update_properties(properties);
-
-        // Trigger graph update to save to cache file
+        // Use GraphView's update_port_properties which includes undo support
         graphbook::current_graphtab(self)
             .graphview()
-            .graph_updated();
+            .update_port_properties(node_id, port_id, properties);
     }
 
     pub fn element_property(&self, node_id: u32, property_name: &str) -> Option<String> {

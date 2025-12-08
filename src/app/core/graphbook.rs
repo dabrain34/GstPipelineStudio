@@ -655,10 +655,16 @@ impl GPSApp {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).expect("buffer overflow");
         let graphtab = current_graphtab(self);
-        graphtab.graphview().load_from_xml(buffer)?;
+        let graphview = graphtab.graphview();
 
-        // Restore static pads for nodes that have no ports
+        // Disable undo recording during restore_static_pads
+        graphview.load_from_xml(buffer)?;
+
+        // Restore static pads for nodes that have no ports (with undo disabled)
+        graphview.set_undo_recording(false);
         self.restore_static_pads();
+        graphview.clear_undo_history();
+        graphview.set_undo_recording(true);
 
         if !untitled {
             current_graphtab_set_filename(self, filename);
