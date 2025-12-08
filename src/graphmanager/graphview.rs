@@ -59,6 +59,8 @@ mod imp {
         ///
         /// The offset is normalized to the default zoom-level of 1.0.
         offset: graphene::Point,
+        /// Original position when drag started (for undo)
+        original_position: graphene::Point,
     }
 
     pub struct GraphView {
@@ -78,6 +80,8 @@ mod imp {
         pub(super) link_color: Cell<(f64, f64, f64)>,
         /// Custom CSS provider for app-injected styles
         pub(super) custom_css_provider: RefCell<Option<gtk::CssProvider>>,
+        /// Undo/redo stack for graph operations
+        pub(super) undo_stack: RefCell<super::super::undo::UndoStack>,
     }
 
     impl Default for GraphView {
@@ -97,6 +101,7 @@ mod imp {
                 zoom_factor: Cell::new(1.0),
                 link_color: Cell::new(LINK_COLOR_DEFAULT),
                 custom_css_provider: RefCell::new(None),
+                undo_stack: RefCell::new(crate::graphmanager::undo::UndoStack::new()),
             }
         }
     }
@@ -159,6 +164,7 @@ mod imp {
                             canvas_cursor_pos.x() - canvas_node_pos.x(),
                             canvas_cursor_pos.y() - canvas_node_pos.y(),
                         ),
+                        original_position: canvas_node_pos,
                     })
                 } else {
                     None
@@ -171,7 +177,7 @@ mod imp {
                     .dynamic_cast::<super::GraphView>()
                     .expect("drag-update event is not on the GraphView");
                 let dragged_node = widget.imp().dragged_node.borrow();
-                let Some(DragState { node, offset }) = dragged_node.as_ref() else {
+                let Some(DragState { node, offset, .. }) = dragged_node.as_ref() else {
                     return;
                 };
                 let Some(node) = node.upgrade() else { return };
@@ -200,6 +206,33 @@ mod imp {
                     .unwrap()
                     .dynamic_cast::<super::GraphView>()
                     .expect("drag-update event is not on the GraphView");
+
+                // Record undo action for node move
+                let dragged_node = widget.imp().dragged_node.borrow();
+                if let Some(DragState {
+                    node,
+                    original_position,
+                    ..
+                }) = dragged_node.as_ref()
+                {
+                    if let Some(node) = node.upgrade() {
+                        if let Some(new_position) = widget.node_position(&node) {
+                            // Only record if the position actually changed
+                            if (new_position.x() - original_position.x()).abs() > 0.1
+                                || (new_position.y() - original_position.y()).abs() > 0.1
+                            {
+                                widget.imp().undo_stack.borrow_mut().push(
+                                    crate::graphmanager::undo::UndoAction::MoveNode {
+                                        node_id: node.id(),
+                                        old_position: *original_position,
+                                        new_position,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+
                 widget.graph_updated();
             });
 
@@ -987,10 +1020,21 @@ impl GraphView {
         let node_id = node.id();
         // Update the node's internal position so it gets saved correctly
         node.set_position(x, y);
+        let position = graphene::Point::new(x, y);
+
+        // Record undo action
+        private
+            .undo_stack
+            .borrow_mut()
+            .push(crate::graphmanager::undo::UndoAction::AddNode {
+                node_data: crate::graphmanager::undo::NodeData::from_node(&node),
+                position,
+            });
+
         private
             .nodes
             .borrow_mut()
-            .insert(node.id(), (node, graphene::Point::new(x, y)));
+            .insert(node.id(), (node, position));
         self.emit_by_name::<()>("node-added", &[&private.id.get(), &node_id]);
         self.graph_updated();
     }
@@ -1000,12 +1044,53 @@ impl GraphView {
     pub fn remove_node(&self, id: u32) {
         let private = imp::GraphView::from_obj(self);
 
-        if let Some(node) = private.nodes.borrow_mut().remove(&id) {
-            while let Some(link_id) = self.node_is_linked(node.0.id()) {
-                info!("Remove link id {}", link_id);
-                private.links.borrow_mut().remove(&link_id);
+        // Collect node data and connected links before removal
+        let (node_data, position, connected_links) = {
+            let nodes = private.nodes.borrow();
+            if let Some(node) = nodes.get(&id) {
+                let node_data = crate::graphmanager::undo::NodeData::from_node(&node.0);
+                let position = node.1;
+                let mut connected_links = Vec::new();
+
+                // Collect all links connected to this node
+                for link in private.links.borrow().values() {
+                    if link.node_from == id || link.node_to == id {
+                        connected_links.push(crate::graphmanager::undo::LinkData {
+                            id: link.id,
+                            node_from: link.node_from,
+                            node_to: link.node_to,
+                            port_from: link.port_from,
+                            port_to: link.port_to,
+                            active: link.active(),
+                            name: link.name(),
+                        });
+                    }
+                }
+
+                (Some(node_data), position, connected_links)
+            } else {
+                (None, graphene::Point::zero(), Vec::new())
             }
-            node.0.unparent();
+        }; // Drop borrow here
+
+        if let Some(node_data) = node_data {
+            // Record undo action before removing
+            private.undo_stack.borrow_mut().push(
+                crate::graphmanager::undo::UndoAction::RemoveNode {
+                    node_data,
+                    position,
+                    connected_links,
+                },
+            );
+
+            // Now actually remove the node
+            if let Some(node) = private.nodes.borrow_mut().remove(&id) {
+                while let Some(link_id) = self.node_is_linked(node.0.id()) {
+                    info!("Remove link id {}", link_id);
+                    private.links.borrow_mut().remove(&link_id);
+                }
+                node.0.unparent();
+            }
         } else {
             warn!("Tried to remove non-existent node (id={}) from graph", id);
         }
@@ -1179,6 +1264,23 @@ impl GraphView {
         let private = imp::GraphView::from_obj(self);
         if !self.link_exists(&link) {
             let link_id = link.id;
+
+            // Record undo action
+            private
+                .undo_stack
+                .borrow_mut()
+                .push(crate::graphmanager::undo::UndoAction::AddLink {
+                    link_data: crate::graphmanager::undo::LinkData {
+                        id: link.id,
+                        node_from: link.node_from,
+                        node_to: link.node_to,
+                        port_from: link.port_from,
+                        port_to: link.port_to,
+                        active: link.active(),
+                        name: link.name(),
+                    },
+                });
+
             private.links.borrow_mut().insert(link_id, link);
             self.emit_by_name::<()>("link-added", &[&private.id.get(), &link_id]);
             self.graph_updated();
@@ -1365,6 +1467,11 @@ impl GraphView {
     /// Load the graph from a file with XML format
     ///
     pub fn load_from_xml(&self, buffer: Vec<u8>) -> anyhow::Result<()> {
+        let private = imp::GraphView::from_obj(self);
+
+        // Disable undo recording during file load
+        private.undo_stack.borrow_mut().disable_recording();
+
         self.clear();
         let file = Cursor::new(buffer);
         let parser = EventReader::new(file);
@@ -1567,6 +1674,11 @@ impl GraphView {
                 _ => {}
             }
         }
+
+        // Clear undo history and re-enable recording after file load
+        private.undo_stack.borrow_mut().clear();
+        private.undo_stack.borrow_mut().enable_recording();
+
         Ok(())
     }
 
@@ -1599,8 +1711,27 @@ impl GraphView {
 
     pub fn remove_link(&self, id: u32) {
         let private = imp::GraphView::from_obj(self);
+
+        // Record undo action before removing
+        if let Some(link) = private.links.borrow().get(&id) {
+            private.undo_stack.borrow_mut().push(
+                crate::graphmanager::undo::UndoAction::RemoveLink {
+                    link_data: crate::graphmanager::undo::LinkData {
+                        id: link.id,
+                        node_from: link.node_from,
+                        node_to: link.node_to,
+                        port_from: link.port_from,
+                        port_to: link.port_to,
+                        active: link.active(),
+                        name: link.name(),
+                    },
+                },
+            );
+        }
+
         let mut links = private.links.borrow_mut();
         links.remove(&id);
+        drop(links); // Release borrow before emitting signal
         self.emit_by_name::<()>("link-removed", &[&private.id.get(), &id]);
         self.queue_draw();
     }
@@ -1819,6 +1950,448 @@ impl GraphView {
             (f64::from(size) * 0.9) * zoom_factor,
             f64::from(size) * zoom_factor,
         );
+    }
+
+    // Undo/Redo API
+
+    /// Undo the last action
+    ///
+    /// Returns true if an action was undone, false if there was nothing to undo
+    pub fn undo(&self) -> bool {
+        use crate::graphmanager::undo::UndoAction;
+
+        let private = imp::GraphView::from_obj(self);
+
+        // Disable recording and pop the action
+        let action = {
+            let mut undo_stack = private.undo_stack.borrow_mut();
+            undo_stack.disable_recording();
+            undo_stack.pop_undo()
+        };
+
+        let result = if let Some(action) = action {
+            // Execute the reverse of the action
+            match &action {
+                UndoAction::AddNode { node_data, .. } => {
+                    // Undo: Remove the node that was added
+                    self.remove_node_internal(node_data.id);
+                }
+                UndoAction::RemoveNode {
+                    node_data,
+                    position,
+                    connected_links,
+                } => {
+                    // Undo: Re-add the node that was removed
+                    self.restore_node(node_data, position);
+                    // Restore connected links
+                    for link_data in connected_links {
+                        self.restore_link(link_data);
+                    }
+                }
+                UndoAction::AddLink { link_data } => {
+                    // Undo: Remove the link that was added
+                    self.remove_link_internal(link_data.id);
+                }
+                UndoAction::RemoveLink { link_data } => {
+                    // Undo: Re-add the link that was removed
+                    self.restore_link(link_data);
+                }
+                UndoAction::MoveNode {
+                    node_id,
+                    old_position,
+                    ..
+                } => {
+                    // Undo: Move node back to old position
+                    if let Some(node) = self.node(*node_id) {
+                        self.move_node(&node, old_position);
+                    }
+                }
+                UndoAction::AddPort { node_id, port_data } => {
+                    // Undo: Remove the port that was added
+                    self.remove_port(*node_id, port_data.id);
+                }
+                UndoAction::RemovePort { node_id, port_data } => {
+                    // Undo: Re-add the port that was removed
+                    if let Some(mut node) = self.node(*node_id) {
+                        let port = self.restore_port(port_data);
+                        self.add_port_to_node(&mut node, port);
+                    }
+                }
+                UndoAction::ModifyProperty {
+                    node_id,
+                    port_id,
+                    property_name,
+                    old_value,
+                    ..
+                } => {
+                    // Undo: Restore old property value
+                    if let Some(node) = self.node(*node_id) {
+                        if let Some(port_id) = port_id {
+                            if let Some(port) = node.port(*port_id) {
+                                if old_value.is_empty() {
+                                    port.remove_property(property_name);
+                                } else {
+                                    port.add_property(property_name, old_value);
+                                }
+                            }
+                        } else if old_value.is_empty() {
+                            node.remove_property(property_name);
+                        } else {
+                            node.add_property(property_name, old_value);
+                        }
+                    }
+                }
+            }
+
+            // Push the original action to redo stack so it can be redone
+            private.undo_stack.borrow_mut().push_redo(action);
+            private.undo_stack.borrow_mut().enable_recording();
+            true
+        } else {
+            // Re-enable recording even if there was nothing to undo
+            private.undo_stack.borrow_mut().enable_recording();
+            false
+        };
+
+        if result {
+            self.graph_updated();
+        }
+
+        result
+    }
+
+    /// Redo the last undone action
+    ///
+    /// Returns true if an action was redone, false if there was nothing to redo
+    pub fn redo(&self) -> bool {
+        use crate::graphmanager::undo::UndoAction;
+
+        let private = imp::GraphView::from_obj(self);
+
+        // Disable recording and pop the action from redo stack
+        let action = {
+            let mut undo_stack = private.undo_stack.borrow_mut();
+            undo_stack.disable_recording();
+            undo_stack.pop_redo()
+        };
+
+        let result = if let Some(action) = action {
+            // Re-execute the original action
+            match &action {
+                UndoAction::AddNode {
+                    node_data,
+                    position,
+                } => {
+                    // Redo: Add the node back
+                    self.restore_node(node_data, position);
+                }
+                UndoAction::RemoveNode { node_data, .. } => {
+                    // Redo: Remove the node again
+                    self.remove_node_internal(node_data.id);
+                }
+                UndoAction::AddLink { link_data } => {
+                    // Redo: Add the link back
+                    self.restore_link(link_data);
+                }
+                UndoAction::RemoveLink { link_data } => {
+                    // Redo: Remove the link again
+                    self.remove_link_internal(link_data.id);
+                }
+                UndoAction::MoveNode {
+                    node_id,
+                    new_position,
+                    ..
+                } => {
+                    // Redo: Move to the new position
+                    if let Some(node) = self.node(*node_id) {
+                        self.move_node(&node, new_position);
+                    }
+                }
+                UndoAction::AddPort { node_id, port_data } => {
+                    // Redo: Add the port back
+                    if let Some(mut node) = self.node(*node_id) {
+                        let port = self.restore_port(port_data);
+                        self.add_port_to_node(&mut node, port);
+                    }
+                }
+                UndoAction::RemovePort { node_id, port_data } => {
+                    // Redo: Remove the port again
+                    self.remove_port(*node_id, port_data.id);
+                }
+                UndoAction::ModifyProperty {
+                    node_id,
+                    port_id,
+                    property_name,
+                    new_value,
+                    ..
+                } => {
+                    // Redo: Apply the new value
+                    if let Some(node) = self.node(*node_id) {
+                        if let Some(port_id) = port_id {
+                            if let Some(port) = node.port(*port_id) {
+                                if new_value.is_empty() {
+                                    port.remove_property(property_name);
+                                } else {
+                                    port.add_property(property_name, new_value);
+                                }
+                            }
+                        } else if new_value.is_empty() {
+                            node.remove_property(property_name);
+                        } else {
+                            node.add_property(property_name, new_value);
+                        }
+                    }
+                }
+            }
+
+            // Push the original action back to undo stack
+            private.undo_stack.borrow_mut().push_undo(action);
+            private.undo_stack.borrow_mut().enable_recording();
+            true
+        } else {
+            // Re-enable recording even if there was nothing to redo
+            private.undo_stack.borrow_mut().enable_recording();
+            false
+        };
+
+        if result {
+            self.graph_updated();
+        }
+
+        result
+    }
+
+    /// Check if undo is available
+    pub fn can_undo(&self) -> bool {
+        let private = imp::GraphView::from_obj(self);
+        private.undo_stack.borrow().can_undo()
+    }
+
+    /// Check if redo is available
+    pub fn can_redo(&self) -> bool {
+        let private = imp::GraphView::from_obj(self);
+        private.undo_stack.borrow().can_redo()
+    }
+
+    /// Clear all undo/redo history
+    pub fn clear_undo_history(&self) {
+        let private = imp::GraphView::from_obj(self);
+        private.undo_stack.borrow_mut().clear();
+    }
+
+    /// Set maximum undo depth
+    pub fn set_max_undo_depth(&self, depth: usize) {
+        let private = imp::GraphView::from_obj(self);
+        private.undo_stack.borrow_mut().set_max_depth(depth);
+    }
+
+    /// Get number of actions in undo stack
+    pub fn undo_count(&self) -> usize {
+        let private = imp::GraphView::from_obj(self);
+        private.undo_stack.borrow().undo_count()
+    }
+
+    /// Get number of actions in redo stack
+    pub fn redo_count(&self) -> usize {
+        let private = imp::GraphView::from_obj(self);
+        private.undo_stack.borrow().redo_count()
+    }
+
+    /// Enable or disable undo recording
+    pub fn set_undo_recording(&self, enabled: bool) {
+        let private = imp::GraphView::from_obj(self);
+        if enabled {
+            private.undo_stack.borrow_mut().enable_recording();
+        } else {
+            private.undo_stack.borrow_mut().disable_recording();
+        }
+    }
+
+    /// Modify a node property with undo support
+    ///
+    /// Records the old and new values so the change can be undone/redone
+    pub fn modify_node_property(&self, node_id: u32, property_name: &str, new_value: &str) {
+        if let Some(node) = self.node(node_id) {
+            let old_value = PropertyExt::property(&node, property_name).unwrap_or_default();
+
+            // Only record if the value actually changed
+            if old_value != new_value {
+                // If new value is empty, remove the property, otherwise add it
+                if new_value.is_empty() {
+                    node.remove_property(property_name);
+                } else {
+                    node.add_property(property_name, new_value);
+                }
+
+                let private = imp::GraphView::from_obj(self);
+                private.undo_stack.borrow_mut().push(
+                    crate::graphmanager::undo::UndoAction::ModifyProperty {
+                        node_id,
+                        port_id: None,
+                        property_name: property_name.to_string(),
+                        old_value,
+                        new_value: new_value.to_string(),
+                    },
+                );
+                self.graph_updated();
+            }
+        }
+    }
+
+    /// Modify a port property with undo support
+    ///
+    /// Records the old and new values so the change can be undone/redone
+    pub fn modify_port_property(
+        &self,
+        node_id: u32,
+        port_id: u32,
+        property_name: &str,
+        new_value: &str,
+    ) {
+        if let Some(node) = self.node(node_id) {
+            if let Some(port) = node.port(port_id) {
+                let old_value = PropertyExt::property(&port, property_name).unwrap_or_default();
+
+                // Only record if the value actually changed
+                if old_value != new_value {
+                    // If new value is empty, remove the property, otherwise add it
+                    if new_value.is_empty() {
+                        port.remove_property(property_name);
+                    } else {
+                        port.add_property(property_name, new_value);
+                    }
+
+                    let private = imp::GraphView::from_obj(self);
+                    private.undo_stack.borrow_mut().push(
+                        crate::graphmanager::undo::UndoAction::ModifyProperty {
+                            node_id,
+                            port_id: Some(port_id),
+                            property_name: property_name.to_string(),
+                            old_value,
+                            new_value: new_value.to_string(),
+                        },
+                    );
+                    self.graph_updated();
+                }
+            }
+        }
+    }
+
+    /// Update multiple node properties with undo support
+    ///
+    /// Each property change is recorded separately for granular undo/redo
+    pub fn update_node_properties(&self, node_id: u32, properties: &HashMap<String, String>) {
+        for (key, value) in properties {
+            if value.is_empty() {
+                // Handle removal - record as modification with empty value
+                self.modify_node_property(node_id, key, "");
+            } else {
+                self.modify_node_property(node_id, key, value);
+            }
+        }
+    }
+
+    /// Update multiple port properties with undo support
+    ///
+    /// Each property change is recorded separately for granular undo/redo
+    pub fn update_port_properties(
+        &self,
+        node_id: u32,
+        port_id: u32,
+        properties: &HashMap<String, String>,
+    ) {
+        for (key, value) in properties {
+            if value.is_empty() {
+                // Handle removal - record as modification with empty value
+                self.modify_port_property(node_id, port_id, key, "");
+            } else {
+                self.modify_port_property(node_id, port_id, key, value);
+            }
+        }
+    }
+
+    // Helper methods for undo/redo
+
+    /// Remove node without recording undo action
+    fn remove_node_internal(&self, id: u32) {
+        let private = imp::GraphView::from_obj(self);
+
+        if let Some(node) = private.nodes.borrow_mut().remove(&id) {
+            while let Some(link_id) = self.node_is_linked(node.0.id()) {
+                private.links.borrow_mut().remove(&link_id);
+            }
+            node.0.unparent();
+        }
+    }
+
+    /// Remove link without recording undo action
+    fn remove_link_internal(&self, id: u32) {
+        let private = imp::GraphView::from_obj(self);
+        let mut links = private.links.borrow_mut();
+        links.remove(&id);
+        drop(links); // Release borrow before emitting signal
+        self.emit_by_name::<()>("link-removed", &[&private.id.get(), &id]);
+        self.queue_draw();
+    }
+
+    /// Restore a node from NodeData
+    fn restore_node(
+        &self,
+        node_data: &crate::graphmanager::undo::NodeData,
+        position: &graphene::Point,
+    ) {
+        let node =
+            self.create_node_with_id(node_data.id, &node_data.name, node_data.node_type.clone());
+        node.set_position(node_data.position.0, node_data.position.1);
+        node.set_light(node_data.light);
+        node.set_unique_name(&node_data.unique_name);
+        node.update_properties(&node_data.properties);
+
+        // Add ports
+        for port_data in &node_data.ports {
+            let port = self.restore_port(port_data);
+            let mut node_mut = node.clone();
+            node_mut.add_port(port);
+        }
+
+        // Add node to graph
+        let private = imp::GraphView::from_obj(self);
+        private
+            .nodes
+            .borrow_mut()
+            .insert(node.id(), (node.clone(), *position));
+        node.set_parent(self);
+        self.update_current_node_id(node_data.id);
+    }
+
+    /// Restore a port from PortData
+    fn restore_port(&self, port_data: &crate::graphmanager::undo::PortData) -> Port {
+        let port = self.create_port_with_id(
+            port_data.id,
+            &port_data.name,
+            port_data.direction,
+            port_data.presence,
+        );
+        port.update_properties(&port_data.properties);
+        self.update_current_port_id(port_data.id);
+        port
+    }
+
+    /// Restore a link from LinkData
+    fn restore_link(&self, link_data: &crate::graphmanager::undo::LinkData) {
+        let link = self.create_link_with_id(
+            link_data.id,
+            link_data.node_from,
+            link_data.node_to,
+            link_data.port_from,
+            link_data.port_to,
+        );
+        link.set_active(link_data.active);
+        link.set_name(&link_data.name);
+
+        let private = imp::GraphView::from_obj(self);
+        private.links.borrow_mut().insert(link.id, link);
+        self.update_current_link_id(link_data.id);
     }
 }
 

@@ -4,6 +4,7 @@ mod node;
 mod port;
 mod property;
 mod selection;
+mod undo;
 
 pub use graphview::GraphView;
 pub use node::Node;
