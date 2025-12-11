@@ -446,11 +446,56 @@ mod player_test {
             let properties = node.properties();
 
             // Default properties should not be added (only non-default values)
-            // Identity element with all defaults shouldn't add many properties
-            // We just verify the method runs without errors and returns a valid HashMap
-            assert!(properties.is_empty() || !properties.is_empty()); // Always true, just checks method runs
+            // Identity element with all defaults shouldn't have any properties
+            assert!(
+                properties.is_empty(),
+                "Expected no properties for identity with defaults, got: {:?}",
+                properties.keys().collect::<Vec<_>>()
+            );
         });
     }
+
+    #[test]
+    fn test_create_properties_for_videotestsrc_with_defaults() {
+        // Regression test for issue #33: videotestsrc with default properties
+        // should not have any properties stored (enum properties like pattern=smpte
+        // were incorrectly being added because default value comparison failed)
+        test_synced(|| {
+            use crate::graphmanager as GM;
+            use crate::graphmanager::PropertyExt;
+
+            let player = Player::new().unwrap();
+
+            let pipeline = player
+                .create_pipeline("videotestsrc name=vts_test ! fakesink")
+                .unwrap();
+            let bin = pipeline.dynamic_cast::<gst::Bin>().unwrap();
+            let videotestsrc = bin.by_name("vts_test").unwrap();
+
+            let node = GM::Node::new(99, "videotestsrc", GM::NodeType::Source);
+
+            player.create_properties_for_element(&videotestsrc, &node);
+
+            let properties = node.properties();
+
+            // videotestsrc with all defaults (pattern=smpte, animation-mode=frames, etc.)
+            // should not have any properties stored
+            assert!(
+                properties.is_empty(),
+                "Expected no properties for videotestsrc with defaults, got: {:?}",
+                properties
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<_>>()
+            );
+        });
+    }
+
+    // Note: fakesrc and fakesink have buggy ParamSpec default values in GStreamer:
+    // - fakesrc filltype: ParamSpec says 2/zero but element initializes to 1/nothing
+    // - fakesink sync: ParamSpec says true but element initializes to false
+    // These tests are skipped because of GStreamer bugs, not GPS bugs.
+    // See videotestsrc test which works correctly.
 
     #[test]
     fn test_create_pads_for_element_requires_app() {
@@ -459,10 +504,12 @@ mod player_test {
 
             let player = Player::new().unwrap();
 
-            // Create a pipeline with an element
-            let pipeline = player.create_pipeline("videotestsrc ! fakesink").unwrap();
+            // Create a pipeline with a named element to avoid environment-dependent naming
+            let pipeline = player
+                .create_pipeline("videotestsrc name=vts_pads_test ! fakesink")
+                .unwrap();
             let bin = pipeline.dynamic_cast::<gst::Bin>().unwrap();
-            let videotestsrc = bin.by_name("videotestsrc0").unwrap();
+            let videotestsrc = bin.by_name("vts_pads_test").unwrap();
 
             let node = GM::Node::new(3, "videotestsrc", GM::NodeType::Source);
 
@@ -545,6 +592,433 @@ mod player_test {
                 total_pads += 1;
             }
             assert_eq!(total_pads, 2); // sink and src
+        });
+    }
+}
+
+/// Tests for GStreamer element default value validation.
+///
+/// These tests scan all elements and check that ParamSpec defaults match actual values.
+/// Known GStreamer bugs are in a skip list - the test only fails on NEW issues.
+#[cfg(test)]
+mod gstreamer_default_value_tests {
+    use super::*;
+    use gst::glib;
+
+    /// Known GStreamer bugs: (element, property) pairs where ParamSpec != actual value.
+    /// These are skipped to avoid test failures. When GStreamer fixes them, they'll
+    /// show as "fixed" and can be removed from this list.
+    const KNOWN_MISMATCHES: &[(&str, &str)] = &[
+        // sync property (true -> false): GstBaseSink subclasses
+        ("fakesink", "sync"),
+        ("filesink", "sync"),
+        ("fdsink", "sync"),
+        ("multifilesink", "sync"),
+        ("giosink", "sync"),
+        ("giostreamsink", "sync"),
+        ("splitmuxsink", "sync"),
+        ("shout2send", "sync"),
+        ("checksumsink", "sync"),
+        ("glsinkbin", "sync"),
+        ("videocodectestsink", "sync"),
+        // qos property (false -> true): GstBaseTransform and GstBaseSink subclasses
+        ("videoconvert", "qos"),
+        ("videoscale", "qos"),
+        ("videoconvertscale", "qos"),
+        ("videoflip", "qos"),
+        ("gamma", "qos"),
+        ("videobalance", "qos"),
+        ("alpha", "qos"),
+        ("alphacolor", "qos"),
+        ("videomedian", "qos"),
+        ("edgetv", "qos"),
+        ("agingtv", "qos"),
+        ("dicetv", "qos"),
+        ("warptv", "qos"),
+        ("shagadelictv", "qos"),
+        ("vertigotv", "qos"),
+        ("revtv", "qos"),
+        ("quarktv", "qos"),
+        ("optv", "qos"),
+        ("radioactv", "qos"),
+        ("streaktv", "qos"),
+        ("rippletv", "qos"),
+        ("burn", "qos"),
+        ("chromium", "qos"),
+        ("dilate", "qos"),
+        ("dodge", "qos"),
+        ("exclusion", "qos"),
+        ("solarize", "qos"),
+        ("gaussianblur", "qos"),
+        ("deinterlace", "qos"),
+        ("videobox", "qos"),
+        ("videocrop", "qos"),
+        ("videoanalyse", "qos"),
+        ("navigationtest", "qos"),
+        ("coloreffects", "qos"),
+        ("chromahold", "qos"),
+        ("glupload", "qos"),
+        ("gldownload", "qos"),
+        ("glcolorconvert", "qos"),
+        ("glcolorbalance", "qos"),
+        ("gltransformation", "qos"),
+        ("glvideoflip", "qos"),
+        ("gleffects", "qos"),
+        ("gldifferencematte", "qos"),
+        ("glfilterglass", "qos"),
+        ("gloverlay", "qos"),
+        ("gloverlaycompositor", "qos"),
+        ("glalpha", "qos"),
+        ("gldeinterlace", "qos"),
+        ("glviewconvert", "qos"),
+        ("glfilterapp", "qos"),
+        ("glshader", "qos"),
+        ("glcolorscale", "qos"),
+        ("glfiltercube", "qos"),
+        ("glimagesinkelement", "qos"),
+        ("glimagesink", "qos"),
+        // GL effects variants
+        ("gleffects_laplacian", "qos"),
+        ("gleffects_blur", "qos"),
+        ("gleffects_sobel", "qos"),
+        ("gleffects_glow", "qos"),
+        ("gleffects_sin", "qos"),
+        ("gleffects_xray", "qos"),
+        ("gleffects_lumaxpro", "qos"),
+        ("gleffects_xpro", "qos"),
+        ("gleffects_sepia", "qos"),
+        ("gleffects_heat", "qos"),
+        ("gleffects_square", "qos"),
+        ("gleffects_bulge", "qos"),
+        ("gleffects_twirl", "qos"),
+        ("gleffects_fisheye", "qos"),
+        ("gleffects_tunnel", "qos"),
+        ("gleffects_stretch", "qos"),
+        ("gleffects_squeeze", "qos"),
+        ("gleffects_mirror", "qos"),
+        ("gleffects_identity", "qos"),
+        // Geometric transforms
+        ("perspective", "qos"),
+        ("fisheye", "qos"),
+        ("mirror", "qos"),
+        ("square", "qos"),
+        ("tunnel", "qos"),
+        ("bulge", "qos"),
+        ("stretch", "qos"),
+        ("waterripple", "qos"),
+        ("twirl", "qos"),
+        ("sphere", "qos"),
+        ("rotate", "qos"),
+        ("pinch", "qos"),
+        ("marble", "qos"),
+        ("kaleidoscope", "qos"),
+        ("diffuse", "qos"),
+        ("circle", "qos"),
+        // Other video filters
+        ("smooth", "qos"),
+        ("objectdetectionoverlay", "qos"),
+        ("rsvgoverlay", "qos"),
+        ("gdkpixbufoverlay", "qos"),
+        ("lcms", "qos"),
+        ("cacatv", "qos"),
+        ("aatv", "qos"),
+        ("zbar", "qos"),
+        ("zxing", "qos"),
+        ("combdetect", "qos"),
+        ("line21encoder", "qos"),
+        ("line21decoder", "qos"),
+        ("simplevideomark", "qos"),
+        ("simplevideomarkdetect", "qos"),
+        ("videodiff", "qos"),
+        ("zebrastripe", "qos"),
+        ("scenechange", "qos"),
+        ("smptealpha", "qos"),
+        // Sinks with qos
+        ("aasink", "qos"),
+        ("ximagesink", "qos"),
+        ("xvimagesink", "qos"),
+        ("vulkansink", "qos"),
+        ("waylandsink", "qos"),
+        ("gtkglsink", "qos"),
+        ("gtksink", "qos"),
+        ("gtkwaylandsink", "qos"),
+        ("dfbvideosink", "qos"),
+        ("fbdevsink", "qos"),
+        ("kmssink", "qos"),
+        ("intervideosink", "qos"),
+        ("fakevideosink", "qos"),
+        ("fakeaudiosink", "qos"),
+        ("v4l2sink", "qos"),
+        ("vadeinterlace", "qos"),
+        ("vapostproc", "qos"),
+        // do-timestamp property (false -> true)
+        ("udpsrc", "do-timestamp"),
+        ("dv1394src", "do-timestamp"),
+        ("dc1394src", "do-timestamp"),
+        ("dvbsrc", "do-timestamp"),
+        ("avdtpsrc", "do-timestamp"),
+        // enable-last-sample property (true -> false)
+        ("glsinkbin", "enable-last-sample"),
+        ("alsasink", "enable-last-sample"),
+        ("jackaudiosink", "enable-last-sample"),
+        ("openalsink", "enable-last-sample"),
+        ("pulsesink", "enable-last-sample"),
+        ("oss4sink", "enable-last-sample"),
+        ("osssink", "enable-last-sample"),
+        // Other known mismatches
+        ("glsinkbin", "force-aspect-ratio"),
+        ("glsinkbin", "async"),
+        ("assrender", "wait-text"),
+        ("rsvgoverlay", "fit-to-frame"),
+        ("curlhttpsrc", "automatic-eos"),
+        ("curlftpsink", "epsv-mode"),
+        ("srtserversink", "authentication"),
+        ("srtclientsink", "authentication"),
+        ("srtserversrc", "authentication"),
+        ("srtclientsrc", "authentication"),
+        ("srtsink", "authentication"),
+        ("srtsrc", "authentication"),
+        ("flacenc", "perfect-timestamp"),
+        ("speexenc", "perfect-timestamp"),
+        ("wavpackenc", "perfect-timestamp"),
+        ("vorbisenc", "perfect-timestamp"),
+        ("videoparse", "top-field-first"),
+        ("aasink", "inversion"),
+        ("xvimagesink", "double-buffer"),
+        ("modplug", "oversamp"),
+        ("a52dec", "lfe"),
+        ("souphttpsrc", "automatic-eos"),
+        ("souphttpsrc", "ssl-use-system-ca-file"),
+        ("giosink", "close-on-stop"),
+        ("tsdemux", "parse-private-sections"),
+        // frei0r filters - all have qos mismatch (false -> true)
+        ("frei0r-filter-mask0mate", "qos"),
+        ("frei0r-filter-keyspillm0pup", "qos"),
+        ("frei0r-filter-delaygrab", "qos"),
+        ("frei0r-filter-nervous", "qos"),
+        ("frei0r-filter-alphagrad", "qos"),
+        ("frei0r-filter-sobel", "qos"),
+        ("frei0r-filter-delay0r", "qos"),
+        ("frei0r-filter-bw0r", "qos"),
+        ("frei0r-filter-levels", "qos"),
+        ("frei0r-filter-tint0r", "qos"),
+        ("frei0r-filter-g", "qos"),
+        ("frei0r-filter-pr0file", "qos"),
+        ("frei0r-filter-coloradj-rgb", "qos"),
+        ("frei0r-filter-cairoimagegrid", "qos"),
+        ("frei0r-filter-hqdn3d", "qos"),
+        ("frei0r-filter-edgeglow", "qos"),
+        ("frei0r-filter-vectorscope", "qos"),
+        ("frei0r-filter-defish0r", "qos"),
+        ("frei0r-filter-medians", "qos"),
+        ("frei0r-filter-scale0tilt", "qos"),
+        ("frei0r-filter-white-balance--lms-space-", "qos"),
+        ("frei0r-filter-rgb-parade", "qos"),
+        ("frei0r-filter-facebl0r", "qos"),
+        ("frei0r-filter-cartoon", "qos"),
+        ("frei0r-filter-white-balance", "qos"),
+        ("frei0r-filter-primaries", "qos"),
+        ("frei0r-filter-normaliz0r", "qos"),
+        ("frei0r-filter-cairogradient", "qos"),
+        ("frei0r-filter-iir-blur", "qos"),
+        ("frei0r-filter-transparency", "qos"),
+        ("frei0r-filter-rgbnoise", "qos"),
+        ("frei0r-filter-bgsubtract0r", "qos"),
+        ("frei0r-filter-softglow", "qos"),
+        ("frei0r-filter-ndvi-filter", "qos"),
+        ("frei0r-filter-k-means-clustering", "qos"),
+        ("frei0r-filter-alpha0ps", "qos"),
+        ("frei0r-filter-opencvfacedetect", "qos"),
+        ("frei0r-filter-tehroxx0r", "qos"),
+        ("frei0r-filter-color-distance", "qos"),
+        ("frei0r-filter-glow", "qos"),
+        ("frei0r-filter-saturat0r", "qos"),
+        ("frei0r-filter-dither", "qos"),
+        ("frei0r-filter-distort0r", "qos"),
+        ("frei0r-filter-pr0be", "qos"),
+        ("frei0r-filter-colorhalftone", "qos"),
+        ("frei0r-filter-r", "qos"),
+        ("frei0r-filter-pixeliz0r", "qos"),
+        ("frei0r-filter-colorize", "qos"),
+        ("frei0r-filter-contrast0r", "qos"),
+        ("frei0r-filter-aech0r", "qos"),
+        ("frei0r-filter-lens-correction", "qos"),
+        ("frei0r-filter-premultiply-or-unpremultiply", "qos"),
+        ("frei0r-filter-colortap", "qos"),
+        ("frei0r-filter-threelay0r", "qos"),
+        ("frei0r-filter-spillsupress", "qos"),
+        ("frei0r-filter-brightness", "qos"),
+        ("frei0r-filter-light-graffiti", "qos"),
+        ("frei0r-filter-select0r", "qos"),
+        ("frei0r-filter-threshold0r", "qos"),
+        ("frei0r-filter-sharpness", "qos"),
+        ("frei0r-filter-baltan", "qos"),
+        ("frei0r-filter-equaliz0r", "qos"),
+        ("frei0r-filter-emboss", "qos"),
+        ("frei0r-filter-curves", "qos"),
+        ("frei0r-filter-vertigo", "qos"),
+        ("frei0r-filter-twolay0r", "qos"),
+        ("frei0r-filter-alphaspot", "qos"),
+        ("frei0r-filter-timeout-indicator", "qos"),
+        ("frei0r-filter-c0rners", "qos"),
+        ("frei0r-filter-squareblur", "qos"),
+        ("frei0r-filter-posterize", "qos"),
+        ("frei0r-filter-gamma", "qos"),
+        ("frei0r-filter-nosync0r", "qos"),
+        ("frei0r-filter-3-point-color-balance", "qos"),
+        ("frei0r-filter-scanline0r", "qos"),
+        ("frei0r-filter-flippo", "qos"),
+        ("frei0r-filter-sigmoidaltransfer", "qos"),
+        ("frei0r-filter-glitch0r", "qos"),
+        ("frei0r-filter-b", "qos"),
+        ("frei0r-filter-rgbsplit0r", "qos"),
+        ("frei0r-filter-hueshift0r", "qos"),
+        ("frei0r-filter-sop-sat", "qos"),
+        ("frei0r-filter-nikon-d90-stairstepping-fix", "qos"),
+        ("frei0r-filter-letterb0xed", "qos"),
+        ("frei0r-filter-perspective", "qos"),
+        ("frei0r-filter-luminance", "qos"),
+        ("frei0r-filter-vignette", "qos"),
+        ("frei0r-filter-invert0r", "qos"),
+        ("frei0r-filter-3dflippo", "qos"),
+        ("frei0r-filter-bluescreen0r", "qos"),
+        ("frei0r-filter-elastic-scale-filter", "qos"),
+    ];
+
+    /// Elements to skip entirely (can't be instantiated in test environment)
+    const SKIP_ELEMENTS: &[&str] = &[
+        "ipcpipelinesink",
+        "ipcpipelinesrc",
+        "ipcslavepipeline",
+        "shmsink",
+        "shmsrc",
+        "decklinkvideosrc",
+        "decklinkvideosink",
+        "decklinkaudiosrc",
+        "decklinkaudiosink",
+    ];
+
+    /// Check if a (element, property) pair is in the known mismatch list
+    fn is_known_mismatch(element: &str, property: &str) -> bool {
+        KNOWN_MISMATCHES
+            .iter()
+            .any(|(e, p)| *e == element && *p == property)
+    }
+
+    /// Get ParamSpec default for boolean property
+    fn get_bool_default(pspec: &glib::ParamSpec) -> Option<bool> {
+        if pspec.value_type() == glib::Type::BOOL {
+            pspec.default_value().get::<bool>().ok()
+        } else {
+            None
+        }
+    }
+
+    #[test]
+    fn test_element_default_values() {
+        test_synced(|| {
+            let registry = gst::Registry::get();
+            let factories = registry.features(gst::ElementFactory::static_type());
+
+            let mut tested_elements = 0;
+            let mut tested_properties = 0;
+            let mut known_issues = Vec::new();
+            let mut fixed_issues = Vec::new();
+            let mut new_issues = Vec::new();
+
+            for feature in factories.iter() {
+                let factory = match feature.clone().downcast::<gst::ElementFactory>() {
+                    Ok(f) => f,
+                    Err(_) => continue,
+                };
+
+                let element_name = factory.name().to_string();
+
+                // Skip problematic elements
+                if SKIP_ELEMENTS.iter().any(|e| *e == element_name) {
+                    continue;
+                }
+
+                // Create element
+                let element = match factory.create().build() {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+
+                tested_elements += 1;
+
+                // Check all boolean properties
+                for pspec in element.list_properties() {
+                    let prop_name = pspec.name().to_string();
+
+                    // Skip name/parent
+                    if prop_name == "name" || prop_name == "parent" {
+                        continue;
+                    }
+
+                    // Only check readable+writable boolean properties
+                    let flags = pspec.flags();
+                    if !flags.contains(glib::ParamFlags::READABLE)
+                        || !flags.contains(glib::ParamFlags::WRITABLE)
+                    {
+                        continue;
+                    }
+
+                    // Only test boolean properties (main source of issues)
+                    let paramspec_default = match get_bool_default(&pspec) {
+                        Some(v) => v,
+                        None => continue,
+                    };
+
+                    let actual_value: bool = element.property(&prop_name);
+                    tested_properties += 1;
+
+                    if paramspec_default != actual_value {
+                        let issue = format!(
+                            "{}::{} (ParamSpec: {}, Actual: {})",
+                            element_name, prop_name, paramspec_default, actual_value
+                        );
+
+                        if is_known_mismatch(&element_name, &prop_name) {
+                            known_issues.push(issue);
+                        } else {
+                            new_issues.push(issue);
+                        }
+                    } else if is_known_mismatch(&element_name, &prop_name) {
+                        // Was in skip list but now matches - GStreamer fixed it!
+                        fixed_issues.push(format!("{}::{}", element_name, prop_name));
+                    }
+                }
+            }
+
+            // Print summary
+            println!("\n=== GStreamer Default Value Test ===");
+            println!("Elements tested: {}", tested_elements);
+            println!("Properties tested: {}", tested_properties);
+            println!("Known issues (skipped): {}", known_issues.len());
+            println!("Fixed issues: {}", fixed_issues.len());
+            println!("New issues: {}", new_issues.len());
+
+            if !fixed_issues.is_empty() {
+                println!("\nFIXED (remove from KNOWN_MISMATCHES):");
+                for issue in &fixed_issues {
+                    println!("  - {}", issue);
+                }
+            }
+
+            if !new_issues.is_empty() {
+                println!("\nNEW ISSUES (add to KNOWN_MISMATCHES or report to GStreamer):");
+                for issue in &new_issues {
+                    println!("  - {}", issue);
+                }
+            }
+
+            // Only fail on NEW issues
+            assert!(
+                new_issues.is_empty(),
+                "Found {} new default value mismatches! Add to KNOWN_MISMATCHES or report to GStreamer.",
+                new_issues.len()
+            );
         });
     }
 }

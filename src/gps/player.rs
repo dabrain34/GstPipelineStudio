@@ -675,6 +675,78 @@ impl Player {
         }
     }
 
+    /// Check if an element's property value equals the ParamSpec default
+    fn is_property_at_default(element: &gst::Element, pspec: &glib::ParamSpec) -> bool {
+        let pspec_type = pspec.type_();
+        let prop_name = pspec.name();
+
+        // For enum properties, compare via nick strings (more reliable than ParamSpec default)
+        if pspec_type.is_a(glib::ParamSpecEnum::static_type()) {
+            let current = element.property_value(prop_name);
+            match current.get::<&glib::EnumValue>() {
+                Ok(enum_val) => {
+                    let default_gvalue = pspec.default_value();
+                    match default_gvalue.get::<&glib::EnumValue>() {
+                        Ok(default_enum) => return enum_val.nick() == default_enum.nick(),
+                        Err(_) => {
+                            GPS_DEBUG!(
+                                "Could not extract default enum value for {}, falling back to string comparison",
+                                prop_name
+                            );
+                            // Fall through to string comparison
+                        }
+                    }
+                }
+                Err(_) => {
+                    GPS_DEBUG!(
+                        "Could not extract current enum value for {}, falling back to string comparison",
+                        prop_name
+                    );
+                    // Fall through to string comparison
+                }
+            }
+        }
+
+        // For flags, compare integer values
+        if pspec_type.is_a(glib::ParamSpecFlags::static_type()) {
+            if let Ok(flags_pspec) = pspec.clone().downcast::<glib::ParamSpecFlags>() {
+                // SAFETY: flags_pspec is a valid GParamSpecFlags obtained via successful downcast.
+                // The glib-rs FFI struct layout matches GLib's stable C ABI.
+                // default_value is a public field in GParamSpecFlags.
+                let default_int = unsafe {
+                    let ptr = flags_pspec.as_ptr() as *const glib::gobject_ffi::GParamSpecFlags;
+                    (*ptr).default_value
+                };
+                let current = element.property_value(prop_name);
+                if let Ok(flags) = current.get::<Vec<&glib::FlagsValue>>() {
+                    let current_int = flags
+                        .iter()
+                        .copied()
+                        .fold(0u32, |acc, val| acc | val.value());
+                    return current_int == default_int;
+                } else {
+                    GPS_DEBUG!(
+                        "Could not extract flags value for {}, falling back to string comparison",
+                        prop_name
+                    );
+                }
+            }
+        }
+
+        // For other types, compare string representations
+        // Both element_property() and value_as_str() normalize to lowercase
+        if let Ok(value_str) = ElementInfo::element_property(element, prop_name) {
+            let default_str = common::value_as_str(pspec.default_value()).unwrap_or_default();
+            return value_str == default_str;
+        }
+
+        GPS_DEBUG!(
+            "Could not compare property {} - assuming non-default to preserve data",
+            prop_name
+        );
+        false
+    }
+
     pub fn create_properties_for_element(&self, element: &gst::Element, node: &GM::Node) {
         let properties = match ElementInfo::element_properties(element) {
             Ok(props) => props,
@@ -684,27 +756,36 @@ impl Player {
             }
         };
         for (property_name, property_value) in properties {
+            let flags = property_value.flags();
+            // Skip:
+            // - name/parent: internal GStreamer properties
+            // - non-readable: can't get value to serialize
+            // - non-writable (readonly): can't be set, so no point serializing
             if property_name == "name"
                 || property_name == "parent"
-                || (property_value.flags() & glib::ParamFlags::READABLE)
-                    != glib::ParamFlags::READABLE
+                || !flags.contains(glib::ParamFlags::READABLE)
+                || !flags.contains(glib::ParamFlags::WRITABLE)
             {
                 continue;
             }
 
-            if let Ok(value_str) = ElementInfo::element_property(element, &property_name) {
-                let default_value_str =
-                    common::value_as_str(property_value.default_value()).unwrap_or_default();
-                GPS_DEBUG!(
-                    "property name {} value_str '{}' default '{}'",
-                    property_name,
-                    value_str,
-                    default_value_str
-                );
-                if !value_str.is_empty() && value_str != default_value_str {
-                    node.add_property(&property_name, &value_str);
-                }
+            // Get property value string once (avoid fetching twice)
+            let value_str = match ElementInfo::element_property(element, &property_name) {
+                Ok(s) if !s.is_empty() => s,
+                _ => continue,
+            };
+
+            // Skip properties that are at their default value
+            if Self::is_property_at_default(element, &property_value) {
+                continue;
             }
+
+            GPS_DEBUG!(
+                "property name {} value_str '{}' (non-default)",
+                property_name,
+                value_str
+            );
+            node.add_property(&property_name, &value_str);
         }
     }
 
