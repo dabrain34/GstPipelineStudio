@@ -42,18 +42,21 @@ pub struct GPSAppInner {
     pub signal_handlers: RefCell<HashMap<String, SignalHandlerId>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AppState {
     Ready,
     Playing,
     Paused,
     Stopped,
-    Error,
+    Error(Option<String>),
 }
 
 impl fmt::Display for AppState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{self:?}",)
+        match self {
+            AppState::Error(_) => write!(f, "Error"),
+            _ => write!(f, "{self:?}"),
+        }
     }
 }
 

@@ -244,6 +244,14 @@ impl Player {
     }
 
     pub fn set_state(&self, new_state: PipelineState) -> anyhow::Result<PipelineState> {
+        self.set_state_with_message(new_state, None)
+    }
+
+    pub fn set_state_with_message(
+        &self,
+        new_state: PipelineState,
+        error_message: Option<String>,
+    ) -> anyhow::Result<PipelineState> {
         if let Some(pipeline) = self.pipeline.borrow().to_owned() {
             match new_state {
                 PipelineState::Playing => {
@@ -258,7 +266,13 @@ impl Player {
                 }
             }
             self.current_state.set(new_state);
-            self.with_app(|app| app.set_app_state(Player::state_to_app_state(new_state)))?;
+            let app_state = match new_state {
+                PipelineState::Playing => AppState::Playing,
+                PipelineState::Paused => AppState::Paused,
+                PipelineState::Stopped => AppState::Stopped,
+                PipelineState::Error => AppState::Error(error_message),
+            };
+            self.with_app(|app| app.set_app_state(app_state))?;
         }
         Ok(new_state)
     }
@@ -312,15 +326,6 @@ impl Player {
         )
     }
 
-    fn state_to_app_state(state: PipelineState) -> AppState {
-        match state {
-            PipelineState::Playing => AppState::Playing,
-            PipelineState::Paused => AppState::Paused,
-            PipelineState::Stopped => AppState::Stopped,
-            PipelineState::Error => AppState::Error,
-        }
-    }
-
     pub fn is_playing(&self) -> bool {
         self.state() == PipelineState::Playing || self.state() == PipelineState::Paused
     }
@@ -359,7 +364,8 @@ impl Player {
                     err.error(),
                     err.debug()
                 );
-                if let Err(e) = self.set_state(PipelineState::Error) {
+                let error_msg = format!("{}: {}", src_name, err.error());
+                if let Err(e) = self.set_state_with_message(PipelineState::Error, Some(error_msg)) {
                     GPS_ERROR!("Failed to set error state: {}", e);
                 }
             }

@@ -62,6 +62,11 @@ impl GPSApp {
         graphbook::current_graphtab(self)
             .graphview()
             .set_link_color(r, g, b);
+
+        // Show error dialog if in error state with a message
+        if let AppState::Error(Some(ref msg)) = state {
+            GPSUI::message::display_error_dialog(false, msg);
+        }
     }
 
     pub fn set_app_preview(&self, paintable: &gdk::Paintable, n_sink: usize) {
