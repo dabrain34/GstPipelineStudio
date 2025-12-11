@@ -112,12 +112,26 @@ pub fn get_input<F: Fn(GPSApp, String) + 'static>(
     content_box.append(&entry);
 
     let app_weak = app.downgrade();
+    let f = std::rc::Rc::new(f);
+    let f_clone = f.clone();
     ok_button.connect_clicked(glib::clone!(
         #[weak]
         entry,
         #[weak]
         window,
         move |_| {
+            let app = upgrade_weak!(app_weak);
+            f_clone(app, entry.text().to_string());
+            window.close();
+        }
+    ));
+
+    // Allow Enter key in entry to trigger OK action
+    let app_weak = app.downgrade();
+    entry.connect_activate(glib::clone!(
+        #[weak]
+        window,
+        move |entry| {
             let app = upgrade_weak!(app_weak);
             f(app, entry.text().to_string());
             window.close();
