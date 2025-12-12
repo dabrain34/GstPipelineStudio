@@ -1,5 +1,6 @@
 # Create a release
 
+## locally
 - Update to the given version:
   - meson.build
   - cargo.toml
@@ -7,7 +8,9 @@
   - index.html
   - And rebuild to regenerate the cargo.lock
   - update the changelog in org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in within release/description
+  - update the ChangeLog.md
 
+## gitlab
 - create a tag on gitlab
 - Fetch the package from the `linux release` job or you can make it manually with:
   - meson builddir -Dbuildtype=release
@@ -22,3 +25,7 @@ https://github.com/flathub/org.freedesktop.dabrain34.GstPipelineStudio
   - Need to update the package and the sha256 from the release page, ie https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/releases/0.3.2
   - Create a pull request with the package update
   - Wait at lest 2-3 hours after merging to get the update available.
+
+# index.html
+
+ - update the download links and publish the new index.html

@@ -6,7 +6,6 @@
 
 ### GStreamer:
 
-- [ ] Implement pipeline unit test
 
 ### app
 

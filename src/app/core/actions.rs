@@ -32,7 +32,7 @@
 //! - `graph.check` - Validate pipeline
 //! - `graph.clear` - Clear current graph
 //! - `graph.pipeline_details` - Show pipeline details (enabled only when playing)
-//! - `delete` - Delete selected elements (<Ctrl+D>, <Delete>, or <Ctrl+BackSpace>)
+//! - `delete` - Delete selected elements (`Ctrl+D`, `Delete`, or `Ctrl+BackSpace`)
 //!
 //! ## Element Operations
 //! - `node.add-to-favorite` - Add element to favorites

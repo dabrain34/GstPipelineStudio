@@ -1,9 +1,11 @@
-project('gst-pipeline-studio',
-          version: '0.3.6',
-    meson_version: '>= 0.63.0',
-  default_options: [ 'warning_level=2',
-                   ],
-          license: 'GPL-3.0-or-later',
+project(
+  'gst-pipeline-studio',
+  version: '0.4.0',
+  meson_version: '>= 0.63.0',
+  default_options: [
+    'warning_level=2',
+  ],
+  license: 'GPL-3.0-or-later',
 )
 
 host_system = host_machine.system()
@@ -36,7 +38,7 @@ localedir = prefix / get_option('localedir')
 datadir = prefix / get_option('datadir')
 pkgdatadir = datadir / meson.project_name()
 iconsdir = datadir / 'icons'
-podir = meson.project_source_root () / 'po'
+podir = meson.project_source_root() / 'po'
 gettext_package = meson.project_name()
 base_id = 'org.freedesktop.dabrain34.GstPipelineStudio'
 
@@ -48,7 +50,7 @@ if get_option('profile') == 'development'
   if vcs_tag == ''
     version_suffix = '-devel'
   else
-    version_suffix = '-@0@'.format (vcs_tag)
+    version_suffix = '-@0@'.format(vcs_tag)
   endif
 else
   profile = ''
@@ -58,20 +60,23 @@ else
 endif
 
 cargo_sources = files(
-  'Cargo.toml',
   'Cargo.lock',
+  'Cargo.toml',
 )
 if host_system == 'linux'
-subdir('data')
+  subdir('data')
 endif
 subdir('src')
 subdir('po')
 
-
 meson.add_dist_script(
   'build-aux/dist-vendor.sh',
   meson.project_source_root(),
-  join_paths(meson.project_build_root(), 'meson-dist', meson.project_name() + '-' + version)
+  join_paths(
+    meson.project_build_root(),
+    'meson-dist',
+    meson.project_name() + '-' + version,
+  ),
 )
 if host_system == 'linux'
   meson.add_install_script('build-aux/meson/postinstall.py')

@@ -1,4 +1,32 @@
 
+## 0.4.0
+
+### New Features
+  - [x] Splash screen during GStreamer initialization
+  - [x] Recent files menu
+  - [x] Context menus on elements list and graph links
+  - [x] Graph zoom support
+
+### User Interface
+  - [x] New application logo with dark theme support
+  - [x] Modernized dialogs (preferences, properties, alerts)
+  - [x] GTK4 widget migration (ColumnView, DropDown, FileDialog)
+  - [x] Resizable columns in element browser and loggers
+  - [x] Element search with plugin name and rank display
+  - [x] Compact player controls layout
+  - [x] Port name tooltips
+
+### Build and Platforms
+  - [x] GStreamer 1.26 and GTK 4.16
+  - [x] Rust 1.85
+  - [x] macOS/Windows: libav enabled, optimized installers
+  - [x] CI: AppImage and deb package jobs
+
+### Stability
+  - [x] Error dialogs on pipeline failures
+  - [x] Improved error handling throughout codebase
+  - [x] Unit test infrastructure
+
 ## 0.3.6
 
 ### app
