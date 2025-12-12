@@ -248,6 +248,50 @@
             <a href="https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/blob/main/ChangeLog.md">Changelog</a>
         </p>
     </footer>
+
+    <script>
+        // Fetch download counts from GitLab API and set tooltips
+        async function updateDownloadCounts() {
+            try {
+                const response = await fetch('https://gitlab.freedesktop.org/api/v4/projects/dabrain34%2FGstPipelineStudio/releases');
+                const releases = await response.json();
+
+                // Aggregate download counts across all releases
+                const counts = {};
+                releases.forEach(release => {
+                    if (release.assets && release.assets.links) {
+                        release.assets.links.forEach(link => {
+                            const name = link.name.toLowerCase();
+                            const count = link.direct_asset_url ? (link.download_count || 0) : 0;
+                            if (name.includes('.msi')) counts.msi = (counts.msi || 0) + count;
+                            else if (name.includes('.dmg')) counts.dmg = (counts.dmg || 0) + count;
+                            else if (name.includes('.deb')) counts.deb = (counts.deb || 0) + count;
+                            else if (name.includes('.appimage')) counts.appimage = (counts.appimage || 0) + count;
+                        });
+                    }
+                });
+
+                // Update tooltips on download items
+                const downloadItems = document.querySelectorAll('.download-item');
+                downloadItems.forEach(item => {
+                    const href = item.getAttribute('href');
+                    let count = null;
+                    if (href.includes('.msi')) count = counts.msi;
+                    else if (href.includes('.dmg')) count = counts.dmg;
+                    else if (href.includes('.deb')) count = counts.deb;
+                    else if (href.includes('.AppImage') || href.includes('.appimage')) count = counts.appimage;
+
+                    if (count !== null && count !== undefined) {
+                        item.setAttribute('title', `${count} downloads`);
+                    }
+                });
+            } catch (error) {
+                console.log('Could not fetch download counts:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', updateDownloadCounts);
+    </script>
 </body>
 
 </html>
