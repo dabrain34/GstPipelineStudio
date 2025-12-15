@@ -5,7 +5,11 @@
   <metadata_license>CC0</metadata_license>
   <project_license>GPL-3.0+</project_license>
   <name>GstPipelineStudio</name>
-  <summary>Draw your own GStreamer pipeline...</summary>
+  <summary>Visual editor for GStreamer pipelines</summary>
+  <branding>
+    <color type="primary" scheme_preference="light">#30D475</color>
+    <color type="primary" scheme_preference="dark">#228B22</color>
+  </branding>
   <description>
     <p>GstPipelineStudio aims to provide a graphical user interface to the GStreamer framework. From a first step in the framework with a simple pipeline to a complex pipeline debugging, the tool provides a friendly interface to add elements to a pipeline and debug it.</p>
   </description>
