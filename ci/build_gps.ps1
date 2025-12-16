@@ -1,4 +1,4 @@
-pip3 install meson==1.8.2
+pip3 install meson==1.10.1
 
 # $env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release " +
 #         "-Dforce_fallback_for=gstreamer-1.0 " +

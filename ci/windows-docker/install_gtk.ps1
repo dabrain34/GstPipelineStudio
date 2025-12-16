@@ -1,8 +1,6 @@
-# Source common configuration and functions
 . C:\common.ps1
 
-# GTK-specific meson args
-$gtkMesonArgs = "-Dintrospection=disabled" +
+$mesonArgs = "-Dintrospection=disabled" +
     " -Dbuild-examples=false" +
     " -Dbuild-tests=false" +
     " -Dbuild-demos=false" +
@@ -12,14 +10,8 @@ $gtkMesonArgs = "-Dintrospection=disabled" +
     " -Dvulkan=disabled" +
     " -Dprint-cups=disabled"
 
-# Clone gtk
-Clone-Repo $DEFAULT_GTK_BRANCH "https://gitlab.gnome.org/gnome/gtk.git" "C:\gtk"
-
-# Build gtk
+cmd /c rmdir /s /q C:\gtk
+Clone-Repo $script:DEFAULT_GTK_BRANCH "https://gitlab.gnome.org/gnome/gtk.git" "C:\gtk"
 Set-Location C:\gtk
-Build-WithMeson "gtk" $gtkMesonArgs
-
-# Cleanup
+Build-WithMeson "gtk" $mesonArgs
 Remove-BuildDir "C:\gtk" "gtk"
-
-Exit 0

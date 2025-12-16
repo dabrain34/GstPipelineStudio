@@ -1,10 +1,8 @@
-[wrap-file]
-directory = gtk-4.16.7
-source_url = https://download.gnome.org/sources/gtk/4.16/gtk-4.16.7.tar.xz
-source_fallback_url = https://ftp.acc.umu.se/pub/gnome/sources/gtk/4.16/gtk-4.16.7.tar.xz
-source_filename = gtk-4.16.7.tar.xz
-source_hash = 5303c7624e15a48880591b9ddd43389afba3de4fb92a219719519bb1642ce3dc
-wrapdb_version = 4.16.7
+[wrap-git]
+directory = gtk
+url = https://gitlab.gnome.org/gnome/gtk.git
+revision = 4.20.3
+depth = 1
 
 [provide]
 dependency_names = gtk4, gtk4-broadway, gtk4-macos, gtk4-wayland, gtk4-win32, gtk4-x11, gtk4-unix-print

@@ -5,12 +5,12 @@
 
 # Version configuration (centralized)
 $script:DEFAULT_PANGO_BRANCH = "1.56.4"
-$script:DEFAULT_GTK_BRANCH = "4.16.7"
-$script:DEFAULT_GST_BRANCH = "1.26.8"
+$script:DEFAULT_LIBXML2_BRANCH = "v2.15.1"
+$script:DEFAULT_GTK_BRANCH = "4.20.3"
+$script:DEFAULT_GST_BRANCH = "1.28.0"
 
 # Build tools paths
-
-#$env:VS_BUILD_TOOLS = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
+$env:VS_BUILD_TOOLS = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat"
 $env:VS_BUILD_TOOLS = "C:\BuildTools\Common7\Tools\VsDevCmd.bat"
 $env:INSTALL_PREFIX = "C:\gst-install\"
 $env:MESON_PREFIX = "--prefix=$env:INSTALL_PREFIX -Dbuildtype=release"

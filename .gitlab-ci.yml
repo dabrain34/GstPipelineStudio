@@ -24,7 +24,7 @@ variables:
 # Version and tag for our current container
 .fedora:
   variables:
-    FDO_DISTRIBUTION_VERSION: "38"
+    FDO_DISTRIBUTION_VERSION: "40"
     # Update this to trigger a container rebuild
     FDO_DISTRIBUTION_TAG: $GST_RS_FDO_IMG_TAG
   before_script:
@@ -258,18 +258,6 @@ macos installer stable:
   needs: []
   extends:
     - ".macos image"
-  before_script:
-    - pip3 install --upgrade pip
-    # Make sure meson is up to date
-    - pip3 install -U meson==1.8.5
-    # Need to install certificates for python
-    - pip3 install --upgrade certifi
-    # # Another way to install certificates
-    # - open /Applications/Python\ 3.8/Install\ Certificates.command
-    # Get ninja
-    - pip3 install -U ninja
-    # Get tomlib
-    - pip3 install -U tomli
   script:
     # brew install
     - /bin/bash -c "./installer/macos/package_setup.sh"

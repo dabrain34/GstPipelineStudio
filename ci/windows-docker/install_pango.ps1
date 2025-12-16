@@ -1,19 +1,8 @@
-# Source common configuration and functions
 . C:\common.ps1
 
-# Pango-specific meson args
-$pangoMesonArgs = "-Dintrospection=disabled" +
-    " -Dbuild-examples=false" +
-    " -Dbuild-testsuite=false"
+$mesonArgs = "-Dintrospection=disabled -Dbuild-examples=false -Dbuild-testsuite=false"
 
-# Clone pango
-Clone-Repo $DEFAULT_PANGO_BRANCH "https://gitlab.gnome.org/gnome/pango.git" "C:\pango"
-
-# Build pango
+Clone-Repo $script:DEFAULT_PANGO_BRANCH "https://gitlab.gnome.org/gnome/pango.git" "C:\pango"
 Set-Location C:\pango
-Build-WithMeson "pango" $pangoMesonArgs
-
-# Cleanup
+Build-WithMeson "pango" $mesonArgs
 Remove-BuildDir "C:\pango" "pango"
-
-Exit 0
