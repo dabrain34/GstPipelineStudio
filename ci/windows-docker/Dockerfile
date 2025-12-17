@@ -6,10 +6,6 @@ FROM ${GST_WINDOWS_IMAGE}
 ENV ErrorActionPreference='Stop'
 SHELL ["powershell","-NoLogo", "-NonInteractive", "-Command"]
 
-ARG DEFAULT_PANGO_BRANCH="1.56.4"
-ARG DEFAULT_GTK_BRANCH="4.16.7"
-ARG DEFAULT_GST_BRANCH="1.26.8"
-
 # The rust version is set by the images_template.yml via GST_RS_STABLE
 ARG RUST_VERSION="invalid"
 
@@ -28,7 +24,7 @@ RUN cargo install cargo-c
 
 # This is working with wrap files for GTK and GStreamer but need to build pango first
 # Prebuilt to save some compile time on Windows
-COPY install_pango.ps1 install_gst.ps1 install_gtk.ps1 C:\
+COPY common.ps1 install_pango.ps1 install_gst.ps1 install_gtk.ps1 C:\
 RUN C:\install_pango.ps1
 RUN C:\install_gtk.ps1
 RUN C:\install_gst.ps1

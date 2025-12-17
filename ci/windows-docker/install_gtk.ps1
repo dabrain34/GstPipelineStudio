@@ -1,36 +1,25 @@
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+# Source common configuration and functions
+. C:\common.ps1
 
-$env:MESON_ARGS = "--prefix=C:\gst-install\ -Dbuildtype=release" +
-" -Dintrospection=disabled" +
-" -Dbuild-examples=false" +
-" -Dbuild-tests=false" +
-" -Dbuild-demos=false" +
-" -Dmedia-gstreamer=disabled" +
-" -Dx11-backend=false" +
-" -Dmacos-backend=false" +
-" -Dvulkan=disabled" +
-" -Dprint-cups=disabled"
+# GTK-specific meson args
+$gtkMesonArgs = "-Dintrospection=disabled" +
+    " -Dbuild-examples=false" +
+    " -Dbuild-tests=false" +
+    " -Dbuild-demos=false" +
+    " -Dmedia-gstreamer=disabled" +
+    " -Dx11-backend=false" +
+    " -Dmacos-backend=false" +
+    " -Dvulkan=disabled" +
+    " -Dprint-cups=disabled"
 
-# Download gtk and all its subprojects
-git clone -b $env:DEFAULT_GTK_BRANCH --depth 1 https://gitlab.gnome.org/gnome/gtk.git C:\gtk
-if (!$?) {
-  Write-Host "Failed to clone gtk"
-  Exit 1
-}
+# Clone gtk
+Clone-Repo $DEFAULT_GTK_BRANCH "https://gitlab.gnome.org/gnome/gtk.git" "C:\gtk"
 
+# Build gtk
 Set-Location C:\gtk
+Build-WithMeson "gtk" $gtkMesonArgs
 
-Write-Output "Building gtk"
-cmd.exe /C "C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 && meson _build $env:MESON_ARGS && meson compile -C _build && ninja -C _build install"
+# Cleanup
+Remove-BuildDir "C:\gtk" "gtk"
 
-if (!$?) {
-  Write-Host "Failed to build and install gtk"
-  Exit 1
-}
-
-Set-Location C:\
-cmd /c rmdir /s /q  C:\gtk
-if (!$?) {
-  Write-Host "Failed to remove gtk checkout"
-  Exit 1
-}
+Exit 0
