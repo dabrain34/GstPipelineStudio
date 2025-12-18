@@ -152,8 +152,15 @@ impl Settings {
     // Save the provided settings to the settings path
     pub fn save_settings(settings: &Settings) {
         let s = Settings::settings_file_path();
-        if let Err(e) = serde_any::to_file(&s, settings) {
-            GPS_ERROR!("Error while trying to save file: {} {}", s.display(), e);
+        match toml::to_string_pretty(settings) {
+            Ok(content) => {
+                if let Err(e) = std::fs::write(&s, content) {
+                    GPS_ERROR!("Error while trying to save file: {} {}", s.display(), e);
+                }
+            }
+            Err(e) => {
+                GPS_ERROR!("Error while serializing settings: {}", e);
+            }
         }
     }
 
@@ -161,8 +168,14 @@ impl Settings {
     pub fn load_settings() -> Settings {
         let s = Settings::settings_file_path();
         if s.exists() && s.is_file() {
-            match serde_any::from_file::<Settings, _>(&s) {
-                Ok(s) => s,
+            match std::fs::read_to_string(&s) {
+                Ok(content) => match toml::from_str(&content) {
+                    Ok(settings) => settings,
+                    Err(e) => {
+                        GPS_ERROR!("Error while parsing '{}': {}", s.display(), e);
+                        Settings::default()
+                    }
+                },
                 Err(e) => {
                     GPS_ERROR!("Error while opening '{}': {}", s.display(), e);
                     Settings::default()
