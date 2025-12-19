@@ -757,3 +757,139 @@ fn changing_max_depth_trims_existing_stacks() {
         assert_eq!(graphview.all_nodes(NodeType::All).len(), 7);
     });
 }
+#[test]
+fn xml_ports_saved_in_sorted_order() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create a node
+        let node = graphview.create_node("compositor", NodeType::Transform);
+        graphview.add_node(node);
+
+        // Add ports in reverse alphabetical order to test sorting
+        // This simulates what happens when ports are stored in a HashMap
+        let port_z = graphview.create_port("sink_2", PortDirection::Input, PortPresence::Sometimes);
+        let port_a = graphview.create_port("sink_0", PortDirection::Input, PortPresence::Sometimes);
+        let port_m = graphview.create_port("sink_1", PortDirection::Input, PortPresence::Sometimes);
+        let port_out = graphview.create_port("src_0", PortDirection::Output, PortPresence::Always);
+
+        let mut node = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut node, port_z);
+        graphview.add_port_to_node(&mut node, port_a);
+        graphview.add_port_to_node(&mut node, port_m);
+        graphview.add_port_to_node(&mut node, port_out);
+
+        // Save to XML
+        let buffer = graphview
+            .render_xml()
+            .expect("Should be able to render graph to xml");
+        let xml_str = std::str::from_utf8(&buffer).expect("XML should be valid UTF-8");
+
+        // Find all port names in order of appearance in XML
+        let port_positions: Vec<(usize, &str)> = ["sink_0", "sink_1", "sink_2", "src_0"]
+            .iter()
+            .filter_map(|name| {
+                xml_str
+                    .find(&format!("name=\"{}\"", name))
+                    .map(|pos| (pos, *name))
+            })
+            .collect();
+
+        // Verify all ports were found
+        assert_eq!(
+            port_positions.len(),
+            4,
+            "All 4 ports should be in XML: {:?}",
+            port_positions
+        );
+
+        // Verify ports appear in sorted order in the XML
+        let mut sorted_positions = port_positions.clone();
+        sorted_positions.sort_by_key(|(pos, _)| *pos);
+
+        assert_eq!(
+            sorted_positions[0].1, "sink_0",
+            "sink_0 should appear first in XML"
+        );
+        assert_eq!(
+            sorted_positions[1].1, "sink_1",
+            "sink_1 should appear second in XML"
+        );
+        assert_eq!(
+            sorted_positions[2].1, "sink_2",
+            "sink_2 should appear third in XML"
+        );
+        assert_eq!(
+            sorted_positions[3].1, "src_0",
+            "src_0 should appear fourth in XML"
+        );
+    });
+}
+
+#[test]
+fn xml_roundtrip_preserves_port_order() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create a node with multiple input ports
+        let node = graphview.create_node("compositor", NodeType::Transform);
+        graphview.add_node(node);
+
+        // Add ports - the order they're added determines their visual position
+        let port0 = graphview.create_port("sink_0", PortDirection::Input, PortPresence::Sometimes);
+        let port1 = graphview.create_port("sink_1", PortDirection::Input, PortPresence::Sometimes);
+        let port_out = graphview.create_port("src_0", PortDirection::Output, PortPresence::Always);
+
+        let mut node = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut node, port0);
+        graphview.add_port_to_node(&mut node, port1);
+        graphview.add_port_to_node(&mut node, port_out);
+
+        // Create source nodes and links
+        let src1 = graphview.create_node_with_port("videotestsrc", NodeType::Source, 1, 0);
+        src1.set_position(20.0, 30.0); // Top source
+        graphview.add_node(src1);
+
+        let src2 = graphview.create_node_with_port("videotestsrc", NodeType::Source, 1, 0);
+        src2.set_position(20.0, 300.0); // Bottom source
+        graphview.add_node(src2);
+
+        // Link top source to sink_0 (top input), bottom source to sink_1 (bottom input)
+        let link1 = graphview.create_link(2, 1, 4, 1); // src1 -> sink_0
+        graphview.add_link(link1);
+        let link2 = graphview.create_link(3, 1, 5, 2); // src2 -> sink_1
+        graphview.add_link(link2);
+
+        // Save to XML
+        let buffer = graphview
+            .render_xml()
+            .expect("Should be able to render graph to xml");
+
+        // Load back
+        graphview
+            .load_from_xml(buffer)
+            .expect("Should be able to load from XML");
+
+        // Verify node exists
+        let node = graphview.node(1).expect("Compositor node should exist");
+
+        // Get input ports and check their order by collecting to vec and sorting by name
+        let mut input_ports: Vec<_> = node.all_ports(PortDirection::Input).into_iter().collect();
+        input_ports.sort_by_key(|p| p.name());
+
+        assert_eq!(input_ports.len(), 2, "Should have 2 input ports");
+        assert_eq!(
+            input_ports[0].name(),
+            "sink_0",
+            "First input port should be sink_0"
+        );
+        assert_eq!(
+            input_ports[1].name(),
+            "sink_1",
+            "Second input port should be sink_1"
+        );
+
+        // Verify links are still correct
+        assert_eq!(graphview.all_links(true).len(), 2, "Should have 2 links");
+    });
+}

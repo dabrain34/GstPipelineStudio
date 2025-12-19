@@ -1416,7 +1416,11 @@ impl GraphView {
                     .attr("pos_y", &node.position().1.to_string())
                     .attr("light", &node.light().to_string()),
             )?;
-            for port in node.ports().values() {
+            // Sort ports by name to ensure consistent ordering when saving/loading
+            // This preserves visual port positions (e.g., sink_0 before sink_1)
+            let mut ports: Vec<_> = node.ports().values().cloned().collect();
+            ports.sort_by_key(|p| p.name());
+            for port in ports {
                 writer.write(
                     XMLWEvent::start_element("Port")
                         .attr("name", &port.name())
