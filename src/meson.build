@@ -7,8 +7,8 @@ configure_file(input: 'config.rs.in', output: 'config.rs', configuration: conf)
 run_command(
   python3,
   '-c', 'import shutil; shutil.copyfile("@0@", "@1@")'.format(
-    join_paths(meson.project_build_root(), 'src', 'config.rs'),
-    join_paths(meson.project_source_root(), 'src', 'config.rs'),
+    meson.project_build_root() / 'src' / 'config.rs',
+    meson.project_source_root() / 'src' / 'config.rs',
   ),
 )
 
@@ -45,7 +45,7 @@ rust_sources = files(
 
 sources = [cargo_sources, rust_sources]
 
-cargo_script = find_program(join_paths(meson.project_source_root(), 'build-aux/cargo.py'))
+cargo_script = find_program(meson.project_source_root() / 'build-aux' / 'cargo.py')
 
 app_name = meson.project_name()
 if host_system == 'windows'

@@ -72,11 +72,7 @@ subdir('po')
 meson.add_dist_script(
   'build-aux/dist-vendor.sh',
   meson.project_source_root(),
-  join_paths(
-    meson.project_build_root(),
-    'meson-dist',
-    meson.project_name() + '-' + version,
-  ),
+  meson.project_build_root() / 'meson-dist' / meson.project_name() + '-' + version,
 )
 if host_system == 'linux'
   meson.add_install_script('build-aux/meson/postinstall.py')
@@ -86,7 +82,7 @@ endif
 fs = import('fs')
 pre_commit = find_program('pre-commit', required: false)
 if pre_commit.found()
-  commit_msg_hook = join_paths(meson.project_source_root(), '.git', 'hooks', 'commit-msg')
+  commit_msg_hook = meson.project_source_root() / '.git' / 'hooks' / 'commit-msg'
   if not fs.exists(commit_msg_hook)
     run_target('install-git-hooks',
       command: [pre_commit, 'install', '--hook-type', 'commit-msg'],
