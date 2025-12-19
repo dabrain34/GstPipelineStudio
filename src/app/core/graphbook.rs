@@ -383,6 +383,11 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
                 let app = upgrade_weak!(app_weak);
                 GPSUI::properties::display_pipeline_details(&app);
             });
+            let app_weak = app.downgrade();
+            app.connect_app_menu_action("graph.arrange_pipeline", move |_, _| {
+                let app = upgrade_weak!(app_weak);
+                current_graphtab(&app).graphview().auto_arrange_graph(None);
+            });
             app.show_context_menu_at_position(
                 &*current_graphtab(&app).graphview(),
                 point.to_vec2().x() as f64,

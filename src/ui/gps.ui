@@ -70,6 +70,10 @@
         <attribute name="label" translatable="yes" comments="graph menu entry pipeline details">_Pipeline details</attribute>
         <attribute name="action">app.graph.pipeline_details</attribute>
       </item>
+      <item>
+        <attribute name="label" translatable="yes" comments="graph menu entry arrange pipeline">_Arrange Pipeline</attribute>
+        <attribute name="action">app.graph.arrange_pipeline</attribute>
+      </item>
     </section>
   </menu>
   <menu id="fav_menu">

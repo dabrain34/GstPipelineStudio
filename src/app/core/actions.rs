@@ -112,6 +112,7 @@ impl GPSApp {
 
         application.add_action(&gio::SimpleAction::new("graph.check", None));
         application.add_action(&gio::SimpleAction::new("graph.clear", None));
+        application.add_action(&gio::SimpleAction::new("graph.arrange_pipeline", None));
 
         let pipeline_details_action = gio::SimpleAction::new("graph.pipeline_details", None);
         pipeline_details_action.set_enabled(false); // Initially disabled
