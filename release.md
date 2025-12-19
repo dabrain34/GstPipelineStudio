@@ -13,7 +13,7 @@
 ## gitlab
 - create a tag on gitlab
 - Fetch the package from the `linux release` job or you can make it manually with:
-  - meson builddir -Dbuildtype=release
+  - meson setup builddir -Dbuildtype=release
   - ninja -C builddir dist
 - Upload the package .xz file and the sha256 to gitlab release page in the release notes
 see https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/releases/0.3.2

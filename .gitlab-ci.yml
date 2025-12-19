@@ -135,7 +135,7 @@ pre-commit:
     paths:
       - ${PRE_COMMIT_HOME}
   script:
-    - meson setup build
+    - meson setup builddir
     - pre-commit run --all-files
 
 clippy:
@@ -144,7 +144,7 @@ clippy:
     - .fdo.distribution-image@fedora
   stage: lint
   script:
-    - meson build
+    - meson setup builddir
     - cargo clippy --version
     - cargo clippy --color=always --all-targets -- -D warnings
 
@@ -168,7 +168,7 @@ linux release:
     - flatpak
     - tags
   script:
-    - meson builddir -Dbuildtype=release
+    - meson setup builddir -Dbuildtype=release
     - ninja -C builddir/ dist
   artifacts:
     paths:
@@ -181,7 +181,7 @@ test-stable:
     - .fdo.distribution-image@fedora
   stage: test
   script:
-    - meson build
+    - meson setup builddir
     - rustc --version
     - cargo build --color=always --all-targets
     - >
@@ -199,7 +199,7 @@ rustdoc:
   variables:
     RUSTDOCFLAGS: "-Dwarnings"
   script:
-    - meson build
+    - meson setup builddir
     - rustdoc --version
     - cargo doc --no-deps
 
@@ -211,8 +211,8 @@ dist-package:
   only:
     - flatpak
   script:
-    - meson build
-    - ninja -C build dist
+    - meson setup builddir
+    - ninja -C builddir dist
 
 flatpak:
   image: $GNOME_RUNTIME_IMAGE

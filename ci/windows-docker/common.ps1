@@ -29,7 +29,7 @@ function Clone-Repo {
 function Build-WithMeson {
     param($name, $mesonArgs)
     Write-Output "Building $name"
-    cmd.exe /C "`"$env:VS_BUILD_TOOLS`" -host_arch=amd64 -arch=amd64 && meson _build $env:MESON_PREFIX $mesonArgs && meson compile -C _build && ninja -C _build install"
+    cmd.exe /C "`"$env:VS_BUILD_TOOLS`" -host_arch=amd64 -arch=amd64 && meson setup _build $env:MESON_PREFIX $mesonArgs && meson compile -C _build && ninja -C _build install"
     if (!$?) {
         Write-Host "Failed to build and install $name"
         Exit 1

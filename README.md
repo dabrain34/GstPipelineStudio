@@ -49,7 +49,7 @@ brew install gstreamer gst-plugins-base gst-plugins-bad
 ## Getting started
 
 ```sh
-$ meson builddir -Dbuildtype=release
+$ meson setup builddir -Dbuildtype=release
 $ ninja -C builddir
 $ ./builddir/target/release/gst-pipeline-studio
 ```

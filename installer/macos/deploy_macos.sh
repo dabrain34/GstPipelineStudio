@@ -70,7 +70,7 @@ GSTREAMER_OPTS="
 # rebuild app release version
 rm -rf "${TARGETDIR}"
 test_ok meson subprojects update --reset
-test_ok meson --prefix=$TARGETDIR --buildtype=release ${BUILD_DIR} ${GSTREAMER_OPTS}
+test_ok meson setup --prefix=$TARGETDIR --buildtype=release ${BUILD_DIR} ${GSTREAMER_OPTS}
 test_ok ninja -C ${BUILD_DIR} install
 
 # copy app data files to target dir
