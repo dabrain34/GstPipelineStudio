@@ -164,6 +164,11 @@ pub enum UndoAction {
         old_value: String,
         new_value: String,
     },
+    /// Multiple node positions changed as a single operation (e.g., auto-layout)
+    BatchMoveNodes {
+        /// Vector of (node_id, old_position, new_position)
+        moves: Vec<(u32, graphene::Point, graphene::Point)>,
+    },
 }
 
 /// Manages undo/redo history for graph operations

@@ -6,6 +6,8 @@ mod property;
 mod selection;
 mod undo;
 
+#[cfg(test)]
+pub use graphview::AutoArrangeOptions;
 pub use graphview::GraphView;
 pub use node::Node;
 pub use node::NodeType;

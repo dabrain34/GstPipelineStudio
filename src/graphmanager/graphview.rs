@@ -45,6 +45,50 @@ const CANVAS_SIZE: f64 = 5000.0;
 const LINK_COLOR_DEFAULT: (f64, f64, f64) = (0.5, 0.5, 0.5); // Gray
 const LINK_COLOR_SELECTED: (f64, f64, f64) = (1.0, 0.18, 0.18); // Red
 
+/// Connection info for edge maps.
+///
+/// Used to track connections between nodes with port-level detail
+/// for improved edge crossing minimization during auto-arrange.
+#[derive(Debug, Clone, Copy)]
+struct EdgeInfo {
+    /// ID of the connected node
+    node_id: u32,
+    /// Index of the port on that node (used to adjust Y position for better routing)
+    port_index: usize,
+}
+
+/// Configuration options for auto-arrange
+#[derive(Debug, Clone)]
+pub struct AutoArrangeOptions {
+    /// Horizontal spacing between layers (default: 250.0)
+    pub horizontal_spacing: f32,
+    /// Vertical spacing between nodes in the same layer (default: 100.0)
+    pub vertical_spacing: f32,
+    /// Starting X position for the first layer (default: 50.0)
+    pub start_x: f32,
+    /// Starting Y position (default: 50.0)
+    pub start_y: f32,
+    /// Factor for port index offset as fraction of vertical_spacing (default: 0.3).
+    /// Higher values spread connections to different ports further apart vertically.
+    pub port_offset_factor: f32,
+    /// Number of barycenter refinement iterations (default: 4).
+    /// More iterations may improve layout quality but increase computation time.
+    pub barycenter_iterations: usize,
+}
+
+impl Default for AutoArrangeOptions {
+    fn default() -> Self {
+        Self {
+            horizontal_spacing: 250.0,
+            vertical_spacing: 100.0,
+            start_x: 50.0,
+            start_y: 50.0,
+            port_offset_factor: 0.3,
+            barycenter_iterations: 4,
+        }
+    }
+}
+
 mod imp {
     use super::*;
 
@@ -2045,6 +2089,14 @@ impl GraphView {
                         }
                     }
                 }
+                UndoAction::BatchMoveNodes { moves } => {
+                    // Undo: Move all nodes back to their old positions
+                    for (node_id, old_position, _) in moves {
+                        if let Some(node) = self.node(*node_id) {
+                            self.move_node(&node, old_position);
+                        }
+                    }
+                }
             }
 
             // Push the original action to redo stack so it can be redone
@@ -2143,6 +2195,14 @@ impl GraphView {
                             node.remove_property(property_name);
                         } else {
                             node.add_property(property_name, new_value);
+                        }
+                    }
+                }
+                UndoAction::BatchMoveNodes { moves } => {
+                    // Redo: Move all nodes to their new positions
+                    for (node_id, _, new_position) in moves {
+                        if let Some(node) = self.node(*node_id) {
+                            self.move_node(&node, new_position);
                         }
                     }
                 }
@@ -2311,6 +2371,342 @@ impl GraphView {
             } else {
                 self.modify_port_property(node_id, port_id, key, value);
             }
+        }
+    }
+
+    // Auto-arrange methods
+
+    /// Automatically arrange all nodes in the graph from source to sink.
+    ///
+    /// Uses longest-path layering to position nodes horizontally and
+    /// distributes nodes vertically within each layer using barycenter ordering.
+    ///
+    /// This operation is undoable as a single action.
+    ///
+    /// # Arguments
+    /// * `options` - Optional layout configuration. Uses defaults if None.
+    ///
+    /// # Returns
+    /// `true` if layout was applied, `false` if graph is empty.
+    pub fn auto_arrange_graph(&self, options: Option<AutoArrangeOptions>) -> bool {
+        use std::collections::VecDeque;
+
+        let options = options.unwrap_or_default();
+        let private = imp::GraphView::from_obj(self);
+
+        let nodes = self.all_nodes(NodeType::All);
+        if nodes.is_empty() {
+            return false;
+        }
+
+        // Build edge maps (with port index info for crossing minimization)
+        let (forward_edges, backward_edges) = self.build_edge_maps();
+
+        // Compute input count for each node
+        let mut input_count: HashMap<u32, usize> = HashMap::new();
+        for node in &nodes {
+            input_count.insert(node.id(), 0);
+        }
+        for downstream_list in forward_edges.values() {
+            for edge in downstream_list {
+                *input_count.entry(edge.node_id).or_insert(0) += 1;
+            }
+        }
+
+        // Find source nodes (input_count == 0)
+        let sources: Vec<u32> = input_count
+            .iter()
+            .filter(|(_, &count)| count == 0)
+            .map(|(&id, _)| id)
+            .collect();
+
+        // Longest-path layering using modified Kahn's algorithm
+        let mut layer: HashMap<u32, usize> = HashMap::new();
+        for node in &nodes {
+            layer.insert(node.id(), 0);
+        }
+
+        let mut queue: VecDeque<u32> = sources.into_iter().collect();
+        let mut remaining_input_count = input_count.clone();
+
+        while let Some(node_id) = queue.pop_front() {
+            let current_layer = *layer.get(&node_id).unwrap_or(&0);
+
+            if let Some(downstream_list) = forward_edges.get(&node_id) {
+                for edge in downstream_list {
+                    // Update layer to maximum distance from sources
+                    let new_layer = current_layer + 1;
+                    layer
+                        .entry(edge.node_id)
+                        .and_modify(|l| *l = (*l).max(new_layer));
+
+                    // Decrement input count and add to queue if ready
+                    if let Some(count) = remaining_input_count.get_mut(&edge.node_id) {
+                        *count = count.saturating_sub(1);
+                        if *count == 0 {
+                            queue.push_back(edge.node_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle disconnected nodes (place them in an extra layer at the end)
+        let max_layer = layer.values().max().copied().unwrap_or(0);
+        for node in &nodes {
+            layer.entry(node.id()).or_insert(max_layer + 1);
+        }
+
+        // Group nodes by layer
+        let num_layers = layer.values().max().copied().unwrap_or(0) + 1;
+        let mut layers: Vec<Vec<u32>> = vec![Vec::new(); num_layers];
+        for (&node_id, &layer_idx) in &layer {
+            if layer_idx < num_layers {
+                layers[layer_idx].push(node_id);
+            }
+        }
+
+        // Compute vertical positions using barycenter ordering with multiple passes
+        let y_positions =
+            self.compute_vertical_positions(&layers, &forward_edges, &backward_edges, &options);
+
+        // Collect old positions and compute new positions
+        let mut moves: Vec<(u32, graphene::Point, graphene::Point)> = Vec::new();
+
+        for node in &nodes {
+            let node_id = node.id();
+            let layer_idx = layer.get(&node_id).copied().unwrap_or(0);
+            let new_x = options.start_x + (layer_idx as f32 * options.horizontal_spacing);
+            let new_y = y_positions
+                .get(&node_id)
+                .copied()
+                .unwrap_or(options.start_y);
+
+            // Get old position from the nodes HashMap
+            if let Some((_, old_point)) = private.nodes.borrow().get(&node_id) {
+                let old_pos = *old_point;
+                let new_pos = graphene::Point::new(new_x, new_y);
+
+                // Only record if position actually changed
+                if (new_pos.x() - old_pos.x()).abs() > 0.1
+                    || (new_pos.y() - old_pos.y()).abs() > 0.1
+                {
+                    moves.push((node_id, old_pos, new_pos));
+                }
+            }
+        }
+
+        // Apply new positions
+        for (node_id, _, new_pos) in &moves {
+            if let Some(node) = self.node(*node_id) {
+                self.move_node(&node, new_pos);
+            }
+        }
+
+        // Record batch undo action (single undo for entire layout)
+        if !moves.is_empty() {
+            private
+                .undo_stack
+                .borrow_mut()
+                .push(crate::graphmanager::undo::UndoAction::BatchMoveNodes { moves });
+        }
+
+        self.graph_updated();
+        true
+    }
+
+    /// Build forward and backward edge maps from the links
+    ///
+    /// Returns (forward_edges, backward_edges) where each maps:
+    /// - node_id -> list of (connected_node_id, port_index)
+    ///
+    /// The port_index helps order connections to minimize crossings
+    fn build_edge_maps(&self) -> (HashMap<u32, Vec<EdgeInfo>>, HashMap<u32, Vec<EdgeInfo>>) {
+        let private = imp::GraphView::from_obj(self);
+        let links = private.links.borrow();
+        let nodes = self.all_nodes(NodeType::All);
+
+        let mut forward_edges: HashMap<u32, Vec<EdgeInfo>> = HashMap::new();
+        let mut backward_edges: HashMap<u32, Vec<EdgeInfo>> = HashMap::new();
+
+        // Initialize empty vectors for all nodes
+        for node in &nodes {
+            forward_edges.insert(node.id(), Vec::new());
+            backward_edges.insert(node.id(), Vec::new());
+        }
+
+        // Build a map of port_id -> port_index for each node
+        // Port index is the position of the port in the node's port list (for input or output)
+        let mut port_indices: HashMap<u32, usize> = HashMap::new();
+        for node in &nodes {
+            let mut input_idx = 0usize;
+            let mut output_idx = 0usize;
+            for port in node.all_ports(PortDirection::All) {
+                match port.direction() {
+                    PortDirection::Input => {
+                        port_indices.insert(port.id(), input_idx);
+                        input_idx += 1;
+                    }
+                    PortDirection::Output => {
+                        port_indices.insert(port.id(), output_idx);
+                        output_idx += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Build edges from links with port index info
+        for link in links.values() {
+            // For forward edges: use port_to index (which port on destination)
+            let port_to_idx = port_indices.get(&link.port_to).copied().unwrap_or(0);
+            forward_edges
+                .entry(link.node_from)
+                .or_default()
+                .push(EdgeInfo {
+                    node_id: link.node_to,
+                    port_index: port_to_idx,
+                });
+
+            // For backward edges: use port_from index (which port on source)
+            let port_from_idx = port_indices.get(&link.port_from).copied().unwrap_or(0);
+            backward_edges
+                .entry(link.node_to)
+                .or_default()
+                .push(EdgeInfo {
+                    node_id: link.node_from,
+                    port_index: port_from_idx,
+                });
+        }
+
+        (forward_edges, backward_edges)
+    }
+
+    /// Compute vertical positions for nodes using iterative barycenter ordering
+    ///
+    /// Uses multiple passes (forward and backward sweeps) to minimize edge crossings.
+    /// Each pass reorders nodes within layers based on the average Y position of
+    /// their connected nodes in adjacent layers, taking port indices into account.
+    fn compute_vertical_positions(
+        &self,
+        layers: &[Vec<u32>],
+        forward_edges: &HashMap<u32, Vec<EdgeInfo>>,
+        backward_edges: &HashMap<u32, Vec<EdgeInfo>>,
+        options: &AutoArrangeOptions,
+    ) -> HashMap<u32, f32> {
+        if layers.is_empty() {
+            return HashMap::new();
+        }
+
+        // Store the ordering of nodes within each layer (indices determine Y position)
+        let mut layer_orderings: Vec<Vec<u32>> = layers.to_vec();
+
+        // Initial assignment: first layer keeps original order
+        // Subsequent layers ordered by upstream barycenter
+        for layer_idx in 1..layer_orderings.len() {
+            let adjacent = layer_orderings[layer_idx - 1].clone();
+            self.reorder_layer_by_barycenter(
+                &mut layer_orderings[layer_idx],
+                backward_edges,
+                &adjacent,
+                options,
+            );
+        }
+
+        // Perform multiple passes to refine the ordering
+        for _ in 0..options.barycenter_iterations {
+            // Backward pass (right to left): reorder based on downstream nodes
+            for layer_idx in (0..layer_orderings.len().saturating_sub(1)).rev() {
+                let adjacent = layer_orderings[layer_idx + 1].clone();
+                self.reorder_layer_by_barycenter(
+                    &mut layer_orderings[layer_idx],
+                    forward_edges,
+                    &adjacent,
+                    options,
+                );
+            }
+
+            // Forward pass (left to right): reorder based on upstream nodes
+            for layer_idx in 1..layer_orderings.len() {
+                let adjacent = layer_orderings[layer_idx - 1].clone();
+                self.reorder_layer_by_barycenter(
+                    &mut layer_orderings[layer_idx],
+                    backward_edges,
+                    &adjacent,
+                    options,
+                );
+            }
+        }
+
+        // Convert orderings to Y positions
+        let mut y_positions: HashMap<u32, f32> = HashMap::new();
+        for layer_nodes in &layer_orderings {
+            for (i, &node_id) in layer_nodes.iter().enumerate() {
+                let y = options.start_y + (i as f32 * options.vertical_spacing);
+                y_positions.insert(node_id, y);
+            }
+        }
+
+        y_positions
+    }
+
+    /// Reorder nodes in a layer based on barycenter of connected nodes in adjacent layer
+    ///
+    /// The port_index in EdgeInfo is used to adjust the effective Y position:
+    /// - Connections to higher-indexed ports result in slightly higher Y positions
+    /// - This helps minimize edge crossings when multiple nodes connect to the same destination
+    fn reorder_layer_by_barycenter(
+        &self,
+        layer: &mut [u32],
+        edges: &HashMap<u32, Vec<EdgeInfo>>,
+        adjacent_layer: &[u32],
+        options: &AutoArrangeOptions,
+    ) {
+        // Build a position map for the adjacent layer
+        let adjacent_positions: HashMap<u32, f32> = adjacent_layer
+            .iter()
+            .enumerate()
+            .map(|(i, &id)| (id, options.start_y + (i as f32 * options.vertical_spacing)))
+            .collect();
+
+        // Port index offset: fraction of vertical spacing to add per port index
+        // This ensures that nodes connecting to port 0 appear above those connecting to port 1, etc.
+        let port_offset = options.vertical_spacing * options.port_offset_factor;
+
+        // Compute barycenter for each node in the layer
+        let mut nodes_with_barycenter: Vec<(u32, f32)> = layer
+            .iter()
+            .map(|&node_id| {
+                let connected = edges.get(&node_id).map(|v| v.as_slice()).unwrap_or(&[]);
+                let barycenter = if connected.is_empty() {
+                    // No connections: keep current relative position
+                    f32::MAX
+                } else {
+                    let (sum, count) = connected.iter().fold((0.0f32, 0usize), |(s, c), edge| {
+                        if let Some(&pos) = adjacent_positions.get(&edge.node_id) {
+                            // Add port index offset to distinguish connections to different ports
+                            let effective_pos = pos + (edge.port_index as f32 * port_offset);
+                            (s + effective_pos, c + 1)
+                        } else {
+                            (s, c)
+                        }
+                    });
+                    if count > 0 {
+                        sum / count as f32
+                    } else {
+                        f32::MAX
+                    }
+                };
+                (node_id, barycenter)
+            })
+            .collect();
+
+        // Sort by barycenter, maintaining relative order for nodes with no connections
+        nodes_with_barycenter.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
+
+        // Update the layer ordering
+        for (i, (node_id, _)) in nodes_with_barycenter.into_iter().enumerate() {
+            layer[i] = node_id;
         }
     }
 

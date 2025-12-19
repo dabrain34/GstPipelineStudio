@@ -757,6 +757,294 @@ fn changing_max_depth_trims_existing_stacks() {
         assert_eq!(graphview.all_nodes(NodeType::All).len(), 7);
     });
 }
+
+#[test]
+fn auto_arrange_simple_pipeline() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create source -> transform -> sink pipeline
+        let src = graphview.create_node_with_port("src", NodeType::Source, 1, 0);
+        graphview.add_node(src);
+        let transform = graphview.create_node_with_port("transform", NodeType::Transform, 1, 1);
+        graphview.add_node(transform);
+        let sink = graphview.create_node_with_port("sink", NodeType::Sink, 0, 1);
+        graphview.add_node(sink);
+
+        // Create links: src -> transform -> sink
+        let link1 = graphview.create_link(1, 2, 1, 2);
+        graphview.add_link(link1);
+        let link2 = graphview.create_link(2, 3, 3, 4);
+        graphview.add_link(link2);
+
+        // Clear undo history
+        graphview.clear_undo_history();
+
+        // Apply auto-arrange
+        assert!(graphview.auto_arrange_graph(None));
+
+        // Verify layering: src.x < transform.x < sink.x
+        let src_pos = graphview.node(1).unwrap().position();
+        let transform_pos = graphview.node(2).unwrap().position();
+        let sink_pos = graphview.node(3).unwrap().position();
+
+        assert!(
+            src_pos.0 < transform_pos.0,
+            "Source should be left of transform: {} < {}",
+            src_pos.0,
+            transform_pos.0
+        );
+        assert!(
+            transform_pos.0 < sink_pos.0,
+            "Transform should be left of sink: {} < {}",
+            transform_pos.0,
+            sink_pos.0
+        );
+
+        // Should be undoable as single operation
+        assert_eq!(graphview.undo_count(), 1);
+        assert!(graphview.can_undo());
+    });
+}
+
+#[test]
+fn auto_arrange_empty_graph() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Empty graph should return false
+        assert!(!graphview.auto_arrange_graph(None));
+
+        // No undo should be recorded
+        assert!(!graphview.can_undo());
+    });
+}
+
+#[test]
+fn auto_arrange_disconnected_nodes() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create disconnected nodes
+        let node1 = graphview.create_node("node1", NodeType::Source);
+        graphview.add_node(node1);
+        let node2 = graphview.create_node("node2", NodeType::Transform);
+        graphview.add_node(node2);
+        let node3 = graphview.create_node("node3", NodeType::Sink);
+        graphview.add_node(node3);
+
+        // Clear undo history
+        graphview.clear_undo_history();
+
+        // Apply auto-arrange
+        assert!(graphview.auto_arrange_graph(None));
+
+        // All nodes should be positioned (all are sources since no incoming edges)
+        // They should be in the same layer (layer 0) at different Y positions
+        let pos1 = graphview.node(1).unwrap().position();
+        let pos2 = graphview.node(2).unwrap().position();
+        let pos3 = graphview.node(3).unwrap().position();
+
+        // Same X position (same layer)
+        assert!(
+            (pos1.0 - pos2.0).abs() < 1.0,
+            "Disconnected nodes should be in same layer"
+        );
+        assert!(
+            (pos2.0 - pos3.0).abs() < 1.0,
+            "Disconnected nodes should be in same layer"
+        );
+
+        // Should be undoable
+        assert!(graphview.can_undo());
+    });
+}
+
+#[test]
+fn auto_arrange_undo_restores_positions() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create a simple pipeline
+        let src = graphview.create_node_with_port("src", NodeType::Source, 1, 0);
+        graphview.add_node(src);
+        let sink = graphview.create_node_with_port("sink", NodeType::Sink, 0, 1);
+        graphview.add_node(sink);
+
+        // Create link
+        let link = graphview.create_link(1, 2, 1, 2);
+        graphview.add_link(link);
+
+        // Get original positions (from add_node automatic placement)
+        let original_src_pos = graphview.node(1).unwrap().position();
+        let original_sink_pos = graphview.node(2).unwrap().position();
+
+        // Clear undo history
+        graphview.clear_undo_history();
+
+        // Apply auto-arrange
+        assert!(graphview.auto_arrange_graph(None));
+
+        // Positions should have changed
+        let new_src_pos = graphview.node(1).unwrap().position();
+        let new_sink_pos = graphview.node(2).unwrap().position();
+
+        // Undo the layout
+        assert!(graphview.undo());
+
+        // Positions should be restored to original
+        let restored_src_pos = graphview.node(1).unwrap().position();
+        let restored_sink_pos = graphview.node(2).unwrap().position();
+
+        assert!(
+            (restored_src_pos.0 - original_src_pos.0).abs() < 1.0,
+            "Source X should be restored"
+        );
+        assert!(
+            (restored_src_pos.1 - original_src_pos.1).abs() < 1.0,
+            "Source Y should be restored"
+        );
+        assert!(
+            (restored_sink_pos.0 - original_sink_pos.0).abs() < 1.0,
+            "Sink X should be restored"
+        );
+        assert!(
+            (restored_sink_pos.1 - original_sink_pos.1).abs() < 1.0,
+            "Sink Y should be restored"
+        );
+
+        // Redo should restore the layout
+        assert!(graphview.redo());
+
+        let redone_src_pos = graphview.node(1).unwrap().position();
+        let redone_sink_pos = graphview.node(2).unwrap().position();
+
+        assert!(
+            (redone_src_pos.0 - new_src_pos.0).abs() < 1.0,
+            "Source X should be redone"
+        );
+        assert!(
+            (redone_sink_pos.0 - new_sink_pos.0).abs() < 1.0,
+            "Sink X should be redone"
+        );
+    });
+}
+
+#[test]
+fn auto_arrange_branching_pipeline() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create a branching pipeline: src -> [transform1, transform2] -> sink
+        let src = graphview.create_node_with_port("src", NodeType::Source, 2, 0);
+        graphview.add_node(src);
+
+        let transform1 = graphview.create_node_with_port("transform1", NodeType::Transform, 1, 1);
+        graphview.add_node(transform1);
+
+        let transform2 = graphview.create_node_with_port("transform2", NodeType::Transform, 1, 1);
+        graphview.add_node(transform2);
+
+        let sink = graphview.create_node_with_port("sink", NodeType::Sink, 0, 2);
+        graphview.add_node(sink);
+
+        // Link: src -> transform1 and src -> transform2
+        let link1 = graphview.create_link(1, 2, 1, 3);
+        graphview.add_link(link1);
+        let link2 = graphview.create_link(1, 3, 2, 5);
+        graphview.add_link(link2);
+
+        // Link: transform1 -> sink and transform2 -> sink
+        let link3 = graphview.create_link(2, 4, 4, 7);
+        graphview.add_link(link3);
+        let link4 = graphview.create_link(3, 4, 6, 8);
+        graphview.add_link(link4);
+
+        // Clear undo history
+        graphview.clear_undo_history();
+
+        // Apply auto-arrange
+        assert!(graphview.auto_arrange_graph(None));
+
+        // Verify layering
+        let src_pos = graphview.node(1).unwrap().position();
+        let t1_pos = graphview.node(2).unwrap().position();
+        let t2_pos = graphview.node(3).unwrap().position();
+        let sink_pos = graphview.node(4).unwrap().position();
+
+        // src should be leftmost
+        assert!(src_pos.0 < t1_pos.0, "Source should be left of transform1");
+        assert!(src_pos.0 < t2_pos.0, "Source should be left of transform2");
+
+        // transforms should be in the same layer (same X)
+        assert!(
+            (t1_pos.0 - t2_pos.0).abs() < 1.0,
+            "Transforms should be in same layer"
+        );
+
+        // sink should be rightmost
+        assert!(t1_pos.0 < sink_pos.0, "Transform1 should be left of sink");
+        assert!(t2_pos.0 < sink_pos.0, "Transform2 should be left of sink");
+
+        // transforms should have different Y positions
+        assert!(
+            (t1_pos.1 - t2_pos.1).abs() > 1.0,
+            "Transforms should have different Y positions"
+        );
+    });
+}
+
+#[test]
+fn auto_arrange_custom_options() {
+    test_synced(|| {
+        use crate::graphmanager::AutoArrangeOptions;
+
+        let graphview = GraphView::new();
+
+        // Create two connected nodes
+        let src = graphview.create_node_with_port("src", NodeType::Source, 1, 0);
+        graphview.add_node(src);
+        let sink = graphview.create_node_with_port("sink", NodeType::Sink, 0, 1);
+        graphview.add_node(sink);
+
+        let link = graphview.create_link(1, 2, 1, 2);
+        graphview.add_link(link);
+
+        // Clear undo history
+        graphview.clear_undo_history();
+
+        // Apply auto-arrange with custom options
+        let options = AutoArrangeOptions {
+            horizontal_spacing: 500.0,
+            vertical_spacing: 200.0,
+            start_x: 100.0,
+            start_y: 100.0,
+            ..Default::default()
+        };
+        assert!(graphview.auto_arrange_graph(Some(options)));
+
+        // Verify positions match custom options
+        let src_pos = graphview.node(1).unwrap().position();
+        let sink_pos = graphview.node(2).unwrap().position();
+
+        // Source should be at start_x
+        assert!(
+            (src_pos.0 - 100.0).abs() < 1.0,
+            "Source X should be at start_x"
+        );
+        assert!(
+            (src_pos.1 - 100.0).abs() < 1.0,
+            "Source Y should be at start_y"
+        );
+
+        // Sink should be at start_x + horizontal_spacing
+        assert!(
+            (sink_pos.0 - 600.0).abs() < 1.0, // 100 + 500
+            "Sink X should be at start_x + horizontal_spacing"
+        );
+    });
+}
+
 #[test]
 fn xml_ports_saved_in_sorted_order() {
     test_synced(|| {
