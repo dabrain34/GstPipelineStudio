@@ -1,0 +1,30 @@
+[general]
+ignore=body-is-missing
+regex-style-search=True
+contrib=contrib-disallow-cleanup-commits
+# Do not ignore fixup/squash commits - we want to detect them
+ignore-fixup-commits=false
+ignore-fixup-amend-commits=false
+ignore-squash-commits=false
+
+[title-max-length]
+line-length=100
+
+[body-max-line-length]
+line-length=120
+
+[body-min-length]
+min-length=10
+
+# Ensure every title starts with a module prefix (GStreamer style)
+# Examples: settings: fix bug, meson: update version, ci: add linting
+[title-match-regex]
+regex=^[\w]+[\w, -\\/{}]*[\w]+: .*
+
+# Ignore GDB backtraces in commit body
+[ignore-body-lines]
+regex=^ \#\d(.*):\d+$
+
+# Ignore release commits
+[ignore-by-title]
+regex=^(Release|Back to development)

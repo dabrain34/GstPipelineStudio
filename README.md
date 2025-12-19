@@ -77,6 +77,26 @@ This project has been also possible thanks to amazing projects such as:
 
 Every contribution is greatly appreciated! You will just need a [gitlib account](https://gitlab.freedesktop.org/users/sign_in?redirect_to_referer=yes). [Fork](https://docs.gitlab.com/ee/user/project/repository/forking_workflow.html) this repo, [clone](http://git-scm.com/docs/git-clone) your fork, create a [feature branch](https://www.google.com/search?q=git+feature+branches), [commit](http://git-scm.com/docs/git-commit), [push](http://git-scm.com/docs/git-push) and submit a [merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html).
 
+### Development Setup
+
+Install pre-commit hooks to validate your commits locally:
+
+```sh
+pip3 install pre-commit
+pre-commit install --hook-type commit-msg
+```
+
+Or using meson:
+
+```sh
+meson setup builddir
+ninja -C builddir install-git-hooks
+```
+
+This will validate commit messages following GStreamer guidelines:
+- Format: `module: short description` (e.g., `settings: fix crash on startup`)
+- No WIP, fixup!, or squash! commits in merge requests
+
 Submit any suggestions, questions or bugs to the [Issue Tracker](https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/issues/).
 
 ## Troubleshooting
