@@ -22,7 +22,7 @@ env["PKG_CONFIG_PATH"] = (
 )
 
 
-if BUILDTYPE == "release":
+if BUILDTYPE in ["plain", "release"]:
     print("RELEASE MODE")
     CMD = [
         "cargo",
