@@ -6,7 +6,4 @@ option (
     'development'
   ],
   value: 'default',
-  description: 'The build profile for Authenticator. One of "default" or "development".'
 )
-
-
