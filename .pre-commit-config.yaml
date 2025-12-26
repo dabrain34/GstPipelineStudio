@@ -4,7 +4,6 @@ repos:
   - repo: https://github.com/jorisroovers/gitlint
     rev: v0.19.1
     hooks:
-      - id: gitlint  # local hook (commit-msg)
       - id: gitlint-ci  # CI hook (validates commit range)
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
