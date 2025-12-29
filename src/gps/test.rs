@@ -596,6 +596,118 @@ mod player_test {
     }
 }
 
+// =============================================================================
+// Caps compatibility tests (used by auto-connect feature)
+// =============================================================================
+
+#[cfg(test)]
+mod caps_test {
+    use super::*;
+    use crate::gps::PadInfo;
+
+    #[test]
+    fn test_caps_compatible_same_type() {
+        test_synced(|| {
+            // Same caps should be compatible
+            assert!(PadInfo::caps_compatible("video/x-raw", "video/x-raw"));
+            assert!(PadInfo::caps_compatible("audio/x-raw", "audio/x-raw"));
+        });
+    }
+
+    #[test]
+    fn test_caps_compatible_any() {
+        test_synced(|| {
+            // ANY caps should be compatible with anything
+            assert!(PadInfo::caps_compatible("ANY", "video/x-raw"));
+            assert!(PadInfo::caps_compatible("video/x-raw", "ANY"));
+            assert!(PadInfo::caps_compatible("ANY", "ANY"));
+            assert!(PadInfo::caps_compatible("ANY", "audio/x-raw"));
+        });
+    }
+
+    #[test]
+    fn test_caps_compatible_different_types() {
+        test_synced(|| {
+            // Different media types should not be compatible
+            assert!(!PadInfo::caps_compatible("video/x-raw", "audio/x-raw"));
+            assert!(!PadInfo::caps_compatible("audio/x-raw", "video/x-raw"));
+        });
+    }
+
+    #[test]
+    fn test_caps_compatible_with_format() {
+        test_synced(|| {
+            // Caps with matching formats should be compatible
+            assert!(PadInfo::caps_compatible(
+                "video/x-raw,format=I420",
+                "video/x-raw,format=I420"
+            ));
+
+            // video/x-raw should intersect with specific format
+            assert!(PadInfo::caps_compatible(
+                "video/x-raw",
+                "video/x-raw,format=I420"
+            ));
+        });
+    }
+
+    #[test]
+    fn test_caps_compatible_incompatible_formats() {
+        test_synced(|| {
+            // Different specific formats that can't intersect
+            // Note: This depends on GStreamer's caps intersection logic
+            // Some format combinations may still be compatible through negotiation
+            assert!(!PadInfo::caps_compatible(
+                "video/x-raw,format=I420,width=640,height=480",
+                "video/x-raw,format=RGBA,width=1920,height=1080"
+            ));
+        });
+    }
+
+    #[test]
+    fn test_caps_compatible_invalid_caps() {
+        test_synced(|| {
+            // Invalid caps strings should return false
+            assert!(!PadInfo::caps_compatible(
+                "invalid/caps/string!",
+                "video/x-raw"
+            ));
+            assert!(!PadInfo::caps_compatible(
+                "video/x-raw",
+                "invalid/caps/string!"
+            ));
+            assert!(!PadInfo::caps_compatible("", "video/x-raw"));
+            assert!(!PadInfo::caps_compatible("video/x-raw", ""));
+        });
+    }
+
+    #[test]
+    fn test_caps_compatible_encoded_types() {
+        test_synced(|| {
+            // H264 and VP8 are both video but shouldn't intersect
+            assert!(!PadInfo::caps_compatible("video/x-h264", "video/x-vp8"));
+
+            // Same encoded type should be compatible
+            assert!(PadInfo::caps_compatible("video/x-h264", "video/x-h264"));
+        });
+    }
+
+    #[test]
+    fn test_caps_compatible_audio_formats() {
+        test_synced(|| {
+            // Audio caps with different channel counts
+            assert!(PadInfo::caps_compatible(
+                "audio/x-raw",
+                "audio/x-raw,channels=2"
+            ));
+            assert!(PadInfo::caps_compatible(
+                "audio/x-raw,channels=2",
+                "audio/x-raw,channels=2"
+            ));
+        });
+    }
+}
+
 /// Tests for GStreamer element default value validation.
 ///
 /// These tests scan all elements and check that ParamSpec defaults match actual values.

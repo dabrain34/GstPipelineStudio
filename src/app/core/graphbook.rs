@@ -33,6 +33,26 @@ use crate::{GPS_DEBUG, GPS_ERROR, GPS_TRACE, GPS_WARN};
 use super::super::settings::Settings;
 use super::super::{GPSApp, GPSAppWeak};
 
+/// Creates a link between two ports, automatically handling direction.
+///
+/// Given a source port and target port, this function determines the correct
+/// node ordering based on the source port's direction (output ports connect
+/// from→to, input ports connect to→from).
+fn create_directional_link(
+    app: &GPSApp,
+    from_node_id: u32,
+    from_port_id: u32,
+    from_port_direction: GM::PortDirection,
+    target_node_id: u32,
+    target_port_id: u32,
+) {
+    if from_port_direction == GM::PortDirection::Output {
+        app.create_link(from_node_id, target_node_id, from_port_id, target_port_id);
+    } else {
+        app.create_link(target_node_id, from_node_id, target_port_id, from_port_id);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum TabState {
     #[default]
@@ -249,6 +269,72 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
     tab_box.append(&close_button);
     graphbook.append_page(&scrollwindow, Some(&tab_box));
     graphbook.set_tab_reorderable(&scrollwindow, true);
+
+    // Handle node link requests from graphview.
+    //
+    // Signal flow and ordering:
+    // 1. User clicks port -> port becomes selected
+    // 2. User clicks different node -> GraphView emits "node-link-request"
+    // 3. This handler calls handle_auto_connect() which validates caps and creates link
+    // 4. If a link is created, GraphView emits "link-added" (processed synchronously)
+    // 5. The link-added handler performs a second caps check as defense-in-depth
+    // 6. We check here if the link was rejected and clean up any orphaned request ports
+    //
+    // Note: GTK signal handlers within the same main loop iteration are processed
+    // synchronously, so by the time we check port_is_linked(), the link-added
+    // handler has already run and potentially removed incompatible links.
+    let app_weak = app.downgrade();
+    gt.graphview().connect_local(
+        "node-link-request",
+        false,
+        glib::clone!(move |values: &[Value]| {
+            let app = upgrade_weak!(app_weak, None);
+
+            // Get the graphview that emitted the signal (safer than current_graphtab for multi-tab scenarios)
+            let graphview = values[0]
+                .get::<GM::GraphView>()
+                .expect("signal emitter should be GraphView");
+
+            let from_node_id = values[1].get::<u32>().expect("from_node_id args[1]");
+            let from_port_id = values[2].get::<u32>().expect("from_port_id args[2]");
+            let target_node_id = values[3].get::<u32>().expect("target_node_id args[3]");
+
+            GPS_TRACE!(
+                "Node link request: node {} port {} to node {}",
+                from_node_id,
+                from_port_id,
+                target_node_id
+            );
+
+            // Attempt auto-connect and handle cleanup for newly created ports
+            if let Some((node_id, port_id)) =
+                app.handle_auto_connect(&graphview, from_node_id, from_port_id, target_node_id)
+            {
+                // Check if the newly created port was successfully linked.
+                // Since handle_auto_connect() validates caps before creating links,
+                // link rejection here would only happen due to defense-in-depth checks
+                // in the link-added handler (e.g., for edge cases not caught earlier).
+                if graphview.port_is_linked(port_id).is_some() {
+                    GPS_DEBUG!(
+                        "Auto-connect succeeded: port {} on node {} is now linked",
+                        port_id,
+                        node_id
+                    );
+                } else {
+                    // Link was rejected - remove the orphaned request port
+                    GPS_DEBUG!(
+                        "Auto-connect failed: removing orphaned port {} from node {}",
+                        port_id,
+                        node_id
+                    );
+                    graphview.remove_port(node_id, port_id);
+                }
+            }
+
+            None
+        }),
+    );
+
     let app_weak = app.downgrade();
     gt.graphview().connect_local(
         "graph-updated",
@@ -623,18 +709,21 @@ pub fn create_graphtab(app: &GPSApp, id: u32, name: Option<&str>) {
             let app = upgrade_weak!(app_weak, None);
             let link_id = values[2].get::<u32>().expect("link id args[1]");
             GPS_TRACE!("link added id={}", link_id);
-            let link = current_graphtab(&app).graphview().link(link_id).unwrap();
+            let graphtab = current_graphtab(&app);
+            let graphview = graphtab.graphview();
+            let link = graphview.link(link_id).unwrap();
             let port_from = app.port(link.node_from, link.port_from);
             let port_to = app.port(link.node_to, link.port_to);
 
-            // Check caps compatibility if both ports have caps defined
+            // Check caps compatibility if both ports have caps defined.
+            // This catches manual port-to-port links that bypass handle_auto_connect().
             if let (Some(caps1), Some(caps2)) = (
                 PropertyExt::property(&port_from, "_caps"),
                 PropertyExt::property(&port_to, "_caps"),
             ) {
                 if !GPS::PadInfo::caps_compatible(&caps1, &caps2) {
                     GPS_WARN!("caps are not compatible caps1={} caps2={}", caps1, caps2);
-                    current_graphtab(&app).graphview().remove_link(link_id);
+                    graphview.remove_link(link_id);
                 }
             }
             None
@@ -740,6 +829,173 @@ impl GPSApp {
                 }
             }
         }
+    }
+
+    /// Attempts to auto-connect a source port to a compatible port on a target node.
+    ///
+    /// This method implements the auto-connect logic:
+    /// 1. First tries to find an existing free port with compatible caps
+    /// 2. If there are free ports but none are compatible, fails without creating new ports
+    /// 3. Only if all existing ports are linked, tries to create a request pad if supported
+    ///
+    /// # Arguments
+    /// * `graphview` - The graphview where the connection should be made (must be the emitting view)
+    /// * `from_node_id` - The ID of the node containing the source port
+    /// * `from_port_id` - The ID of the source port
+    /// * `target_node_id` - The ID of the target node to connect to
+    ///
+    /// # Returns
+    /// * `Some((node_id, port_id))` if a new request port was created (may need cleanup if link fails)
+    /// * `None` if connection was made to an existing port or connection failed
+    ///
+    /// # Note
+    /// The `link-added` signal handler also performs caps validation as defense-in-depth,
+    /// but this method validates caps synchronously before creating links to provide
+    /// immediate feedback and avoid creating links that would be rejected.
+    pub fn handle_auto_connect(
+        &self,
+        graphview: &GM::GraphView,
+        from_node_id: u32,
+        from_port_id: u32,
+        target_node_id: u32,
+    ) -> Option<(u32, u32)> {
+        // Validate that source node and port exist in this graphview
+        let from_node = match graphview.node(from_node_id) {
+            Some(node) => node,
+            None => {
+                GPS_WARN!(
+                    "Auto-connect: source node {} not found in graphview",
+                    from_node_id
+                );
+                return None;
+            }
+        };
+
+        let from_port = match from_node.port(from_port_id) {
+            Some(port) => port,
+            None => {
+                GPS_WARN!(
+                    "Auto-connect: source port {} not found on node {}",
+                    from_port_id,
+                    from_node_id
+                );
+                return None;
+            }
+        };
+
+        let from_caps = PropertyExt::property(&from_port, "_caps").unwrap_or_else(|| {
+            GPS_DEBUG!(
+                "Auto-connect: port {} has no caps metadata, using ANY (may cause runtime errors)",
+                from_port_id
+            );
+            "ANY".to_string()
+        });
+
+        // Determine required direction (opposite of from_port)
+        let required_direction = match from_port.direction() {
+            GM::PortDirection::Input => GM::PortDirection::Output,
+            GM::PortDirection::Output => GM::PortDirection::Input,
+            _ => {
+                GPS_WARN!("Auto-connect: source port has unknown direction");
+                return None;
+            }
+        };
+
+        // Validate that target node exists in this graphview
+        let target_node = match graphview.node(target_node_id) {
+            Some(node) => node,
+            None => {
+                GPS_WARN!(
+                    "Auto-connect: target node {} not found in graphview",
+                    target_node_id
+                );
+                return None;
+            }
+        };
+
+        // 1. Try to find first free compatible existing port
+        // Also track if there are any free ports (even if incompatible)
+        let mut has_free_port = false;
+        for port in target_node.all_ports(required_direction) {
+            if graphview.port_is_linked(port.id()).is_none() {
+                has_free_port = true;
+                let port_caps =
+                    PropertyExt::property(&port, "_caps").unwrap_or_else(|| "ANY".to_string());
+                if GPS::PadInfo::caps_compatible(&from_caps, &port_caps) {
+                    create_directional_link(
+                        self,
+                        from_node_id,
+                        from_port_id,
+                        from_port.direction(),
+                        target_node_id,
+                        port.id(),
+                    );
+                    GPS_DEBUG!(
+                        "Auto-connect: linked port {} to existing port {} on '{}'",
+                        from_port_id,
+                        port.id(),
+                        target_node.name()
+                    );
+                    return None;
+                }
+            }
+        }
+
+        // 2. Try to create a request pad if element supports it
+        // Only create request pads if ALL existing ports are already linked.
+        // If there are free ports with incompatible caps, don't create new ports.
+        if has_free_port {
+            GPS_WARN!(
+                "Auto-connect failed: '{}' has free ports but none are compatible with caps '{}'",
+                target_node.name(),
+                from_caps
+            );
+            return None;
+        }
+
+        if let Some(pad_info) = GPS::ElementInfo::element_supports_new_pad_request(
+            &target_node.name(),
+            required_direction,
+        ) {
+            let pad_caps = pad_info.caps().unwrap_or("ANY");
+            if GPS::PadInfo::caps_compatible(&from_caps, pad_caps) {
+                let new_port_id = self.create_port_with_caps(
+                    target_node_id,
+                    required_direction,
+                    GM::PortPresence::Sometimes,
+                    pad_caps.to_string(),
+                );
+
+                create_directional_link(
+                    self,
+                    from_node_id,
+                    from_port_id,
+                    from_port.direction(),
+                    target_node_id,
+                    new_port_id,
+                );
+                GPS_DEBUG!(
+                    "Auto-connect: created request port {} on '{}' and linked",
+                    new_port_id,
+                    target_node.name()
+                );
+                // Return the new port so it can be cleaned up if the link is rejected
+                return Some((target_node_id, new_port_id));
+            }
+            GPS_WARN!(
+                "Auto-connect failed: caps incompatible between '{}' and request pad on '{}'",
+                from_caps,
+                target_node.name()
+            );
+        } else {
+            GPS_WARN!(
+                "Auto-connect failed: no compatible port on '{}' (caps: {})",
+                target_node.name(),
+                from_caps
+            );
+        }
+
+        None
     }
 
     pub fn load_pipeline(&self, pipeline_desc: &str) -> anyhow::Result<()> {
