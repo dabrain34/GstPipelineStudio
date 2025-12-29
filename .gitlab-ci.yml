@@ -62,6 +62,7 @@ build-fedora-container:
       git
       flex
       bison
+      rpm-build
     FDO_DISTRIBUTION_EXEC: >-
       ci/install-rust.sh stable &&
       pip3 install meson &&
@@ -360,6 +361,32 @@ appimage release:
     name: "AppImage"
     paths:
       - installer/linux/*.AppImage
+  when: "always"
+
+rpm package stable:
+  extends:
+    - .fedora
+    - .fdo.distribution-image@fedora
+  stage: packaging
+  needs: []
+  script:
+    - ./installer/linux/build_rpm.sh
+  artifacts:
+    name: "RPM package"
+    paths:
+      - installer/linux/*.rpm
+    expire_in: 14 days
+  when: "manual"
+
+rpm package release:
+  extends: "rpm package stable"
+  stage: release
+  only:
+    - tags
+  artifacts:
+    name: "RPM package"
+    paths:
+      - installer/linux/*.rpm
   when: "always"
 
 pages:
