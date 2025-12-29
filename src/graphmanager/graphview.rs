@@ -440,11 +440,43 @@ mod imp {
                                     // click to a linked port
                                     widget.set_selected_port(None);
                                 }
-                            } else {
-                                if let Some(target) = target.ancestor(Node::static_type()) {
-                                    let node = target
-                                        .dynamic_cast::<Node>()
-                                        .expect("click event is not on the Node");
+                            } else if let Some(target) = target.ancestor(Node::static_type()) {
+                                let node = target
+                                    .dynamic_cast::<Node>()
+                                    .expect("click event is not on the Node");
+
+                                // Check if we have a selected port for auto-connect
+                                // Clone the port first to avoid borrow conflict with set_selected_port
+                                let selected_port_clone = widget.selected_port().clone();
+                                if let Some(from_port) = selected_port_clone {
+                                    // Get parent node with graceful error handling
+                                    let from_node_opt = from_port
+                                        .ancestor(Node::static_type())
+                                        .and_then(|ancestor| ancestor.dynamic_cast::<Node>().ok());
+
+                                    if let Some(from_node) = from_node_opt {
+                                        // Only auto-connect if clicking on a different node
+                                        if from_node.id() != node.id() {
+                                            // Find a free port with opposite direction on target node
+                                            let required_direction = match from_port.direction() {
+                                                PortDirection::Input => PortDirection::Output,
+                                                PortDirection::Output => PortDirection::Input,
+                                                _ => PortDirection::Unknown,
+                                            };
+
+                                            if required_direction != PortDirection::Unknown {
+                                                // Emit signal for app layer to handle node link request
+                                                obj.emit_by_name::<()>(
+                                                    "node-link-request",
+                                                    &[&from_node.id(), &from_port.id(), &node.id()],
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        warn!("Port has no valid parent node, cannot auto-connect");
+                                    }
+                                    widget.set_selected_port(None);
+                                } else {
                                     info!(" node id {}", node.id());
                                     if _n_press % 2 == 0 {
                                         info!("double clicked node id {}", node.id());
@@ -456,25 +488,23 @@ mod imp {
                                             ],
                                         );
                                     }
-                                } else if _n_press % 2 == 0 {
-                                    if let Some(link) = widget.point_on_link(&graphene::Point::new(
-                                        x.floor() as f32,
-                                        y.floor() as f32,
-                                    )) {
-                                        info!("double clicked link id {}", link.id());
-                                        obj.emit_by_name::<()>(
-                                            "link-double-clicked",
-                                            &[
-                                                &link.id(),
-                                                &graphene::Point::new(x as f32, y as f32),
-                                            ],
-                                        );
-                                    }
-                                } else {
-                                    info!("double click {}", widget.width());
                                 }
-
-                                // Click to something else than a port
+                            } else if _n_press % 2 == 0 {
+                                if let Some(link) = widget.point_on_link(&graphene::Point::new(
+                                    x.floor() as f32,
+                                    y.floor() as f32,
+                                )) {
+                                    info!("double clicked link id {}", link.id());
+                                    obj.emit_by_name::<()>(
+                                        "link-double-clicked",
+                                        &[&link.id(), &graphene::Point::new(x as f32, y as f32)],
+                                    );
+                                }
+                                // Click to something else than a port or node
+                                widget.set_selected_port(None);
+                            } else {
+                                info!("click {}", widget.width());
+                                // Click to something else than a port or node
                                 widget.set_selected_port(None);
                             }
                         }
@@ -582,6 +612,9 @@ mod imp {
                         .build(),
                     Signal::builder("link-double-clicked")
                         .param_types([u32::static_type(), graphene::Point::static_type()])
+                        .build(),
+                    Signal::builder("node-link-request")
+                        .param_types([u32::static_type(), u32::static_type(), u32::static_type()])
                         .build(),
                 ]
             });

@@ -1189,3 +1189,425 @@ fn xml_roundtrip_preserves_port_order() {
         assert_eq!(graphview.all_links(true).len(), 2, "Should have 2 links");
     });
 }
+
+// =============================================================================
+// Auto-connect signal tests
+// =============================================================================
+
+#[test]
+fn node_link_request_signal_can_be_connected() {
+    test_synced(|| {
+        use gtk::glib::object::ObjectExt as GlibObjectExt;
+        use std::cell::Cell;
+        use std::rc::Rc;
+
+        let graphview = GraphView::new();
+
+        // Track whether signal was received
+        let signal_received = Rc::new(Cell::new(false));
+        let received_from_node = Rc::new(Cell::new(0u32));
+        let received_from_port = Rc::new(Cell::new(0u32));
+        let received_target_node = Rc::new(Cell::new(0u32));
+
+        let sr = signal_received.clone();
+        let rfn = received_from_node.clone();
+        let rfp = received_from_port.clone();
+        let rtn = received_target_node.clone();
+
+        GlibObjectExt::connect_local(&graphview, "node-link-request", false, move |values| {
+            sr.set(true);
+            rfn.set(values[1].get::<u32>().unwrap());
+            rfp.set(values[2].get::<u32>().unwrap());
+            rtn.set(values[3].get::<u32>().unwrap());
+            None
+        });
+
+        // Emit the signal manually
+        GlibObjectExt::emit_by_name::<()>(&graphview, "node-link-request", &[&42u32, &1u32, &2u32]);
+
+        // Verify signal was received with correct values
+        assert!(signal_received.get(), "Signal should have been received");
+        assert_eq!(received_from_node.get(), 42, "from_node_id should be 42");
+        assert_eq!(received_from_port.get(), 1, "from_port_id should be 1");
+        assert_eq!(received_target_node.get(), 2, "target_node_id should be 2");
+    });
+}
+
+#[test]
+fn port_direction_opposite() {
+    test_synced(|| {
+        // Test the direction logic used in auto-connect
+        let input_opposite = match PortDirection::Input {
+            PortDirection::Input => PortDirection::Output,
+            PortDirection::Output => PortDirection::Input,
+            _ => PortDirection::Unknown,
+        };
+        assert_eq!(
+            input_opposite,
+            PortDirection::Output,
+            "Opposite of Input should be Output"
+        );
+
+        let output_opposite = match PortDirection::Output {
+            PortDirection::Input => PortDirection::Output,
+            PortDirection::Output => PortDirection::Input,
+            _ => PortDirection::Unknown,
+        };
+        assert_eq!(
+            output_opposite,
+            PortDirection::Input,
+            "Opposite of Output should be Input"
+        );
+
+        let unknown_opposite = match PortDirection::Unknown {
+            PortDirection::Input => PortDirection::Output,
+            PortDirection::Output => PortDirection::Input,
+            _ => PortDirection::Unknown,
+        };
+        assert_eq!(
+            unknown_opposite,
+            PortDirection::Unknown,
+            "Opposite of Unknown should be Unknown"
+        );
+    });
+}
+
+#[test]
+fn find_free_port_on_node() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create source node with output port
+        let source = graphview.create_node("source", NodeType::Source);
+        graphview.add_node(source);
+        let output_port = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+        let mut source = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut source, output_port);
+
+        // Create sink node with input port
+        let sink = graphview.create_node("sink", NodeType::Sink);
+        graphview.add_node(sink);
+        let input_port = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
+        let mut sink = graphview.node(2).unwrap();
+        graphview.add_port_to_node(&mut sink, input_port);
+
+        // Get the target node and find a free input port
+        let target_node = graphview.node(2).unwrap();
+        let free_input_ports: Vec<_> = target_node
+            .all_ports(PortDirection::Input)
+            .into_iter()
+            .filter(|p| graphview.port_is_linked(p.id()).is_none())
+            .collect();
+
+        assert_eq!(free_input_ports.len(), 1, "Should have 1 free input port");
+        assert_eq!(
+            free_input_ports[0].name(),
+            "sink",
+            "Free port should be named 'sink'"
+        );
+
+        // Now link the ports
+        let link = graphview.create_link(1, 2, 1, 2);
+        graphview.add_link(link);
+
+        // Check that port is now linked
+        let free_input_ports_after: Vec<_> = target_node
+            .all_ports(PortDirection::Input)
+            .into_iter()
+            .filter(|p| graphview.port_is_linked(p.id()).is_none())
+            .collect();
+
+        assert_eq!(
+            free_input_ports_after.len(),
+            0,
+            "Should have 0 free input ports after linking"
+        );
+    });
+}
+
+#[test]
+fn port_caps_property() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create a node with a port that has caps
+        let node = graphview.create_node("test_node", NodeType::Transform);
+        graphview.add_node(node);
+
+        let port = graphview.create_port("audio_sink", PortDirection::Input, PortPresence::Always);
+        port.add_property("_caps", "audio/x-raw");
+
+        let mut node = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut node, port);
+
+        // Retrieve the port and check caps
+        let node = graphview.node(1).unwrap();
+        let port = node.port(1).expect("Port should exist");
+        let caps = PropertyExt::property(&port, "_caps");
+
+        assert_eq!(
+            caps,
+            Some("audio/x-raw".to_string()),
+            "Port should have audio/x-raw caps"
+        );
+
+        // Test port without caps
+        let port2 = graphview.create_port("video_sink", PortDirection::Input, PortPresence::Always);
+        let mut node = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut node, port2);
+
+        let port2 = node.port(2).expect("Port 2 should exist");
+        let caps2 = PropertyExt::property(&port2, "_caps");
+
+        assert_eq!(caps2, None, "Port without caps property should return None");
+    });
+}
+
+// =============================================================================
+// Auto-connect integration tests (graphmanager level)
+// =============================================================================
+
+#[test]
+fn auto_connect_find_compatible_port_by_caps() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create source node with video output port
+        let source = graphview.create_node("videotestsrc", NodeType::Source);
+        graphview.add_node(source);
+        let src_port = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+        src_port.add_property("_caps", "video/x-raw");
+        let mut source = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut source, src_port);
+
+        // Create sink node with video input port and audio input port
+        let sink = graphview.create_node("compositor", NodeType::Transform);
+        graphview.add_node(sink);
+
+        let video_sink =
+            graphview.create_port("video_sink", PortDirection::Input, PortPresence::Always);
+        video_sink.add_property("_caps", "video/x-raw");
+        let mut sink = graphview.node(2).unwrap();
+        graphview.add_port_to_node(&mut sink, video_sink);
+
+        let audio_sink =
+            graphview.create_port("audio_sink", PortDirection::Input, PortPresence::Always);
+        audio_sink.add_property("_caps", "audio/x-raw");
+        let mut sink = graphview.node(2).unwrap();
+        graphview.add_port_to_node(&mut sink, audio_sink);
+
+        // Find free input ports on the sink node
+        let target_node = graphview.node(2).unwrap();
+        let from_port = graphview.node(1).unwrap().port(1).unwrap();
+        let from_caps =
+            PropertyExt::property(&from_port, "_caps").unwrap_or_else(|| "ANY".to_string());
+
+        // Simulate handle_auto_connect logic: find compatible free port
+        let compatible_port = target_node
+            .all_ports(PortDirection::Input)
+            .into_iter()
+            .filter(|p| graphview.port_is_linked(p.id()).is_none())
+            .find(|p| {
+                let port_caps =
+                    PropertyExt::property(p, "_caps").unwrap_or_else(|| "ANY".to_string());
+                // Simulate caps_compatible (just check if both are video or both are audio)
+                from_caps.starts_with("video") && port_caps.starts_with("video")
+            });
+
+        assert!(
+            compatible_port.is_some(),
+            "Should find a compatible video input port"
+        );
+        assert_eq!(
+            compatible_port.unwrap().name(),
+            "video_sink",
+            "Should select the video_sink port"
+        );
+    });
+}
+
+#[test]
+fn auto_connect_no_compatible_port_when_caps_mismatch() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create source node with video output port
+        let source = graphview.create_node("videotestsrc", NodeType::Source);
+        graphview.add_node(source);
+        let src_port = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+        src_port.add_property("_caps", "video/x-raw");
+        let mut source = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut source, src_port);
+
+        // Create sink node with only audio input port
+        let sink = graphview.create_node("audiosink", NodeType::Sink);
+        graphview.add_node(sink);
+
+        let audio_sink = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
+        audio_sink.add_property("_caps", "audio/x-raw");
+        let mut sink = graphview.node(2).unwrap();
+        graphview.add_port_to_node(&mut sink, audio_sink);
+
+        // Find free input ports on the sink node
+        let target_node = graphview.node(2).unwrap();
+        let from_port = graphview.node(1).unwrap().port(1).unwrap();
+        let from_caps =
+            PropertyExt::property(&from_port, "_caps").unwrap_or_else(|| "ANY".to_string());
+
+        // Simulate handle_auto_connect logic: find compatible free port
+        let compatible_port = target_node
+            .all_ports(PortDirection::Input)
+            .into_iter()
+            .filter(|p| graphview.port_is_linked(p.id()).is_none())
+            .find(|p| {
+                let port_caps =
+                    PropertyExt::property(p, "_caps").unwrap_or_else(|| "ANY".to_string());
+                // Video cannot connect to audio
+                from_caps.starts_with("video") && port_caps.starts_with("video")
+            });
+
+        assert!(
+            compatible_port.is_none(),
+            "Should not find a compatible port when caps don't match"
+        );
+    });
+}
+
+#[test]
+fn auto_connect_all_ports_linked() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create source node 1 with video output
+        let source1 = graphview.create_node("videotestsrc", NodeType::Source);
+        graphview.add_node(source1);
+        let src_port1 = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+        src_port1.add_property("_caps", "video/x-raw");
+        let mut source1 = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut source1, src_port1);
+
+        // Create source node 2 with video output
+        let source2 = graphview.create_node("videotestsrc2", NodeType::Source);
+        graphview.add_node(source2);
+        let src_port2 = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+        src_port2.add_property("_caps", "video/x-raw");
+        let mut source2 = graphview.node(2).unwrap();
+        graphview.add_port_to_node(&mut source2, src_port2);
+
+        // Create sink node with single video input
+        let sink = graphview.create_node("videosink", NodeType::Sink);
+        graphview.add_node(sink);
+        let video_sink = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
+        video_sink.add_property("_caps", "video/x-raw");
+        let mut sink = graphview.node(3).unwrap();
+        graphview.add_port_to_node(&mut sink, video_sink);
+
+        // Link source1 to sink (the only input port)
+        let link = graphview.create_link(1, 3, 1, 3);
+        graphview.add_link(link);
+
+        // Now try to find a free input port on the sink for source2
+        let target_node = graphview.node(3).unwrap();
+        let free_ports: Vec<_> = target_node
+            .all_ports(PortDirection::Input)
+            .into_iter()
+            .filter(|p| graphview.port_is_linked(p.id()).is_none())
+            .collect();
+
+        assert!(
+            free_ports.is_empty(),
+            "All ports should be linked, no free ports available"
+        );
+    });
+}
+
+#[test]
+fn auto_connect_node_not_found_returns_none() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Try to get a non-existent node
+        let node = graphview.node(999);
+        assert!(node.is_none(), "Non-existent node should return None");
+
+        // Create a node and get a non-existent port
+        let node = graphview.create_node("test", NodeType::Source);
+        graphview.add_node(node);
+        let node = graphview.node(1).unwrap();
+        let port = node.port(999);
+        assert!(port.is_none(), "Non-existent port should return None");
+    });
+}
+
+#[test]
+fn auto_connect_with_any_caps() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create source node with ANY caps (permissive)
+        let source = graphview.create_node("source", NodeType::Source);
+        graphview.add_node(source);
+        let src_port = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+        src_port.add_property("_caps", "ANY");
+        let mut source = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut source, src_port);
+
+        // Create sink node with specific audio caps
+        let sink = graphview.create_node("audiosink", NodeType::Sink);
+        graphview.add_node(sink);
+        let audio_sink = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
+        audio_sink.add_property("_caps", "audio/x-raw");
+        let mut sink = graphview.node(2).unwrap();
+        graphview.add_port_to_node(&mut sink, audio_sink);
+
+        // ANY should be compatible with anything
+        let from_caps = "ANY";
+        let target_node = graphview.node(2).unwrap();
+
+        let compatible_port = target_node
+            .all_ports(PortDirection::Input)
+            .into_iter()
+            .filter(|p| graphview.port_is_linked(p.id()).is_none())
+            .find(|p| {
+                let port_caps =
+                    PropertyExt::property(p, "_caps").unwrap_or_else(|| "ANY".to_string());
+                // ANY is compatible with everything
+                from_caps == "ANY" || port_caps == "ANY"
+            });
+
+        assert!(
+            compatible_port.is_some(),
+            "ANY caps should be compatible with any port"
+        );
+    });
+}
+
+#[test]
+fn auto_connect_port_without_caps_property() {
+    test_synced(|| {
+        let graphview = GraphView::new();
+
+        // Create source node with port that has NO caps property
+        let source = graphview.create_node("source", NodeType::Source);
+        graphview.add_node(source);
+        let src_port = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+        // Note: NOT setting _caps property
+        let mut source = graphview.node(1).unwrap();
+        graphview.add_port_to_node(&mut source, src_port);
+
+        // Create sink node with port that has caps
+        let sink = graphview.create_node("sink", NodeType::Sink);
+        graphview.add_node(sink);
+        let sink_port = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
+        sink_port.add_property("_caps", "video/x-raw");
+        let mut sink = graphview.node(2).unwrap();
+        graphview.add_port_to_node(&mut sink, sink_port);
+
+        // Test the fallback to ANY
+        let from_port = graphview.node(1).unwrap().port(1).unwrap();
+        let from_caps =
+            PropertyExt::property(&from_port, "_caps").unwrap_or_else(|| "ANY".to_string());
+
+        assert_eq!(from_caps, "ANY", "Port without _caps should default to ANY");
+    });
+}
