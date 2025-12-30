@@ -56,3 +56,27 @@ pub fn display_error_dialog(fatal: bool, message: &str) {
         }
     });
 }
+
+/// Display an error dialog during startup when the application may not be fully initialized.
+/// This variant takes explicit window and application references.
+pub fn display_startup_error_dialog(
+    window: Option<&impl IsA<gtk::Window>>,
+    app: &gtk::Application,
+    message: &str,
+) {
+    let dialog = AlertDialog::builder()
+        .message("Initialization Error")
+        .detail(message)
+        .modal(true)
+        .buttons(["OK"])
+        .default_button(0)
+        .cancel_button(0)
+        .build();
+
+    let app_weak = app.downgrade();
+    dialog.choose(window, gio::Cancellable::NONE, move |_result| {
+        if let Some(app) = app_weak.upgrade() {
+            app.quit();
+        }
+    });
+}

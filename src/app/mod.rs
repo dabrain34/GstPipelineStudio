@@ -33,6 +33,10 @@ pub use core::panels::{
 
 const MAXIMIZE_TIMEOUT_MS: u64 = 500;
 
+/// Minimum time the splash screen is displayed, even if GStreamer initializes faster.
+/// This ensures users see the splash branding and don't experience a jarring flash.
+pub const SPLASH_MIN_DISPLAY_MS: u64 = 1500;
+
 #[derive(Debug)]
 pub struct GPSAppInner {
     pub window: gtk::ApplicationWindow,
@@ -120,8 +124,8 @@ impl GPSApp {
         Ok(app)
     }
 
-    /// Creates and shows the main window (empty).
-    /// This is phase 1 of startup - allows showing a splash screen on top while GStreamer initializes.
+    /// Creates and shows the main window.
+    /// This is phase 1 of startup - splash will be shown on top.
     pub fn create_window(application: &gtk::Application) -> Option<GPSApp> {
         // Apply system-wide dark theme early so splash screen inherits it
         if Settings::dark_theme() {
@@ -132,7 +136,7 @@ impl GPSApp {
 
         match GPSApp::new(application) {
             Ok(app) => {
-                // Show the empty window so splash can be transient to it
+                // Show the window so splash can be transient to it
                 app.window.present();
                 Some(app)
             }

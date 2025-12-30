@@ -183,6 +183,7 @@ impl Settings {
             }
         } else {
             let mut settings = Settings {
+                app_maximized: true,
                 app_width: 800,
                 app_height: 600,
                 ..Default::default()

@@ -16,13 +16,13 @@ use crate::ui::resources::{load_app_css, SPLASH_BANNER_PNG};
 const BANNER_WIDTH: i32 = 555;
 
 /// Creates and shows a splash screen window during application initialization.
-/// The splash is shown as a transient modal window on top of the parent window.
+/// The splash is shown as a modal window on top of the parent window.
 /// Returns the window handle so it can be closed when initialization completes.
 pub fn create_splash_window(parent: &impl IsA<Window>) -> Window {
     // Ensure app CSS is loaded
     load_app_css();
 
-    // Load and scale the banner image
+    // Load and scale the banner image BEFORE creating window
     let (banner, splash_width, splash_height) =
         if let Ok(pixbuf) = Pixbuf::from_read(std::io::Cursor::new(SPLASH_BANNER_PNG)) {
             // Scale the image to fit the banner width while preserving aspect ratio
@@ -44,17 +44,6 @@ pub fn create_splash_window(parent: &impl IsA<Window>) -> Window {
             // Fallback
             (Picture::new(), 500, 300)
         };
-
-    // Use Window as transient for the parent - this centers it on the parent
-    let window = Window::builder()
-        .transient_for(parent)
-        .modal(true)
-        .title("Loading")
-        .default_width(splash_width)
-        .default_height(splash_height)
-        .resizable(false)
-        .decorated(false)
-        .build();
 
     // Create overlay with banner as background
     let overlay = Overlay::new();
@@ -85,7 +74,23 @@ pub fn create_splash_window(parent: &impl IsA<Window>) -> Window {
 
     overlay.add_overlay(&overlay_box);
 
+    // Splash window - transient modal on top of parent
+    let window = Window::builder()
+        .transient_for(parent)
+        .modal(true)
+        .title("Loading")
+        .default_width(splash_width)
+        .default_height(splash_height)
+        .resizable(false)
+        .decorated(false)
+        .build();
+
     window.set_child(Some(&overlay));
+
+    // Force widget tree to be ready before showing
+    overlay.realize();
+    banner.realize();
+
     window.present();
 
     window

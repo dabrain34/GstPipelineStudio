@@ -11,6 +11,10 @@
    Splash Screen Styles
    ============================================ */
 
+.splash-window {
+    background-color: #1e3a5f;
+}
+
 .splash-version {
     font-size: 14px;
     font-weight: bold;

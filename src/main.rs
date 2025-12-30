@@ -6,6 +6,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+// Hide the console window on Windows release builds
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+
 #[macro_use]
 mod macros;
 mod app;
@@ -18,10 +24,12 @@ mod logger;
 mod gps;
 use gtk::glib;
 use gtk::prelude::*;
-use log::error;
 
-use crate::app::GPSApp;
+use std::time::{Duration, Instant};
+
+use crate::app::{GPSApp, SPLASH_MIN_DISPLAY_MS};
 use crate::common::{init_gst, init_gtk};
+use crate::ui::message::display_startup_error_dialog;
 use crate::ui::splash::create_splash_window;
 use structopt::StructOpt;
 
@@ -31,9 +39,10 @@ struct Command {
     pipeline: String,
 }
 
-fn main() -> gtk::glib::ExitCode {
-    //    gio::resources_register_include!("compiled.gresource").unwrap();
+/// Delay before showing splash to let main window stabilize
+const SPLASH_SHOW_DELAY_MS: u64 = 100;
 
+fn main() -> gtk::glib::ExitCode {
     // Initialize GTK first so we can show UI
     init_gtk().expect("Unable to init GTK");
 
@@ -44,18 +53,15 @@ fn main() -> gtk::glib::ExitCode {
     application.connect_startup(|application| {
         let args = Command::from_args();
 
-        // Phase 1: Create and show the main window (empty)
+        // Create and show main window first
         let gps_app = match GPSApp::create_window(application) {
             Some(app) => app,
             None => {
-                error!("Failed to create application window");
+                GPS_ERROR!("Failed to create application window");
                 application.quit();
                 return;
             }
         };
-
-        // Show splash screen on top of the main window (centered on it)
-        let splash_window = create_splash_window(&gps_app.window);
 
         // Create channel to signal when GStreamer init is complete
         let (init_tx, init_rx) = async_channel::bounded::<Result<(), String>>(1);
@@ -66,30 +72,48 @@ fn main() -> gtk::glib::ExitCode {
             let _ = init_tx.send_blocking(result);
         });
 
-        // Wait for GStreamer init to complete, then proceed with app startup
+        // Show splash after short delay to let main window stabilize
         let app_clone = application.clone();
         let pipeline_desc = args.pipeline.clone();
-        glib::spawn_future_local(async move {
-            match init_rx.recv().await {
-                Ok(Ok(())) => {
-                    // GStreamer initialized successfully, close splash and initialize UI
-                    splash_window.close();
-                    // Phase 2: Initialize the UI content now that GStreamer is ready
-                    gps_app.initialize_ui(&app_clone, &pipeline_desc);
+        let window_clone = gps_app.window.clone();
+
+        glib::timeout_add_local_once(Duration::from_millis(SPLASH_SHOW_DELAY_MS), move || {
+            // Show splash on top of main window
+            let splash_window = create_splash_window(&window_clone);
+            let splash_start = Instant::now();
+
+            glib::spawn_future_local(async move {
+                // Wait for GStreamer initialization
+                let result = init_rx.recv().await;
+
+                // Ensure splash is displayed for at least SPLASH_MIN_DISPLAY_MS
+                let elapsed = splash_start.elapsed();
+                let min_display = Duration::from_millis(SPLASH_MIN_DISPLAY_MS);
+                if elapsed < min_display {
+                    let remaining = min_display - elapsed;
+                    glib::timeout_future(remaining).await;
                 }
-                Ok(Err(e)) => {
-                    // GStreamer initialization failed
-                    splash_window.close();
-                    error!("Failed to initialize GStreamer: {}", e);
-                    app_clone.quit();
+
+                // Close splash
+                splash_window.close();
+
+                // Initialize UI
+                match result {
+                    Ok(Ok(())) => {
+                        gps_app.initialize_ui(&app_clone, &pipeline_desc);
+                    }
+                    Ok(Err(e)) => {
+                        let msg = format!("Failed to initialize GStreamer: {}", e);
+                        GPS_ERROR!("{}", msg);
+                        display_startup_error_dialog(Some(&gps_app.window), &app_clone, &msg);
+                    }
+                    Err(e) => {
+                        let msg = format!("Internal error during initialization: {}", e);
+                        GPS_ERROR!("{}", msg);
+                        display_startup_error_dialog(Some(&gps_app.window), &app_clone, &msg);
+                    }
                 }
-                Err(e) => {
-                    // Channel error
-                    splash_window.close();
-                    error!("Internal error during initialization: {}", e);
-                    app_clone.quit();
-                }
-            }
+            });
         });
     });
 
