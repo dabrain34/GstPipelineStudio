@@ -9,7 +9,6 @@
 use crate::gps::PadInfo;
 use crate::graphmanager::{NodeType, PortDirection, PortPresence};
 use crate::logger;
-use crate::{GPS_DEBUG, GPS_INFO};
 
 use gst::glib;
 use gst::prelude::*;

@@ -13,7 +13,6 @@ use crate::gps::ElementInfo;
 use crate::graphmanager as GM;
 use crate::graphmanager::PropertyExt;
 use crate::logger;
-use crate::GPS_INFO;
 
 use gst::glib;
 use gst::prelude::*;
