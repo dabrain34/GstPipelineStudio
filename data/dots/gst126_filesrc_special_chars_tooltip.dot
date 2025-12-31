@@ -15,8 +15,8 @@ digraph pipeline {
     style="filled,rounded";
     color=black;
     label="GstFileSrc\nfilesrc0\n[>]
-location=\"/home/user/Videos/Sample Movie (2023) 1080p.mkv…";
-    tooltip="GstFileSrc\nfilesrc0\n[>]&#10;location=\"/home/user/Videos/Sample Movie (2023) 1080p Special & Chars.mkv\"";
+location=\"/path/to/Sample Movie (2023) 1080p.mkv…";
+    tooltip="GstFileSrc\nfilesrc0\n[>]&#10;location=\"/path/to/Sample Movie (2023) 1080p Special & Chars.mkv\"";
     subgraph cluster_node_filesrc0_0x12345678_src {
       label="";
       style="invis";

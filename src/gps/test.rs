@@ -523,6 +523,52 @@ mod player_test {
     }
 
     #[test]
+    fn test_parse_launch_with_quoted_path() {
+        test_synced(|| {
+            // Test that GStreamer parse_launch correctly handles quoted paths with spaces
+            let description = "filesrc location=\"/path/with spaces/file.mp4\" ! fakesink";
+            let result = gst::parse::launch(description);
+            assert!(
+                result.is_ok(),
+                "Failed to parse pipeline with quoted path: {} - error: {:?}",
+                description,
+                result.err()
+            );
+        });
+    }
+
+    #[test]
+    fn test_parse_launch_with_quoted_special_characters() {
+        test_synced(|| {
+            // Test that GStreamer parse_launch correctly handles quoted paths with special chars
+            let description =
+                "filesrc location=\"/path/with spaces (and parens)/file.mp4\" ! fakesink";
+            let result = gst::parse::launch(description);
+            assert!(
+                result.is_ok(),
+                "Failed to parse pipeline with special characters: {} - error: {:?}",
+                description,
+                result.err()
+            );
+        });
+    }
+
+    #[test]
+    fn test_parse_launch_unquoted_path_fails() {
+        test_synced(|| {
+            // Verify that unquoted paths with spaces fail to parse correctly
+            // This documents the bug that the quoting fix addresses
+            let description = "filesrc location=/path/with spaces/file.mp4 ! fakesink";
+            let result = gst::parse::launch(description);
+            // This should fail because GStreamer will interpret "spaces/file.mp4" as a separate element
+            assert!(
+                result.is_err(),
+                "Expected parse to fail with unquoted path containing spaces"
+            );
+        });
+    }
+
+    #[test]
     fn test_element_pads_iteration() {
         test_synced(|| {
             let player = Player::new().unwrap();
@@ -1132,5 +1178,485 @@ mod gstreamer_default_value_tests {
                 new_issues.len()
             );
         });
+    }
+}
+
+// =============================================================================
+// GStreamer-specific DOT file parsing tests
+// =============================================================================
+
+#[cfg(test)]
+mod gstreamer_dot_test {
+    use crate::gps::dot_parsing;
+    use crate::graphmanager::dot_parser::{DotGraph, DotLoader};
+    use std::collections::HashMap;
+
+    /// GStreamer-specific test loader for DOT parsing tests.
+    /// Uses shared parsing functions from dot_parsing module to avoid code duplication.
+    struct GstreamerTestLoader;
+
+    impl DotLoader for GstreamerTestLoader {
+        fn class_to_type_name(&self, class_name: &str) -> String {
+            dot_parsing::class_to_type_name(class_name)
+        }
+
+        fn parse_node_label(&self, label: &str) -> HashMap<String, String> {
+            // Test loader accepts all properties (no security validation needed in tests)
+            dot_parsing::parse_node_label(label, |_, _| true)
+        }
+
+        fn extract_port_name_from_id(&self, dot_id: &str) -> Option<String> {
+            dot_parsing::extract_port_name_from_id(dot_id)
+        }
+
+        fn extract_node_instance_from_id(&self, port_id: &str) -> Option<String> {
+            dot_parsing::extract_node_instance_from_id(port_id)
+        }
+
+        fn extract_graph_metadata(
+            &self,
+            attributes: &[(String, String)],
+        ) -> HashMap<String, String> {
+            dot_parsing::extract_graph_metadata(attributes)
+        }
+
+        fn is_node_subgraph(&self, id: &str) -> bool {
+            dot_parsing::is_node_subgraph(id)
+        }
+
+        fn is_port_subgraph(&self, id: &str) -> bool {
+            dot_parsing::is_port_subgraph(id)
+        }
+    }
+
+    // Helper to get the test loader
+    fn test_loader() -> GstreamerTestLoader {
+        GstreamerTestLoader
+    }
+
+    #[test]
+    fn dot_parse_node_label_basic() {
+        let loader = test_loader();
+        let label = "GstVideoTestSrc\nvideotestsrc0\n[>]";
+        let metadata = loader.parse_node_label(label);
+        assert_eq!(
+            metadata.get("class_name"),
+            Some(&"GstVideoTestSrc".to_string())
+        );
+        assert_eq!(
+            metadata.get("instance_name"),
+            Some(&"videotestsrc0".to_string())
+        );
+        assert_eq!(metadata.get("state"), Some(&">".to_string()));
+    }
+
+    #[test]
+    fn dot_parse_node_label_with_escaped_newlines() {
+        let loader = test_loader();
+        let label = "GstVideoTestSrc\\nvideotestsrc0\\n[>]";
+        let metadata = loader.parse_node_label(label);
+        assert_eq!(
+            metadata.get("class_name"),
+            Some(&"GstVideoTestSrc".to_string())
+        );
+        assert_eq!(
+            metadata.get("instance_name"),
+            Some(&"videotestsrc0".to_string())
+        );
+        assert_eq!(metadata.get("state"), Some(&">".to_string()));
+    }
+
+    #[test]
+    fn dot_parse_node_label_with_properties() {
+        let loader = test_loader();
+        let label = "GstAutoVideoSink\\nautovideosink0\\n[>]\\nfilter-caps=video/x-raw";
+        let metadata = loader.parse_node_label(label);
+        assert_eq!(
+            metadata.get("class_name"),
+            Some(&"GstAutoVideoSink".to_string())
+        );
+        assert_eq!(
+            metadata.get("instance_name"),
+            Some(&"autovideosink0".to_string())
+        );
+        assert_eq!(metadata.get("state"), Some(&">".to_string()));
+        assert_eq!(
+            metadata.get("filter-caps"),
+            Some(&"video/x-raw".to_string())
+        );
+    }
+
+    #[test]
+    fn dot_parse_node_label_with_html_newlines() {
+        let loader = test_loader();
+        // Tooltips use &#10; as newline separator
+        let tooltip = "GstFileSrc&#10;filesrc0&#10;[>]&#10;location=\"/path/with spaces/file.mkv\"";
+        let metadata = loader.parse_node_label(tooltip);
+        assert_eq!(metadata.get("class_name"), Some(&"GstFileSrc".to_string()));
+        assert_eq!(metadata.get("instance_name"), Some(&"filesrc0".to_string()));
+        assert_eq!(metadata.get("state"), Some(&">".to_string()));
+        assert_eq!(
+            metadata.get("location"),
+            Some(&"/path/with spaces/file.mkv".to_string())
+        );
+    }
+
+    #[test]
+    fn dot_parse_tooltip_with_full_path() {
+        let loader = test_loader();
+        // This simulates what GStreamer outputs in DOT files with tooltips
+        // Tests that paths with spaces, parentheses, and special chars are preserved
+        let tooltip = "GstFileSrc&#10;filesrc0&#10;[>]&#10;location=\"/home/user/Videos/Movie Title (2023) 1080p H264.mkv\"";
+        let metadata = loader.parse_node_label(tooltip);
+        assert_eq!(metadata.get("class_name"), Some(&"GstFileSrc".to_string()));
+        assert_eq!(metadata.get("instance_name"), Some(&"filesrc0".to_string()));
+        assert_eq!(
+            metadata.get("location"),
+            Some(&"/home/user/Videos/Movie Title (2023) 1080p H264.mkv".to_string())
+        );
+    }
+
+    #[test]
+    fn dot_parse_tooltip_properties_only() {
+        let loader = test_loader();
+        // Some GStreamer DOT tooltips only contain properties (no class/instance/state)
+        // They start with &#10; (newline) followed by property=value pairs
+        let tooltip = "&#10;location=\"/home/user/Videos/test.mkv\"&#10;caps=video/x-raw";
+        let metadata = loader.parse_node_label(tooltip);
+        // Properties-only format doesn't have class_name or instance_name in metadata
+        assert_eq!(metadata.get("class_name"), None);
+        assert_eq!(metadata.get("instance_name"), None);
+        assert_eq!(metadata.get("state"), None);
+        // But properties should be parsed correctly
+        assert_eq!(
+            metadata.get("location"),
+            Some(&"/home/user/Videos/test.mkv".to_string())
+        );
+        assert_eq!(metadata.get("caps"), Some(&"video/x-raw".to_string()));
+    }
+
+    #[test]
+    fn dot_parse_tooltip_direct_property() {
+        let loader = test_loader();
+        // Some tooltips contain only properties directly (no leading newline)
+        // e.g., tooltip="location=\"/path/to/file.mkv\""
+        let tooltip = "location=\"/home/user/Videos/Big Buck Bunny.m4v\"";
+        let metadata = loader.parse_node_label(tooltip);
+        // Direct property format doesn't have class_name or instance_name in metadata
+        assert_eq!(metadata.get("class_name"), None);
+        assert_eq!(metadata.get("instance_name"), None);
+        assert_eq!(metadata.get("state"), None);
+        // Property should be parsed correctly
+        assert_eq!(
+            metadata.get("location"),
+            Some(&"/home/user/Videos/Big Buck Bunny.m4v".to_string())
+        );
+    }
+
+    #[test]
+    fn dot_parse_file_with_tooltip() {
+        let loader = test_loader();
+        let dot_content = include_str!("../../data/dots/gst126_filesrc_special_chars_tooltip.dot");
+        let graph = DotGraph::parse(dot_content, &loader).expect("Failed to parse DOT file");
+
+        // Find the filesrc node
+        let filesrc = graph
+            .nodes
+            .iter()
+            .find(|n| n.instance_name == "filesrc0")
+            .expect("Should find filesrc0 node");
+
+        // The location property should be the full path from the tooltip, not truncated
+        let location = filesrc.metadata.get("location");
+        assert!(location.is_some(), "filesrc should have location property");
+
+        let loc_value = location.unwrap();
+        // The full path should contain special characters (spaces, parentheses, ampersand)
+        assert!(
+            loc_value.contains("Special & Chars.mkv"),
+            "Location should contain full filename with special chars from tooltip, got: {}",
+            loc_value
+        );
+        assert!(
+            loc_value.contains("(2023)"),
+            "Location should contain parentheses, got: {}",
+            loc_value
+        );
+        assert!(
+            !loc_value.contains("…"),
+            "Location should not be truncated, got: {}",
+            loc_value
+        );
+    }
+
+    #[test]
+    fn dot_extract_port_name_old_format() {
+        let loader = test_loader();
+        // Old GStreamer 1.24 format: ELEMENT_ADDR_PORTNAME_ADDR
+        let port_id = "videotestsrc0_0x5d75d6505510_src_0x5d75d65059f0";
+        let result = loader.extract_port_name_from_id(port_id);
+        assert_eq!(result, Some("src".to_string()));
+
+        let port_id = "autovideosink0_0x5d75d6507b00_sink_0x5d75d65089f0";
+        let result = loader.extract_port_name_from_id(port_id);
+        assert_eq!(result, Some("sink".to_string()));
+    }
+
+    #[test]
+    fn dot_extract_port_name_new_format() {
+        let loader = test_loader();
+        // New GStreamer format: node_ELEMENT_ADDR_node_PORTNAME_ADDR
+        let port_id = "node_videotestsrc0_0x123456_node_src_0x789abc";
+        let result = loader.extract_port_name_from_id(port_id);
+        assert_eq!(result, Some("src".to_string()));
+
+        let port_id = "node_autovideosink0_0x123456_node_sink_0x789abc";
+        let result = loader.extract_port_name_from_id(port_id);
+        assert_eq!(result, Some("sink".to_string()));
+    }
+
+    #[test]
+    fn dot_extract_node_instance_basic() {
+        let loader = test_loader();
+        // Standard DOT port ID format
+        let port_id = "node_videotestsrc0_0x123456_node_src_0x789abc";
+        let result = loader.extract_node_instance_from_id(port_id);
+        assert_eq!(result, Some("videotestsrc0".to_string()));
+    }
+
+    #[test]
+    fn dot_extract_instance_no_collision() {
+        let loader = test_loader();
+        // Ensure "videotestsrc0" doesn't match "videotestsrc01"
+        // This tests the substring collision fix
+        let port_id_0 = "node_videotestsrc0_0x123456_node_src_0x789abc";
+        let port_id_01 = "node_videotestsrc01_0x123456_node_src_0x789abc";
+
+        let result_0 = loader.extract_node_instance_from_id(port_id_0);
+        let result_01 = loader.extract_node_instance_from_id(port_id_01);
+
+        assert_eq!(result_0, Some("videotestsrc0".to_string()));
+        assert_eq!(result_01, Some("videotestsrc01".to_string()));
+
+        // They should be different - this is the key assertion for the collision fix
+        assert_ne!(result_0, result_01);
+    }
+
+    #[test]
+    fn dot_extract_instance_with_hyphen_normalized() {
+        let loader = test_loader();
+        // Instance names with hyphens are normalized to underscores in DOT format
+        let port_id = "node_avdec_h264_0_0x123456_node_sink_0x789abc";
+        let result = loader.extract_node_instance_from_id(port_id);
+        assert_eq!(result, Some("avdec_h264_0".to_string()));
+    }
+
+    #[test]
+    fn dot_extract_instance_from_sink_port() {
+        let loader = test_loader();
+        // Ghost/proxy port format
+        let port_id = "_node_proxypad0_0x13b93d0e0";
+        let result = loader.extract_node_instance_from_id(port_id);
+        assert_eq!(result, Some("proxypad0".to_string()));
+    }
+
+    #[test]
+    fn dot_parse_old_gstreamer_124_format() {
+        let loader = test_loader();
+        // Test parsing old GStreamer 1.24 format which uses "cluster_" instead of "cluster_node_"
+        // and includes proxypad nodes that should be filtered out
+        let dot_content = include_str!("../../data/dots/gst124_videotestsrc_autovideosink.dot");
+        let graph = DotGraph::parse(dot_content, &loader).expect("Failed to parse DOT file");
+
+        // Should have 2 top-level nodes
+        assert_eq!(
+            graph.nodes.len(),
+            2,
+            "Should have 2 top-level nodes (videotestsrc0, autovideosink0)"
+        );
+
+        // Verify nodes
+        assert!(
+            graph
+                .nodes
+                .iter()
+                .any(|n| n.instance_name == "videotestsrc0"),
+            "Should find videotestsrc0"
+        );
+        assert!(
+            graph
+                .nodes
+                .iter()
+                .any(|n| n.instance_name == "autovideosink0"),
+            "Should find autovideosink0"
+        );
+
+        // Verify videotestsrc0 has exactly 1 port (src)
+        let videotestsrc_ports: Vec<_> = graph
+            .ports
+            .iter()
+            .filter(|p| p.node_dot_id.contains("videotestsrc0"))
+            .collect();
+        assert_eq!(
+            videotestsrc_ports.len(),
+            1,
+            "videotestsrc0 should have exactly 1 port, got: {:?}",
+            videotestsrc_ports
+        );
+        assert_eq!(videotestsrc_ports[0].name, "src");
+
+        // Verify autovideosink0 has exactly 1 port (sink) - proxypad should be filtered out
+        let autovideosink_ports: Vec<_> = graph
+            .ports
+            .iter()
+            .filter(|p| {
+                p.node_dot_id.contains("autovideosink0") && !p.node_dot_id.contains("actual_sink")
+            })
+            .collect();
+        assert_eq!(
+            autovideosink_ports.len(),
+            1,
+            "autovideosink0 should have exactly 1 port (sink), proxypad should be filtered. Got: {:?}",
+            autovideosink_ports
+        );
+        assert_eq!(autovideosink_ports[0].name, "sink");
+
+        // Verify no proxypad nodes were parsed
+        let proxypad_count = graph
+            .ports
+            .iter()
+            .filter(|p| p.name.contains("proxypad") || p.dot_id.contains("proxypad"))
+            .count();
+        assert_eq!(
+            proxypad_count, 0,
+            "Proxypads should be filtered out, found: {}",
+            proxypad_count
+        );
+
+        // Verify no links involving proxypads were parsed
+        let proxypad_link_count = graph
+            .links
+            .iter()
+            .filter(|l| l.from_port_id.contains("proxypad") || l.to_port_id.contains("proxypad"))
+            .count();
+        assert_eq!(
+            proxypad_link_count, 0,
+            "Links involving proxypads should be filtered out, found: {}",
+            proxypad_link_count
+        );
+
+        // Should have exactly 1 link (videotestsrc0 -> autovideosink0)
+        assert_eq!(
+            graph.links.len(),
+            1,
+            "Should have exactly 1 link between top-level elements"
+        );
+    }
+
+    // Malformed input tests - verify error handling for invalid DOT content
+
+    #[test]
+    fn dot_parse_invalid_syntax() {
+        let loader = test_loader();
+        // Completely invalid DOT syntax
+        let result = DotGraph::parse("this is not valid dot syntax", &loader);
+        assert!(result.is_err(), "Should fail on invalid DOT syntax");
+    }
+
+    #[test]
+    fn dot_parse_empty_string() {
+        let loader = test_loader();
+        let result = DotGraph::parse("", &loader);
+        assert!(result.is_err(), "Should fail on empty string");
+    }
+
+    #[test]
+    fn dot_parse_unclosed_graph() {
+        let loader = test_loader();
+        // Missing closing brace
+        let result = DotGraph::parse("digraph pipeline { node1", &loader);
+        assert!(result.is_err(), "Should fail on unclosed graph");
+    }
+
+    #[test]
+    fn dot_parse_empty_graph() {
+        let loader = test_loader();
+        // Valid syntax but empty - should succeed with empty result
+        let result = DotGraph::parse("digraph pipeline { }", &loader);
+        assert!(result.is_ok(), "Empty graph should parse successfully");
+        let graph = result.unwrap();
+        assert!(graph.nodes.is_empty(), "Empty graph should have no nodes");
+        assert!(graph.ports.is_empty(), "Empty graph should have no ports");
+        assert!(graph.links.is_empty(), "Empty graph should have no links");
+    }
+
+    #[test]
+    fn dot_parse_non_digraph() {
+        let loader = test_loader();
+        // GStreamer DOT files are always digraphs, but undirected graphs are valid DOT.
+        // The parser should handle this gracefully without panicking.
+        let result = DotGraph::parse("graph pipeline { a -- b }", &loader);
+        // Undirected edges (--) are not processed as directed edges, so result should
+        // be ok but with no links extracted
+        assert!(result.is_ok(), "Should parse without error");
+        let graph = result.unwrap();
+        assert!(
+            graph.links.is_empty(),
+            "Undirected edges should not create links"
+        );
+    }
+
+    #[test]
+    fn dot_parse_gst_version_present() {
+        let loader = test_loader();
+        // DOT file with gst_version attribute declared
+        let dot_content = r#"digraph pipeline {
+            gst_version="1.26.0";
+            rankdir=LR;
+        }"#;
+        let result = DotGraph::parse(dot_content, &loader);
+        assert!(result.is_ok(), "Should parse successfully");
+        let graph = result.unwrap();
+        assert_eq!(
+            graph.metadata.get("gst_version"),
+            Some(&"1.26.0".to_string()),
+            "Should extract gst_version attribute"
+        );
+    }
+
+    #[test]
+    fn dot_parse_gst_version_absent() {
+        let loader = test_loader();
+        // Standard DOT file without gst_version attribute
+        let dot_content = r#"digraph pipeline {
+            rankdir=LR;
+            fontname="sans";
+        }"#;
+        let result = DotGraph::parse(dot_content, &loader);
+        assert!(result.is_ok(), "Should parse successfully");
+        let graph = result.unwrap();
+        assert_eq!(
+            graph.metadata.get("gst_version"),
+            None,
+            "Should be None when gst_version not present"
+        );
+    }
+
+    #[test]
+    fn dot_parse_gst_version_124_format() {
+        let loader = test_loader();
+        // DOT file declaring older GStreamer version
+        let dot_content = r#"digraph pipeline {
+            gst_version="1.24.3";
+            label="test pipeline";
+        }"#;
+        let result = DotGraph::parse(dot_content, &loader);
+        assert!(result.is_ok(), "Should parse successfully");
+        let graph = result.unwrap();
+        assert_eq!(
+            graph.metadata.get("gst_version"),
+            Some(&"1.24.3".to_string()),
+            "Should extract 1.24.x version"
+        );
     }
 }

@@ -35,6 +35,10 @@ impl Default for PadInfo {
     }
 }
 impl PadInfo {
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
     pub fn presence(&self) -> PortPresence {
         self.presence
     }

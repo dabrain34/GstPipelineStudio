@@ -72,8 +72,37 @@ pub struct GraphTab {
 }
 
 impl GraphTab {
+    /// Sanitize filename to prevent path traversal and other security issues.
+    ///
+    /// Returns the sanitized filename, or the original if it's empty.
+    fn sanitize_filename(filename: &str) -> String {
+        // If filename is empty, return as-is (will be "Untitled")
+        if filename.is_empty() {
+            return filename.to_string();
+        }
+
+        // Extract just the filename component, removing any directory path
+        let path = Path::new(filename);
+        let sanitized = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("Untitled");
+
+        // Additional check: reject filenames with path traversal sequences
+        if sanitized.contains("..") || sanitized.contains('/') || sanitized.contains('\\') {
+            GPS_WARN!("Rejecting suspicious filename: {}", filename);
+            return String::from("Untitled");
+        }
+
+        sanitized.to_string()
+    }
+
     pub fn new(app: GPSAppWeak, id: u32, filename: &str) -> Self {
         let label = gtk::Label::new(Some("Untitled*"));
+
+        // Sanitize filename to prevent path traversal attacks
+        let sanitized_filename = Self::sanitize_filename(filename);
+
         let graphtab = GraphTab {
             id: Cell::new(id),
             graphview: RefCell::new(GM::GraphView::new()),
@@ -81,7 +110,7 @@ impl GraphTab {
                 GPS::Player::new().expect("Unable to initialize GStreamer subsystem"),
             ),
             name: label,
-            filename: RefCell::new(filename.to_string()),
+            filename: RefCell::new(sanitized_filename),
             state: Cell::new(TabState::Undefined),
         };
         graphtab
@@ -130,10 +159,9 @@ impl GraphTab {
     pub fn basename(&self) -> String {
         Path::new(&self.filename.borrow().as_str())
             .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string()
+            .and_then(|f| f.to_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "Untitled".to_string())
     }
 
     pub fn set_filename(&self, filename: &str) {
@@ -747,23 +775,44 @@ impl GPSApp {
     pub fn load_graph(&self, filename: &str, untitled: bool) -> anyhow::Result<()> {
         let mut file = File::open(filename)?;
         let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).expect("buffer overflow");
+        file.read_to_end(&mut buffer)
+            .map_err(|e| anyhow::anyhow!("Failed to read file {}: {}", filename, e))?;
         let graphtab = current_graphtab(self);
         let graphview = graphtab.graphview();
 
-        // Disable undo recording during restore_static_pads
-        graphview.load_from_xml(buffer)?;
+        // Detect file type by extension (case-insensitive) and load accordingly
+        if filename.to_lowercase().ends_with(".dot") {
+            // Load DOT file (GStreamer pipeline debug dump)
+            let content = String::from_utf8(buffer)
+                .map_err(|e| anyhow::anyhow!("Invalid UTF-8 in DOT file: {}", e))?;
+            self.load_from_dot(&graphview, &content)?;
 
-        // Restore static pads for nodes that have no ports (with undo disabled)
-        graphview.set_undo_recording(false);
-        self.restore_static_pads();
-        graphview.clear_undo_history();
-        graphview.set_undo_recording(true);
+            // Auto-arrange since DOT files don't contain position information
+            graphview.auto_arrange_graph(None);
+            GPS_DEBUG!("Loaded DOT file: {}", filename);
+        } else {
+            // Load GPS XML file
+            graphview.load_from_xml(buffer)?;
+
+            // Restore static pads for nodes that have no ports (with undo disabled)
+            graphview.set_undo_recording(false);
+            self.restore_static_pads();
+            graphview.clear_undo_history();
+            graphview.set_undo_recording(true);
+        }
 
         if !untitled {
             current_graphtab_set_filename(self, filename);
         }
         Ok(())
+    }
+
+    /// Load a graph from DOT format string (GStreamer pipeline debug dumps)
+    ///
+    /// Uses GraphView's generic load_from_dot with GstDotLoader to provide
+    /// GStreamer-specific element type detection and pad information.
+    fn load_from_dot(&self, graphview: &GM::GraphView, content: &str) -> anyhow::Result<()> {
+        graphview.load_from_dot(content, &GPS::GstDotLoader)
     }
 
     pub fn restore_static_pads(&self) {

@@ -1,0 +1,200 @@
+digraph pipeline {
+  rankdir=LR;
+  fontname="sans";
+  fontsize="10";
+  labelloc=t;
+  nodesep=.1;
+  ranksep=.2;
+  label="<GstPipeline>\npipeline0\n[>]";
+  node [style="filled,rounded", shape=box, fontsize="9", fontname="sans", margin="0.0,0.0"];
+  edge [labelfontsize="6", fontsize="9", fontname="monospace"];
+
+  legend [
+    pos="0,0!",
+    margin="0.05,0.05",
+    style="filled",
+    label="Legend\lElement-States: [~] void-pending, [0] null, [-] ready, [=] paused, [>] playing\lPad-Activation: [-] none, [>] push, [<] pull\lPad-Flags: [b]locked, [f]lushing, [b]locking, [E]OS; upper-case is set\lPad-Task: [T] has started task, [t] has paused task\l",
+  ];
+  tracers [
+    pos="0,0!",
+    margin="0.05,0.05",
+    style="filled",
+    fillcolor="#e0e0ff",
+    label="Active Tracers:\l    - GstLeaksTracer:    \l        * filters=\"\"\l",
+  ];
+
+  subgraph cluster_node_autovideosink0_0x58994ab70720 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="GstAutoVideoSink\nautovideosink0\n[>]\nfilter-caps=video/x-raw";
+    tooltip="filter-caps=video/x-raw";
+    subgraph cluster_node_autovideosink0_0x58994ab70720_sink {
+      label="";
+      style="invis";
+      _node_proxypad1_0x58994ab712a0 [color=black, fillcolor="#ddddff", label="proxypad1\n[>][bfb]", height="0.2", style="filled,solid"];
+    node_autovideosink0_0x58994ab70720_node_sink_0x58994ab70f20 -> _node_proxypad1_0x58994ab712a0 [style=dashed, minlen=0]
+      node_autovideosink0_0x58994ab70720_node_sink_0x58994ab70f20 [color=black, fillcolor="#ddddff", label="sink\n[>][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    fillcolor="#ffffff";
+    subgraph cluster_node_autovideosink0_actual_sink_xvimage_0x58994ab78640 {
+      fontname="Bitstream Vera Sans";
+      fontsize="8";
+      style="filled,rounded";
+      color=black;
+      label="GstXvImageSink\nautovideosink0-actual-sink-xvimage\n[>]\nmax-lateness=5000000\nqos=TRUE\nlast-sample=((GstSample*) 0x58994ab98f70)\nprocessing-deadline=15000000\ndevice-name=\"GLAMOR Textured Video\"\ndouble-buffer=FALSE\ncolorkey=526352\nwindow-width=3840\nwindow-height=2160";
+      tooltip="max-lateness=5000000&#10;qos=TRUE&#10;last-sample=((GstSample*) 0x58994a8b5c70)&#10;processing-deadline=15000000&#10;device-name=\"GLAMOR Textured Video\"&#10;double-buffer=FALSE&#10;colorkey=526352&#10;window-width=3840&#10;window-height=2160";
+      subgraph cluster_node_autovideosink0_actual_sink_xvimage_0x58994ab78640_sink {
+        label="";
+        style="invis";
+        node_autovideosink0_actual_sink_xvimage_0x58994ab78640_node_sink_0x58994ab78b20 [color=black, fillcolor="#aaaaff", label="sink\n[>][bfb]", height="0.2", style="filled,solid"];
+      }
+
+      fillcolor="#aaaaff";
+    }
+
+    _node_proxypad1_0x58994ab712a0 -> node_autovideosink0_actual_sink_xvimage_0x58994ab78640_node_sink_0x58994ab78b20 [label="video/x-raw\l              format: I420\l               width: 3840\l              height: 2160\l      interlace-mode: progressive\l  pixel-aspect-ratio: 1/1\l           framerate: 0/1\l"]
+  }
+
+  subgraph cluster_node_avdec_h264_0_0x58994ab6a530 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="avdec_h264\navdec_h264-0\n[>]";
+    subgraph cluster_node_avdec_h264_0_0x58994ab6a530_sink {
+      label="";
+      style="invis";
+      node_avdec_h264_0_0x58994ab6a530_node_sink_0x58994ab6a9d0 [color=black, fillcolor="#aaaaff", label="sink\n[>][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    subgraph cluster_node_avdec_h264_0_0x58994ab6a530_src {
+      label="";
+      style="invis";
+      node_avdec_h264_0_0x58994ab6a530_node_src_0x58994ab6acf0 [color=black, fillcolor="#ffaaaa", label="src\n[>][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    node_avdec_h264_0_0x58994ab6a530_node_sink_0x58994ab6a9d0 -> node_avdec_h264_0_0x58994ab6a530_node_src_0x58994ab6acf0 [style="invis"];
+    fillcolor="#aaffaa";
+  }
+
+  node_avdec_h264_0_0x58994ab6a530_node_src_0x58994ab6acf0 -> node_autovideosink0_0x58994ab70720_node_sink_0x58994ab70f20 [label="video/x-raw\l              format: I420\l               width: 3840\l              height: 2160\l      interlace-mode: progressive\l  pixel-aspect-ratio: 1/1\l           framerate: 0/1\l"]
+  subgraph cluster_node_parsebin0_0x58994aaa8ce0 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="GstParseBin\nparsebin0\n[>]";
+    subgraph cluster_node_parsebin0_0x58994aaa8ce0_sink {
+      label="";
+      style="invis";
+      _node_proxypad0_0x58994aaac780 [color=black, fillcolor="#ddddff", label="proxypad0\n[<][bfb]", height="0.2", style="filled,solid"];
+    node_parsebin0_0x58994aaa8ce0_node_sink_0x58994aaac400 -> _node_proxypad0_0x58994aaac780 [style=dashed, minlen=0]
+      node_parsebin0_0x58994aaa8ce0_node_sink_0x58994aaac400 [color=black, fillcolor="#ddddff", label="sink\n[<][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    subgraph cluster_node_parsebin0_0x58994aaa8ce0_src {
+      label="";
+      style="invis";
+      _node_proxypad2_0x7c52a80b3240 [color=black, fillcolor="#ffdddd", label="proxypad2\n[>][bfb]", height="0.2", style="filled,solid"];
+    _node_proxypad2_0x7c52a80b3240 -> node_parsebin0_0x58994aaa8ce0_node_src_0_0x7c52a80b2ec0 [style=dashed, minlen=0]
+      node_parsebin0_0x58994aaa8ce0_node_src_0_0x7c52a80b2ec0 [color=black, fillcolor="#ffdddd", label="src_0\n[>][bfbE]", height="0.2", style="filled,dotted"];
+    }
+
+    node_parsebin0_0x58994aaa8ce0_node_sink_0x58994aaac400 -> node_parsebin0_0x58994aaa8ce0_node_src_0_0x7c52a80b2ec0 [style="invis"];
+    fillcolor="#ffffff";
+    subgraph cluster_node_capsfilter0_0x7c52a80dc7d0 {
+      fontname="Bitstream Vera Sans";
+      fontsize="8";
+      style="filled,rounded";
+      color=black;
+      label="GstCapsFilter\ncapsfilter0\n[>]\ncaps=video/x-h264, stream-format=(string){ avc, avc3, byte-stream }, alignment=(strin…";
+      tooltip="caps=video/x-h264, stream-format=(string){ avc, avc3, byte-stream }, alignment=(string)au, profile=(string){ high, main, constrained-high, constrained-baseline, baseline, progressive-high }, width=(int)[ 48, 4096 ], height=(int)[ 16, 4096 ], parsed=(boolean)true; video/x-h264, profile=(string){ main, extended, baseline, high, progressive-high, constrained-high, constrained-baseline }, width=(int)[ 1, 8192 ], height=(int)[ 1, 8192 ], alignment=(string)au, stream-format=(string){ avc, avc3, byte-stream }, parsed=(boolean)true; video/x-h264, alignment=(string)au, stream-format=(string){ avc, byte-stream }, parsed=(boolean)true; video/x-h264, alignment=(string)nal, stream-format=(string)byte-stream, parsed=(boolean)true; video/x-h264, parsed=(boolean)true, stream-format=(string){ avc, avc3, byte-stream }, alignment=(string){ au, nal }";
+      subgraph cluster_node_capsfilter0_0x7c52a80dc7d0_sink {
+        label="";
+        style="invis";
+        node_capsfilter0_0x7c52a80dc7d0_node_sink_0x7c52a80dcae0 [color=black, fillcolor="#aaaaff", label="sink\n[>][bfb]", height="0.2", style="filled,solid"];
+      }
+
+      subgraph cluster_node_capsfilter0_0x7c52a80dc7d0_src {
+        label="";
+        style="invis";
+        node_capsfilter0_0x7c52a80dc7d0_node_src_0x7c52a80dcde0 [color=black, fillcolor="#ffaaaa", label="src\n[>][bfbE]", height="0.2", style="filled,solid"];
+      }
+
+      node_capsfilter0_0x7c52a80dc7d0_node_sink_0x7c52a80dcae0 -> node_capsfilter0_0x7c52a80dc7d0_node_src_0x7c52a80dcde0 [style="invis"];
+      fillcolor="#aaffaa";
+    }
+
+    node_capsfilter0_0x7c52a80dc7d0_node_src_0x7c52a80dcde0 -> _node_proxypad2_0x7c52a80b3240 [label="video/x-h264\l               width: 3840\l              height: 2160\l           framerate: 0/1\l  coded-picture-structure: frame\l       chroma-format: 4:2:0\l      bit-depth-luma: 8\l    bit-depth-chroma: 8\l              parsed: true\l       stream-format: avc\l           alignment: au\l             profile: main\l               level: 6.2\l               lcevc: false\l          codec_data: 014d003effe1000b674d00...\l"]
+    subgraph cluster_node_h264parse0_0x7c52a80d6c70 {
+      fontname="Bitstream Vera Sans";
+      fontsize="8";
+      style="filled,rounded";
+      color=black;
+      label="GstH264Parse\nh264parse0\n[>]";
+      subgraph cluster_node_h264parse0_0x7c52a80d6c70_sink {
+        label="";
+        style="invis";
+        node_h264parse0_0x7c52a80d6c70_node_sink_0x7c52a80d7a90 [color=black, fillcolor="#aaaaff", label="sink\n[<][bfb][t]", height="0.2", style="filled,solid"];
+      }
+
+      subgraph cluster_node_h264parse0_0x7c52a80d6c70_src {
+        label="";
+        style="invis";
+        node_h264parse0_0x7c52a80d6c70_node_src_0x7c52a80d7ce0 [color=black, fillcolor="#ffaaaa", label="src\n[>][bfbE]", height="0.2", style="filled,solid"];
+      }
+
+      node_h264parse0_0x7c52a80d6c70_node_sink_0x7c52a80d7a90 -> node_h264parse0_0x7c52a80d6c70_node_src_0x7c52a80d7ce0 [style="invis"];
+      fillcolor="#aaffaa";
+    }
+
+    node_h264parse0_0x7c52a80d6c70_node_src_0x7c52a80d7ce0 -> node_capsfilter0_0x7c52a80dc7d0_node_sink_0x7c52a80dcae0 [label="video/x-h264\l               width: 3840\l              height: 2160\l           framerate: 0/1\l  coded-picture-structure: frame\l       chroma-format: 4:2:0\l      bit-depth-luma: 8\l    bit-depth-chroma: 8\l              parsed: true\l       stream-format: avc\l           alignment: au\l             profile: main\l               level: 6.2\l               lcevc: false\l          codec_data: 014d003effe1000b674d00...\l"]
+    subgraph cluster_node_typefind_0x58994aaa9f70 {
+      fontname="Bitstream Vera Sans";
+      fontsize="8";
+      style="filled,rounded";
+      color=black;
+      label="GstTypeFindElement\ntypefind\n[>]\ncaps=video/x-h264, stream-format=(string)byte-stream";
+      tooltip="caps=video/x-h264, stream-format=(string)byte-stream";
+      subgraph cluster_node_typefind_0x58994aaa9f70_sink {
+        label="";
+        style="invis";
+        node_typefind_0x58994aaa9f70_node_sink_0x58994aaaa3e0 [color=black, fillcolor="#aaaaff", label="sink\n[<][bfb][t]", height="0.2", style="filled,solid"];
+      }
+
+      subgraph cluster_node_typefind_0x58994aaa9f70_src {
+        label="";
+        style="invis";
+        node_typefind_0x58994aaa9f70_node_src_0x58994aaaabc0 [color=black, fillcolor="#ffaaaa", label="src\n[<][bfb]", height="0.2", style="filled,solid"];
+      }
+
+      node_typefind_0x58994aaa9f70_node_sink_0x58994aaaa3e0 -> node_typefind_0x58994aaa9f70_node_src_0x58994aaaabc0 [style="invis"];
+      fillcolor="#aaffaa";
+    }
+
+    _node_proxypad0_0x58994aaac780 -> node_typefind_0x58994aaa9f70_node_sink_0x58994aaaa3e0 [label="ANY"]
+    node_typefind_0x58994aaa9f70_node_src_0x58994aaaabc0 -> node_h264parse0_0x7c52a80d6c70_node_sink_0x7c52a80d7a90 [labeldistance="10", labelangle="0", label="                                                  ", taillabel="ANY", headlabel="video/x-h264\l"]
+  }
+
+  node_parsebin0_0x58994aaa8ce0_node_src_0_0x7c52a80b2ec0 -> node_avdec_h264_0_0x58994ab6a530_node_sink_0x58994ab6a9d0 [label="video/x-h264\l               width: 3840\l              height: 2160\l           framerate: 0/1\l  coded-picture-structure: frame\l       chroma-format: 4:2:0\l      bit-depth-luma: 8\l    bit-depth-chroma: 8\l              parsed: true\l       stream-format: avc\l           alignment: au\l             profile: main\l               level: 6.2\l               lcevc: false\l          codec_data: 014d003effe1000b674d00...\l"]
+  subgraph cluster_node_filesrc0_0x58994aa9e760 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="GstFileSrc\nfilesrc0\n[>]\nlocation=\"/path/to/jellyfish.h264\"";
+    tooltip="location=\"/path/to/jellyfish.h264\"";
+    subgraph cluster_node_filesrc0_0x58994aa9e760_src {
+      label="";
+      style="invis";
+      node_filesrc0_0x58994aa9e760_node_src_0x58994aa9eab0 [color=black, fillcolor="#ffaaaa", label="src\n[<][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    fillcolor="#ffaaaa";
+  }
+
+  node_filesrc0_0x58994aa9e760_node_src_0x58994aa9eab0 -> node_parsebin0_0x58994aaa8ce0_node_sink_0x58994aaac400 [label="ANY"]
+}

@@ -545,7 +545,16 @@ impl Player {
         for (name, value) in node.properties().iter() {
             // This allows having an index in front of a property such as an enum.
             if !node.hidden_property(name) {
-                let _ = write!(description, "{name}={value} ");
+                // Quote values containing spaces or special chars for GStreamer parser
+                // but only if not already quoted
+                let needs_quoting =
+                    (value.contains(' ') || value.contains('(') || value.contains(')'))
+                        && !value.starts_with('"');
+                if needs_quoting {
+                    let _ = write!(description, "{name}=\"{value}\" ");
+                } else {
+                    let _ = write!(description, "{name}={value} ");
+                }
             }
         }
         // Port properties

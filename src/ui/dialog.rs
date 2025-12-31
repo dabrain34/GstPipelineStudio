@@ -165,12 +165,27 @@ pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDia
 
     // Set up file filter for Open dialogs
     if dlg_type == FileDialogType::Open {
-        let filter = FileFilter::new();
-        filter.add_pattern("*.gps");
-        filter.set_name(Some("GPS Files (*.gps)"));
-
         let filters = gio::ListStore::new::<FileFilter>();
-        filters.append(&filter);
+
+        // Combined filter for all supported files (default)
+        let all_filter = FileFilter::new();
+        all_filter.add_pattern("*.gps");
+        all_filter.add_pattern("*.dot");
+        all_filter.set_name(Some("All Pipeline Files (*.gps, *.dot)"));
+        filters.append(&all_filter);
+
+        // GPS files filter
+        let gps_filter = FileFilter::new();
+        gps_filter.add_pattern("*.gps");
+        gps_filter.set_name(Some("GPS Files (*.gps)"));
+        filters.append(&gps_filter);
+
+        // DOT files filter
+        let dot_filter = FileFilter::new();
+        dot_filter.add_pattern("*.dot");
+        dot_filter.set_name(Some("DOT Files (*.dot)"));
+        filters.append(&dot_filter);
+
         file_dialog.set_filters(Some(&filters));
     }
 

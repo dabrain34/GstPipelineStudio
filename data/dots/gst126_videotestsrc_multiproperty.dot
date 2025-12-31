@@ -1,0 +1,78 @@
+digraph pipeline {
+  rankdir=LR;
+  fontname="sans";
+  fontsize="10";
+  labelloc=t;
+  nodesep=.1;
+  ranksep=.2;
+  label="<GstPipeline>\npipeline0\n[>]";
+  node [style="filled,rounded", shape=box, fontsize="9", fontname="sans", margin="0.0,0.0"];
+  edge [labelfontsize="6", fontsize="9", fontname="monospace"];
+
+  legend [
+    pos="0,0!",
+    margin="0.05,0.05",
+    style="filled",
+    label="Legend\lElement-States: [~] void-pending, [0] null, [-] ready, [=] paused, [>] playing\lPad-Activation: [-] none, [>] push, [<] pull\lPad-Flags: [b]locked, [f]lushing, [b]locking, [E]OS; upper-case is set\lPad-Task: [T] has started task, [t] has paused task\l",
+  ];
+  tracers [
+    pos="0,0!",
+    margin="0.05,0.05",
+    style="filled",
+    fillcolor="#e0e0ff",
+    label="Active Tracers:\l    - GstLeaksTracer:    \l        * filters=\"\"\l",
+  ];
+
+  subgraph cluster_node_autovideosink0_0x60258ab63780 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="GstAutoVideoSink\nautovideosink0\n[>]\nfilter-caps=video/x-raw\nsync=FALSE";
+    tooltip="filter-caps=video/x-raw&#10;sync=FALSE";
+    subgraph cluster_node_autovideosink0_0x60258ab63780_sink {
+      label="";
+      style="invis";
+      _node_proxypad0_0x60258ab649e0 [color=black, fillcolor="#ddddff", label="proxypad0\n[>][bfb]", height="0.2", style="filled,solid"];
+    node_autovideosink0_0x60258ab63780_node_sink_0x60258ab64650 -> _node_proxypad0_0x60258ab649e0 [style=dashed, minlen=0]
+      node_autovideosink0_0x60258ab63780_node_sink_0x60258ab64650 [color=black, fillcolor="#ddddff", label="sink\n[>][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    fillcolor="#ffffff";
+    subgraph cluster_node_autovideosink0_actual_sink_xvimage_0x60258ab74980 {
+      fontname="Bitstream Vera Sans";
+      fontsize="8";
+      style="filled,rounded";
+      color=black;
+      label="GstXvImageSink\nautovideosink0-actual-sink-xvimage\n[>]\nsync=FALSE\nmax-lateness=5000000\nqos=TRUE\nlast-sample=((GstSample*) 0x60258ab8ecc0)\nprocessing-deadline=15000000\ndevice-name=\"GLAMOR Textured Video\"\ndouble-buffer=FALSE\ncolorkey=526352\nwindow-width=320\nwindow-height=240";
+      tooltip="sync=FALSE&#10;max-lateness=5000000&#10;qos=TRUE&#10;last-sample=((GstSample*) 0x60258ab8e410)&#10;processing-deadline=15000000&#10;device-name=\"GLAMOR Textured Video\"&#10;double-buffer=FALSE&#10;colorkey=526352&#10;window-width=320&#10;window-height=240";
+      subgraph cluster_node_autovideosink0_actual_sink_xvimage_0x60258ab74980_sink {
+        label="";
+        style="invis";
+        node_autovideosink0_actual_sink_xvimage_0x60258ab74980_node_sink_0x60258ab74e60 [color=black, fillcolor="#aaaaff", label="sink\n[>][bfb]", height="0.2", style="filled,solid"];
+      }
+
+      fillcolor="#aaaaff";
+    }
+
+    _node_proxypad0_0x60258ab649e0 -> node_autovideosink0_actual_sink_xvimage_0x60258ab74980_node_sink_0x60258ab74e60 [label="video/x-raw\l              format: YV12\l               width: 320\l              height: 240\l           framerate: 30/1\l      multiview-mode: mono\l  pixel-aspect-ratio: 1/1\l      interlace-mode: progressive\l"]
+  }
+
+  subgraph cluster_node_videotestsrc0_0x60258ab61220 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="GstVideoTestSrc\nvideotestsrc0\n[>]\nnum-buffers=10\npattern=white";
+    tooltip="num-buffers=10&#10;pattern=white";
+    subgraph cluster_node_videotestsrc0_0x60258ab61220_src {
+      label="";
+      style="invis";
+      node_videotestsrc0_0x60258ab61220_node_src_0x60258ab616d0 [color=black, fillcolor="#ffaaaa", label="src\n[>][bfb][T]", height="0.2", style="filled,solid"];
+    }
+
+    fillcolor="#ffaaaa";
+  }
+
+  node_videotestsrc0_0x60258ab61220_node_src_0x60258ab616d0 -> node_autovideosink0_0x60258ab63780_node_sink_0x60258ab64650 [label="video/x-raw\l              format: YV12\l               width: 320\l              height: 240\l           framerate: 30/1\l      multiview-mode: mono\l  pixel-aspect-ratio: 1/1\l      interlace-mode: progressive\l"]
+}
