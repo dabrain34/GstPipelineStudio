@@ -9,10 +9,10 @@
    Light Theme (default)
    ============================================ */
 
-/* Nodes - Green gradient */
+/* Nodes - Green gradient with transparency */
 button.node {
   color: #1a5f1a;
-  background: linear-gradient(180deg, #b8ffb8 0%, #7ddf7d 50%, #5ac85a 100%);
+  background: linear-gradient(180deg, rgba(184, 255, 184, 0.85) 0%, rgba(125, 223, 125, 0.85) 50%, rgba(90, 200, 90, 0.85) 100%);
   border-width: 2px;
   border-style: solid;
   border-radius: 10px;
@@ -89,7 +89,7 @@ graphview.dark-theme {
 
 graphview.dark-theme button.node {
   color: #90ff90;
-  background: linear-gradient(180deg, #2d5a2d 0%, #1f4a1f 50%, #153515 100%);
+  background: linear-gradient(180deg, rgba(45, 90, 45, 0.85) 0%, rgba(31, 74, 31, 0.85) 50%, rgba(21, 53, 21, 0.85) 100%);
   border-color: #4a8a4a;
   box-shadow: 0 2px 4px rgba(0,0,0,0.4);
 }
