@@ -37,6 +37,7 @@ static TEST_THREAD_WORKER: once_cell::sync::Lazy<gtk::glib::ThreadPool> =
     });
 
 use crate::graphmanager::{GraphView, Node, NodeType, PortDirection, PortPresence, PropertyExt};
+use gtk::prelude::WidgetExt;
 
 #[test]
 fn graphview_creation() {
@@ -1024,8 +1025,10 @@ fn auto_arrange_custom_options() {
         assert!(graphview.auto_arrange_graph(Some(options)));
 
         // Verify positions match custom options
-        let src_pos = graphview.node(1).unwrap().position();
-        let sink_pos = graphview.node(2).unwrap().position();
+        let src_node = graphview.node(1).unwrap();
+        let sink_node = graphview.node(2).unwrap();
+        let src_pos = src_node.position();
+        let sink_pos = sink_node.position();
 
         // Source should be at start_x
         assert!(
@@ -1037,10 +1040,15 @@ fn auto_arrange_custom_options() {
             "Source Y should be at start_y"
         );
 
-        // Sink should be at start_x + horizontal_spacing
+        // Sink should be at start_x + src_width + horizontal_spacing (gap-based layout)
+        // Note: In tests, GTK widgets may not be realized, so width() returns 0
+        let src_width = src_node.width() as f32;
+        let expected_sink_x = 100.0 + src_width + 500.0;
         assert!(
-            (sink_pos.0 - 600.0).abs() < 1.0, // 100 + 500
-            "Sink X should be at start_x + horizontal_spacing"
+            (sink_pos.0 - expected_sink_x).abs() < 1.0,
+            "Sink X should be at start_x + src_width + horizontal_spacing: expected {}, got {}",
+            expected_sink_x,
+            sink_pos.0
         );
     });
 }

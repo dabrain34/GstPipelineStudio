@@ -60,11 +60,15 @@ struct EdgeInfo {
 /// Configuration options for auto-arrange
 #[derive(Debug, Clone)]
 pub struct AutoArrangeOptions {
-    /// Horizontal spacing between layers (default: 250.0)
+    /// Horizontal gap between stages (default: 100.0).
+    ///
+    /// This is the space between the right edge of the widest node in one stage
+    /// and the left edge of nodes in the next stage. The actual X distance between
+    /// stages depends on node widths plus this gap value.
     pub horizontal_spacing: f32,
-    /// Vertical spacing between nodes in the same layer (default: 100.0)
+    /// Vertical spacing between nodes in the same stage (default: 100.0)
     pub vertical_spacing: f32,
-    /// Starting X position for the first layer (default: 50.0)
+    /// Starting X position for the first stage (default: 50.0)
     pub start_x: f32,
     /// Starting Y position (default: 50.0)
     pub start_y: f32,
@@ -79,7 +83,7 @@ pub struct AutoArrangeOptions {
 impl Default for AutoArrangeOptions {
     fn default() -> Self {
         Self {
-            horizontal_spacing: 250.0,
+            horizontal_spacing: 100.0,
             vertical_spacing: 100.0,
             start_x: 50.0,
             start_y: 50.0,
@@ -2378,8 +2382,11 @@ impl GraphView {
 
     /// Automatically arrange all nodes in the graph from source to sink.
     ///
-    /// Uses longest-path layering to position nodes horizontally and
-    /// distributes nodes vertically within each layer using barycenter ordering.
+    /// Groups nodes into stages (based on distance from sources) and
+    /// distributes nodes vertically within each stage using barycenter ordering.
+    ///
+    /// The horizontal spacing between stages is dynamic: each stage starts after
+    /// the widest node in the previous stage plus the configured `horizontal_spacing` gap.
     ///
     /// This operation is undoable as a single action.
     ///
@@ -2388,6 +2395,12 @@ impl GraphView {
     ///
     /// # Returns
     /// `true` if layout was applied, `false` if graph is empty.
+    ///
+    /// # Note
+    /// Node widths are determined by GTK widget allocation. If called before nodes
+    /// are realized (e.g., during file loading), widths may be 0 and stages will
+    /// be spaced using only `horizontal_spacing`. For best results, call this method
+    /// after the graph view has been displayed.
     pub fn auto_arrange_graph(&self, options: Option<AutoArrangeOptions>) -> bool {
         use std::collections::VecDeque;
 
@@ -2420,25 +2433,26 @@ impl GraphView {
             .map(|(&id, _)| id)
             .collect();
 
-        // Longest-path layering using modified Kahn's algorithm
-        let mut layer: HashMap<u32, usize> = HashMap::new();
+        // Assign each node to a stage (processing step in the pipeline, based on distance from sources)
+        // using longest-path algorithm (modified Kahn's)
+        let mut stage: HashMap<u32, usize> = HashMap::new();
         for node in &nodes {
-            layer.insert(node.id(), 0);
+            stage.insert(node.id(), 0);
         }
 
         let mut queue: VecDeque<u32> = sources.into_iter().collect();
         let mut remaining_input_count = input_count.clone();
 
         while let Some(node_id) = queue.pop_front() {
-            let current_layer = *layer.get(&node_id).unwrap_or(&0);
+            let current_stage = *stage.get(&node_id).unwrap_or(&0);
 
             if let Some(downstream_list) = forward_edges.get(&node_id) {
                 for edge in downstream_list {
-                    // Update layer to maximum distance from sources
-                    let new_layer = current_layer + 1;
-                    layer
+                    // Update stage to maximum distance from sources
+                    let new_stage = current_stage + 1;
+                    stage
                         .entry(edge.node_id)
-                        .and_modify(|l| *l = (*l).max(new_layer));
+                        .and_modify(|s| *s = (*s).max(new_stage));
 
                     // Decrement input count and add to queue if ready
                     if let Some(count) = remaining_input_count.get_mut(&edge.node_id) {
@@ -2451,32 +2465,56 @@ impl GraphView {
             }
         }
 
-        // Handle disconnected nodes (place them in an extra layer at the end)
-        let max_layer = layer.values().max().copied().unwrap_or(0);
+        // Handle disconnected nodes (place them in an extra stage at the end)
+        let max_stage = stage.values().max().copied().unwrap_or(0);
         for node in &nodes {
-            layer.entry(node.id()).or_insert(max_layer + 1);
+            stage.entry(node.id()).or_insert(max_stage + 1);
         }
 
-        // Group nodes by layer
-        let num_layers = layer.values().max().copied().unwrap_or(0) + 1;
-        let mut layers: Vec<Vec<u32>> = vec![Vec::new(); num_layers];
-        for (&node_id, &layer_idx) in &layer {
-            if layer_idx < num_layers {
-                layers[layer_idx].push(node_id);
+        // Group nodes by stage
+        let num_stages = stage.values().max().copied().unwrap_or(0) + 1;
+        let mut stages: Vec<Vec<u32>> = vec![Vec::new(); num_stages];
+        for (&node_id, &stage_idx) in &stage {
+            if stage_idx < num_stages {
+                stages[stage_idx].push(node_id);
             }
         }
 
         // Compute vertical positions using barycenter ordering with multiple passes
         let y_positions =
-            self.compute_vertical_positions(&layers, &forward_edges, &backward_edges, &options);
+            self.compute_vertical_positions(&stages, &forward_edges, &backward_edges, &options);
+
+        // Compute maximum width for each stage
+        let mut stage_max_widths: Vec<f32> = vec![0.0; num_stages];
+        for (stage_idx, stage_nodes) in stages.iter().enumerate() {
+            for &node_id in stage_nodes {
+                if let Some(node) = self.node(node_id) {
+                    let node_width = node.width() as f32;
+                    if node_width > stage_max_widths[stage_idx] {
+                        stage_max_widths[stage_idx] = node_width;
+                    }
+                }
+            }
+        }
+
+        // Compute cumulative X positions for each stage based on actual widths
+        // Each stage starts after the previous stage's max width + horizontal_spacing gap
+        let mut stage_x_positions: Vec<f32> = vec![options.start_x; num_stages];
+        for i in 1..num_stages {
+            stage_x_positions[i] =
+                stage_x_positions[i - 1] + stage_max_widths[i - 1] + options.horizontal_spacing;
+        }
 
         // Collect old positions and compute new positions
         let mut moves: Vec<(u32, graphene::Point, graphene::Point)> = Vec::new();
 
         for node in &nodes {
             let node_id = node.id();
-            let layer_idx = layer.get(&node_id).copied().unwrap_or(0);
-            let new_x = options.start_x + (layer_idx as f32 * options.horizontal_spacing);
+            let stage_idx = stage.get(&node_id).copied().unwrap_or(0);
+            let new_x = stage_x_positions
+                .get(stage_idx)
+                .copied()
+                .unwrap_or(options.start_x);
             let new_y = y_positions
                 .get(&node_id)
                 .copied()
@@ -2585,28 +2623,28 @@ impl GraphView {
     /// Compute vertical positions for nodes using iterative barycenter ordering
     ///
     /// Uses multiple passes (forward and backward sweeps) to minimize edge crossings.
-    /// Each pass reorders nodes within layers based on the average Y position of
-    /// their connected nodes in adjacent layers, taking port indices into account.
+    /// Each pass reorders nodes within stages based on the average Y position of
+    /// their connected nodes in adjacent stages, taking port indices into account.
     fn compute_vertical_positions(
         &self,
-        layers: &[Vec<u32>],
+        stages: &[Vec<u32>],
         forward_edges: &HashMap<u32, Vec<EdgeInfo>>,
         backward_edges: &HashMap<u32, Vec<EdgeInfo>>,
         options: &AutoArrangeOptions,
     ) -> HashMap<u32, f32> {
-        if layers.is_empty() {
+        if stages.is_empty() {
             return HashMap::new();
         }
 
-        // Store the ordering of nodes within each layer (indices determine Y position)
-        let mut layer_orderings: Vec<Vec<u32>> = layers.to_vec();
+        // Store the ordering of nodes within each stage (indices determine Y position)
+        let mut stage_orderings: Vec<Vec<u32>> = stages.to_vec();
 
-        // Initial assignment: first layer keeps original order
-        // Subsequent layers ordered by upstream barycenter
-        for layer_idx in 1..layer_orderings.len() {
-            let adjacent = layer_orderings[layer_idx - 1].clone();
-            self.reorder_layer_by_barycenter(
-                &mut layer_orderings[layer_idx],
+        // Initial assignment: first stage keeps original order
+        // Subsequent stages ordered by upstream barycenter
+        for stage_idx in 1..stage_orderings.len() {
+            let adjacent = stage_orderings[stage_idx - 1].clone();
+            self.reorder_stage_by_barycenter(
+                &mut stage_orderings[stage_idx],
                 backward_edges,
                 &adjacent,
                 options,
@@ -2616,10 +2654,10 @@ impl GraphView {
         // Perform multiple passes to refine the ordering
         for _ in 0..options.barycenter_iterations {
             // Backward pass (right to left): reorder based on downstream nodes
-            for layer_idx in (0..layer_orderings.len().saturating_sub(1)).rev() {
-                let adjacent = layer_orderings[layer_idx + 1].clone();
-                self.reorder_layer_by_barycenter(
-                    &mut layer_orderings[layer_idx],
+            for stage_idx in (0..stage_orderings.len().saturating_sub(1)).rev() {
+                let adjacent = stage_orderings[stage_idx + 1].clone();
+                self.reorder_stage_by_barycenter(
+                    &mut stage_orderings[stage_idx],
                     forward_edges,
                     &adjacent,
                     options,
@@ -2627,10 +2665,10 @@ impl GraphView {
             }
 
             // Forward pass (left to right): reorder based on upstream nodes
-            for layer_idx in 1..layer_orderings.len() {
-                let adjacent = layer_orderings[layer_idx - 1].clone();
-                self.reorder_layer_by_barycenter(
-                    &mut layer_orderings[layer_idx],
+            for stage_idx in 1..stage_orderings.len() {
+                let adjacent = stage_orderings[stage_idx - 1].clone();
+                self.reorder_stage_by_barycenter(
+                    &mut stage_orderings[stage_idx],
                     backward_edges,
                     &adjacent,
                     options,
@@ -2640,8 +2678,8 @@ impl GraphView {
 
         // Convert orderings to Y positions
         let mut y_positions: HashMap<u32, f32> = HashMap::new();
-        for layer_nodes in &layer_orderings {
-            for (i, &node_id) in layer_nodes.iter().enumerate() {
+        for stage_nodes in &stage_orderings {
+            for (i, &node_id) in stage_nodes.iter().enumerate() {
                 let y = options.start_y + (i as f32 * options.vertical_spacing);
                 y_positions.insert(node_id, y);
             }
@@ -2650,20 +2688,20 @@ impl GraphView {
         y_positions
     }
 
-    /// Reorder nodes in a layer based on barycenter of connected nodes in adjacent layer
+    /// Reorder nodes in a stage based on barycenter of connected nodes in adjacent stage
     ///
     /// The port_index in EdgeInfo is used to adjust the effective Y position:
     /// - Connections to higher-indexed ports result in slightly higher Y positions
     /// - This helps minimize edge crossings when multiple nodes connect to the same destination
-    fn reorder_layer_by_barycenter(
+    fn reorder_stage_by_barycenter(
         &self,
-        layer: &mut [u32],
+        stage: &mut [u32],
         edges: &HashMap<u32, Vec<EdgeInfo>>,
-        adjacent_layer: &[u32],
+        adjacent_stage: &[u32],
         options: &AutoArrangeOptions,
     ) {
-        // Build a position map for the adjacent layer
-        let adjacent_positions: HashMap<u32, f32> = adjacent_layer
+        // Build a position map for the adjacent stage
+        let adjacent_positions: HashMap<u32, f32> = adjacent_stage
             .iter()
             .enumerate()
             .map(|(i, &id)| (id, options.start_y + (i as f32 * options.vertical_spacing)))
@@ -2673,8 +2711,8 @@ impl GraphView {
         // This ensures that nodes connecting to port 0 appear above those connecting to port 1, etc.
         let port_offset = options.vertical_spacing * options.port_offset_factor;
 
-        // Compute barycenter for each node in the layer
-        let mut nodes_with_barycenter: Vec<(u32, f32)> = layer
+        // Compute barycenter for each node in the stage
+        let mut nodes_with_barycenter: Vec<(u32, f32)> = stage
             .iter()
             .map(|&node_id| {
                 let connected = edges.get(&node_id).map(|v| v.as_slice()).unwrap_or(&[]);
@@ -2704,9 +2742,9 @@ impl GraphView {
         // Sort by barycenter, maintaining relative order for nodes with no connections
         nodes_with_barycenter.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(Ordering::Equal));
 
-        // Update the layer ordering
+        // Update the stage ordering
         for (i, (node_id, _)) in nodes_with_barycenter.into_iter().enumerate() {
-            layer[i] = node_id;
+            stage[i] = node_id;
         }
     }
 
