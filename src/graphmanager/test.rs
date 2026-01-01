@@ -1059,7 +1059,7 @@ fn xml_ports_saved_in_sorted_order() {
         let graphview = GraphView::new();
 
         // Create a node
-        let node = graphview.create_node("compositor", NodeType::Transform);
+        let node = graphview.create_node("mixer", NodeType::Transform);
         graphview.add_node(node);
 
         // Add ports in reverse alphabetical order to test sorting
@@ -1128,7 +1128,7 @@ fn xml_roundtrip_preserves_port_order() {
         let graphview = GraphView::new();
 
         // Create a node with multiple input ports
-        let node = graphview.create_node("compositor", NodeType::Transform);
+        let node = graphview.create_node("mixer", NodeType::Transform);
         graphview.add_node(node);
 
         // Add ports - the order they're added determines their visual position
@@ -1142,11 +1142,11 @@ fn xml_roundtrip_preserves_port_order() {
         graphview.add_port_to_node(&mut node, port_out);
 
         // Create source nodes and links
-        let src1 = graphview.create_node_with_port("videotestsrc", NodeType::Source, 1, 0);
+        let src1 = graphview.create_node_with_port("video_source", NodeType::Source, 1, 0);
         src1.set_position(20.0, 30.0); // Top source
         graphview.add_node(src1);
 
-        let src2 = graphview.create_node_with_port("videotestsrc", NodeType::Source, 1, 0);
+        let src2 = graphview.create_node_with_port("video_source", NodeType::Source, 1, 0);
         src2.set_position(20.0, 300.0); // Bottom source
         graphview.add_node(src2);
 
@@ -1167,7 +1167,7 @@ fn xml_roundtrip_preserves_port_order() {
             .expect("Should be able to load from XML");
 
         // Verify node exists
-        let node = graphview.node(1).expect("Compositor node should exist");
+        let node = graphview.node(1).expect("Mixer node should exist");
 
         // Get input ports and check their order by collecting to vec and sorting by name
         let mut input_ports: Vec<_> = node.all_ports(PortDirection::Input).into_iter().collect();
@@ -1373,7 +1373,7 @@ fn auto_connect_find_compatible_port_by_caps() {
         let graphview = GraphView::new();
 
         // Create source node with video output port
-        let source = graphview.create_node("videotestsrc", NodeType::Source);
+        let source = graphview.create_node("video_source", NodeType::Source);
         graphview.add_node(source);
         let src_port = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
         src_port.add_property("_caps", "video/x-raw");
@@ -1381,7 +1381,7 @@ fn auto_connect_find_compatible_port_by_caps() {
         graphview.add_port_to_node(&mut source, src_port);
 
         // Create sink node with video input port and audio input port
-        let sink = graphview.create_node("compositor", NodeType::Transform);
+        let sink = graphview.create_node("mixer", NodeType::Transform);
         graphview.add_node(sink);
 
         let video_sink =
@@ -1432,7 +1432,7 @@ fn auto_connect_no_compatible_port_when_caps_mismatch() {
         let graphview = GraphView::new();
 
         // Create source node with video output port
-        let source = graphview.create_node("videotestsrc", NodeType::Source);
+        let source = graphview.create_node("video_source", NodeType::Source);
         graphview.add_node(source);
         let src_port = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
         src_port.add_property("_caps", "video/x-raw");
@@ -1440,7 +1440,7 @@ fn auto_connect_no_compatible_port_when_caps_mismatch() {
         graphview.add_port_to_node(&mut source, src_port);
 
         // Create sink node with only audio input port
-        let sink = graphview.create_node("audiosink", NodeType::Sink);
+        let sink = graphview.create_node("audio_sink", NodeType::Sink);
         graphview.add_node(sink);
 
         let audio_sink = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
@@ -1479,7 +1479,7 @@ fn auto_connect_all_ports_linked() {
         let graphview = GraphView::new();
 
         // Create source node 1 with video output
-        let source1 = graphview.create_node("videotestsrc", NodeType::Source);
+        let source1 = graphview.create_node("video_source", NodeType::Source);
         graphview.add_node(source1);
         let src_port1 = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
         src_port1.add_property("_caps", "video/x-raw");
@@ -1487,7 +1487,7 @@ fn auto_connect_all_ports_linked() {
         graphview.add_port_to_node(&mut source1, src_port1);
 
         // Create source node 2 with video output
-        let source2 = graphview.create_node("videotestsrc2", NodeType::Source);
+        let source2 = graphview.create_node("video_source_2", NodeType::Source);
         graphview.add_node(source2);
         let src_port2 = graphview.create_port("src", PortDirection::Output, PortPresence::Always);
         src_port2.add_property("_caps", "video/x-raw");
@@ -1495,7 +1495,7 @@ fn auto_connect_all_ports_linked() {
         graphview.add_port_to_node(&mut source2, src_port2);
 
         // Create sink node with single video input
-        let sink = graphview.create_node("videosink", NodeType::Sink);
+        let sink = graphview.create_node("video_sink", NodeType::Sink);
         graphview.add_node(sink);
         let video_sink = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
         video_sink.add_property("_caps", "video/x-raw");
@@ -1553,7 +1553,7 @@ fn auto_connect_with_any_caps() {
         graphview.add_port_to_node(&mut source, src_port);
 
         // Create sink node with specific audio caps
-        let sink = graphview.create_node("audiosink", NodeType::Sink);
+        let sink = graphview.create_node("audio_sink", NodeType::Sink);
         graphview.add_node(sink);
         let audio_sink = graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
         audio_sink.add_property("_caps", "audio/x-raw");
@@ -1610,4 +1610,239 @@ fn auto_connect_port_without_caps_property() {
 
         assert_eq!(from_caps, "ANY", "Port without _caps should default to ANY");
     });
+}
+
+// =============================================================================
+// DOT Parser Tests (no GTK required)
+// =============================================================================
+
+use crate::graphmanager::dot_parser::{DotGraph, DotLoader};
+use std::collections::HashMap;
+
+/// Default loader using all trait default implementations
+struct DefaultDotLoader;
+
+impl DotLoader for DefaultDotLoader {}
+
+#[test]
+fn dot_parse_empty_graph() {
+    let loader = DefaultDotLoader;
+    let result = DotGraph::parse("digraph pipeline { }", &loader);
+    assert!(result.is_ok(), "Empty graph should parse successfully");
+    let graph = result.unwrap();
+    assert!(graph.nodes.is_empty(), "Empty graph should have no nodes");
+    assert!(graph.ports.is_empty(), "Empty graph should have no ports");
+    assert!(graph.links.is_empty(), "Empty graph should have no links");
+}
+
+#[test]
+fn dot_parse_invalid_syntax() {
+    let loader = DefaultDotLoader;
+    let result = DotGraph::parse("not valid dot syntax {{{", &loader);
+    assert!(result.is_err(), "Invalid syntax should return error");
+}
+
+#[test]
+fn dot_parse_empty_string() {
+    let loader = DefaultDotLoader;
+    let result = DotGraph::parse("", &loader);
+    assert!(result.is_err(), "Empty string should return error");
+}
+
+#[test]
+fn dot_parse_simple_node() {
+    let loader = DefaultDotLoader;
+    // Use actual newlines in label (default parser uses .lines())
+    let dot = "
+        digraph pipeline {
+            subgraph cluster_node0_0x123 {
+                label=\"MyClass
+instance0\";
+            }
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok(), "Simple node should parse: {:?}", result);
+    let graph = result.unwrap();
+    assert_eq!(graph.nodes.len(), 1, "Should have 1 node");
+    assert_eq!(graph.nodes[0].instance_name, "instance0");
+    assert_eq!(graph.nodes[0].type_name, "myclass"); // lowercased
+    assert_eq!(
+        graph.nodes[0].metadata.get("class_name"),
+        Some(&"MyClass".to_string())
+    );
+}
+
+#[test]
+fn dot_parse_node_with_port() {
+    let loader = DefaultDotLoader;
+    let dot = "
+        digraph pipeline {
+            subgraph cluster_node0_0x123 {
+                label=\"Source
+src0\";
+                node_src0_0x123_node_out_0x456 [label=\"out\"];
+            }
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok(), "Node with port should parse: {:?}", result);
+    let graph = result.unwrap();
+    assert_eq!(graph.nodes.len(), 1);
+    assert_eq!(graph.ports.len(), 1);
+    assert_eq!(graph.ports[0].name, "out");
+}
+
+#[test]
+fn dot_parse_linked_nodes() {
+    let loader = DefaultDotLoader;
+    let dot = "
+        digraph pipeline {
+            subgraph cluster_src_0x100 {
+                label=\"Source
+src0\";
+                src_0x100_out_0x101 [label=\"src\"];
+            }
+            subgraph cluster_sink_0x200 {
+                label=\"Sink
+sink0\";
+                sink_0x200_in_0x201 [label=\"sink\"];
+            }
+            src_0x100_out_0x101 -> sink_0x200_in_0x201;
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok(), "Linked nodes should parse: {:?}", result);
+    let graph = result.unwrap();
+    assert_eq!(graph.nodes.len(), 2);
+    assert_eq!(graph.ports.len(), 2);
+    assert_eq!(graph.links.len(), 1);
+
+    // Check port directions inferred from edge
+    let src_port = graph.ports.iter().find(|p| p.name == "src").unwrap();
+    let sink_port = graph.ports.iter().find(|p| p.name == "sink").unwrap();
+    assert_eq!(src_port.direction, PortDirection::Output);
+    assert_eq!(sink_port.direction, PortDirection::Input);
+}
+
+#[test]
+fn dot_parse_skips_legend() {
+    let loader = DefaultDotLoader;
+    // Use actual newlines in labels
+    let dot = "
+        digraph pipeline {
+            subgraph cluster_legend_0x999 {
+                label=\"Legend
+Legend\";
+            }
+            subgraph cluster_real_0x123 {
+                label=\"RealNode
+real0\";
+            }
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok());
+    let graph = result.unwrap();
+    assert_eq!(graph.nodes.len(), 1, "Should skip Legend node");
+    assert_eq!(graph.nodes[0].instance_name, "real0");
+}
+
+#[test]
+fn dot_parse_skips_proxypad() {
+    let loader = DefaultDotLoader;
+    let dot = "
+        digraph pipeline {
+            subgraph cluster_node_0x123 {
+                label=\"Element
+elem0\";
+                node_proxypad0_0x456 [label=\"proxypad0\"];
+                node_src_0x789 [label=\"src\"];
+            }
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok());
+    let graph = result.unwrap();
+    assert_eq!(graph.ports.len(), 1, "Should skip proxypad port");
+    assert_eq!(graph.ports[0].name, "src");
+}
+
+#[test]
+fn dot_parse_port_direction_from_name() {
+    let loader = DefaultDotLoader;
+    let dot = "
+        digraph pipeline {
+            subgraph cluster_node_0x123 {
+                label=\"Element
+elem0\";
+                elem0_0x123_sink_0x456 [label=\"sink\"];
+                elem0_0x123_src_0x789 [label=\"src\"];
+            }
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok());
+    let graph = result.unwrap();
+
+    // Ports not in any edge should get direction from naming convention
+    let sink_port = graph.ports.iter().find(|p| p.name == "sink").unwrap();
+    let src_port = graph.ports.iter().find(|p| p.name == "src").unwrap();
+    assert_eq!(sink_port.direction, PortDirection::Input);
+    assert_eq!(src_port.direction, PortDirection::Output);
+}
+
+#[test]
+fn dot_parse_graph_metadata() {
+    // Custom loader that extracts "version" attribute
+    struct MetadataLoader;
+    impl DotLoader for MetadataLoader {
+        fn extract_graph_metadata(
+            &self,
+            attributes: &[(String, String)],
+        ) -> HashMap<String, String> {
+            attributes
+                .iter()
+                .filter(|(k, _)| k == "version")
+                .cloned()
+                .collect()
+        }
+    }
+
+    let loader = MetadataLoader;
+    let dot = "
+        digraph pipeline {
+            version=\"1.0\";
+            other=\"ignored\";
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok());
+    let graph = result.unwrap();
+    assert_eq!(graph.metadata.get("version"), Some(&"1.0".to_string()));
+    assert!(!graph.metadata.contains_key("other"));
+}
+
+#[test]
+fn dot_parse_nested_nodes_filtered() {
+    let loader = DefaultDotLoader;
+    // Use actual newlines in labels
+    let dot = "
+        digraph pipeline {
+            subgraph cluster_bin_0x100 {
+                label=\"Bin
+bin0\";
+                subgraph cluster_inner_0x200 {
+                    label=\"Inner
+inner0\";
+                }
+            }
+        }
+    ";
+    let result = DotGraph::parse(dot, &loader);
+    assert!(result.is_ok());
+    let graph = result.unwrap();
+    // Only top-level nodes (depth=0) should be included
+    assert_eq!(graph.nodes.len(), 1, "Should only include top-level node");
+    assert_eq!(graph.nodes[0].instance_name, "bin0");
 }

@@ -41,6 +41,56 @@ pub static GRAPHVIEW_XML_VERSION: &str = "0.1";
 
 const CANVAS_SIZE: f64 = 5000.0;
 
+/// Context for DOT file loading operations.
+///
+/// Holds shared state (ID mappings) used across the node, port, and link
+/// creation phases when loading a DOT file.
+struct DotLoadContext {
+    /// Maps DOT cluster IDs to internal node IDs
+    node_id_map: HashMap<String, u32>,
+    /// Maps DOT port IDs to internal port IDs
+    port_id_map: HashMap<String, u32>,
+    /// Maps DOT port IDs to their parent node IDs
+    node_for_port: HashMap<String, u32>,
+    /// Maps normalized instance names to (link_index, is_source_port) pairs
+    /// for O(1) lookup during port creation
+    links_by_instance: HashMap<String, Vec<(usize, bool)>>,
+}
+
+impl DotLoadContext {
+    /// Create a new context with pre-built link lookup maps.
+    fn new<L: super::dot_parser::DotLoader>(
+        dot_graph: &super::dot_parser::DotGraph,
+        loader: &L,
+    ) -> Self {
+        let mut links_by_instance: HashMap<String, Vec<(usize, bool)>> = HashMap::new();
+
+        // Pre-build link lookup maps for O(1) access instead of O(n) iteration
+        for (idx, link) in dot_graph.links.iter().enumerate() {
+            // Extract instance names from port IDs
+            if let Some(instance) = loader.extract_node_instance_from_id(&link.from_port_id) {
+                links_by_instance
+                    .entry(instance)
+                    .or_default()
+                    .push((idx, true)); // true = source port
+            }
+            if let Some(instance) = loader.extract_node_instance_from_id(&link.to_port_id) {
+                links_by_instance
+                    .entry(instance)
+                    .or_default()
+                    .push((idx, false)); // false = sink port
+            }
+        }
+
+        Self {
+            node_id_map: HashMap::new(),
+            port_id_map: HashMap::new(),
+            node_for_port: HashMap::new(),
+            links_by_instance,
+        }
+    }
+}
+
 // Default link colors (RGB values 0.0-1.0)
 const LINK_COLOR_DEFAULT: (f64, f64, f64) = (0.5, 0.5, 0.5); // Gray
 const LINK_COLOR_SELECTED: (f64, f64, f64) = (1.0, 0.18, 0.18); // Red
@@ -162,8 +212,6 @@ mod imp {
         type Interfaces = (gtk::Scrollable,);
 
         fn class_init(klass: &mut Self::Class) {
-            // The layout manager determines how child widgets are laid out.
-            //klass.set_layout_manager_type::<gtk::FixedLayout>();
             klass.set_css_name("graphview");
         }
     }
@@ -1768,6 +1816,366 @@ impl GraphView {
         private.undo_stack.borrow_mut().enable_recording();
 
         Ok(())
+    }
+
+    /// Load a graph from DOT format string.
+    ///
+    /// This method parses a DOT file and creates nodes, ports, and links.
+    /// A `DotLoader` implementation provides domain-specific customization
+    /// such as element type detection and static pad information.
+    ///
+    /// # Arguments
+    /// * `content` - The DOT file content as a string
+    /// * `loader` - A trait implementation providing domain-specific logic
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Using a custom loader (e.g., for GStreamer)
+    /// graphview.load_from_dot(dot_content, &GstDotLoader)?;
+    /// ```
+    pub fn load_from_dot<L: super::dot_parser::DotLoader>(
+        &self,
+        content: &str,
+        loader: &L,
+    ) -> anyhow::Result<()> {
+        use super::dot_parser::DotGraph;
+
+        let private = imp::GraphView::from_obj(self);
+
+        // Parse DOT content first (before modifying state) to fail early on invalid input
+        let dot_graph = DotGraph::parse(content, loader)?;
+
+        // Disable undo recording during file load and clear the graph
+        private.undo_stack.borrow_mut().disable_recording();
+        self.clear();
+
+        // Create context to hold shared state during DOT loading
+        let mut ctx = DotLoadContext::new(&dot_graph, loader);
+
+        // Phase 1: Create nodes from DOT elements
+        let missing_elements = self.create_nodes_from_dot(&dot_graph, loader, &mut ctx);
+
+        // Phase 2: Create ports (static "Always" ports, then dynamic "Sometimes" ports)
+        self.create_ports_from_dot(&dot_graph, loader, &mut ctx);
+
+        // Phase 3: Create links between ports
+        let unresolved_links = self.create_links_from_dot(&dot_graph, &ctx);
+
+        // Clear undo history and re-enable recording after file load
+        private.undo_stack.borrow_mut().clear();
+        private.undo_stack.borrow_mut().enable_recording();
+
+        // Log summary
+        if !missing_elements.is_empty() {
+            warn!(
+                "DOT import: {} element(s) not found in registry: {}",
+                missing_elements.len(),
+                missing_elements.join(", ")
+            );
+        }
+        if unresolved_links > 0 {
+            warn!(
+                "DOT import: {} link(s) could not be created",
+                unresolved_links
+            );
+        }
+
+        info!(
+            "Loaded DOT graph: {} nodes, {} links",
+            ctx.node_id_map.len(),
+            dot_graph.links.len().saturating_sub(unresolved_links)
+        );
+
+        Ok(())
+    }
+
+    /// Create nodes from DOT elements.
+    ///
+    /// Returns a list of element type names that were not found in the registry.
+    fn create_nodes_from_dot<L: super::dot_parser::DotLoader>(
+        &self,
+        dot_graph: &super::dot_parser::DotGraph,
+        loader: &L,
+        ctx: &mut DotLoadContext,
+    ) -> Vec<String> {
+        let mut missing_elements: Vec<String> = Vec::new();
+
+        for dot_node in &dot_graph.nodes {
+            let type_name = &dot_node.type_name;
+
+            // Use loader to determine node type
+            let node_type = loader.node_type(type_name);
+
+            // Create the node
+            let node = self.create_node(type_name, node_type);
+            let node_id = node.id();
+
+            // Check if node type exists (using loader)
+            if !loader.node_exists(type_name) {
+                node.set_light(true);
+                missing_elements.push(type_name.clone());
+            }
+
+            // Add metadata (filtered by the parser)
+            for (key, value) in &dot_node.metadata {
+                node.add_property(key, value);
+            }
+
+            // Store mapping
+            ctx.node_id_map.insert(dot_node.dot_id.clone(), node_id);
+
+            // Add the node to the graph
+            self.add_node(node);
+
+            debug!("Created node: {} (id={})", type_name, node_id);
+        }
+
+        missing_elements
+    }
+
+    /// Create ports from DOT elements.
+    ///
+    /// This is done in two passes:
+    /// 1. Create static "Always" ports from loader's factory info
+    /// 2. Create dynamic "Sometimes" ports for links that weren't mapped in pass 1
+    fn create_ports_from_dot<L: super::dot_parser::DotLoader>(
+        &self,
+        dot_graph: &super::dot_parser::DotGraph,
+        loader: &L,
+        ctx: &mut DotLoadContext,
+    ) {
+        // Collect node info first to avoid borrow conflicts
+        // (we need immutable access to links_by_instance while mutating port_id_map)
+        let nodes_info: Vec<_> = dot_graph
+            .nodes
+            .iter()
+            .filter_map(|dot_node| {
+                ctx.node_id_map.get(&dot_node.dot_id).map(|&node_id| {
+                    let normalized_instance = dot_node.instance_name.replace('-', "_");
+                    let node_links = ctx
+                        .links_by_instance
+                        .get(&normalized_instance)
+                        .cloned()
+                        .unwrap_or_default();
+                    (node_id, dot_node.type_name.clone(), node_links)
+                })
+            })
+            .collect();
+
+        // First pass: Create static "Always" ports from loader's factory info
+        for (node_id, type_name, node_links) in &nodes_info {
+            // Get static ports from loader
+            let (inputs, outputs) = loader.get_static_ports(type_name);
+
+            // Add input ports
+            for input_name in &inputs {
+                let port_id = self.create_and_map_port(
+                    *node_id,
+                    input_name,
+                    PortDirection::Input,
+                    PortPresence::Always,
+                    &dot_graph.links,
+                    node_links,
+                    false, // sink ports
+                    loader,
+                    &mut ctx.port_id_map,
+                    &mut ctx.node_for_port,
+                );
+
+                trace!(
+                    "Created input port: {} on node {} (id={})",
+                    input_name,
+                    type_name,
+                    port_id
+                );
+            }
+
+            // Add output ports
+            for output_name in &outputs {
+                let port_id = self.create_and_map_port(
+                    *node_id,
+                    output_name,
+                    PortDirection::Output,
+                    PortPresence::Always,
+                    &dot_graph.links,
+                    node_links,
+                    true, // source ports
+                    loader,
+                    &mut ctx.port_id_map,
+                    &mut ctx.node_for_port,
+                );
+
+                trace!(
+                    "Created output port: {} on node {} (id={})",
+                    output_name,
+                    type_name,
+                    port_id
+                );
+            }
+        }
+
+        // Second pass: Create dynamic "Sometimes" ports for links that weren't mapped above
+        for (node_id, type_name, node_links) in &nodes_info {
+            // Check for unmapped ports in links belonging to this element
+            for &(link_idx, is_source) in node_links {
+                let link = &dot_graph.links[link_idx];
+                let dot_port_id = if is_source {
+                    &link.from_port_id
+                } else {
+                    &link.to_port_id
+                };
+
+                // Skip if already mapped
+                if ctx.port_id_map.contains_key(dot_port_id) {
+                    continue;
+                }
+
+                let port_name = loader
+                    .extract_port_name_from_id(dot_port_id)
+                    .unwrap_or_else(|| if is_source { "src" } else { "sink" }.to_string());
+
+                let (direction, presence) = if is_source {
+                    (PortDirection::Output, PortPresence::Sometimes)
+                } else {
+                    (PortDirection::Input, PortPresence::Sometimes)
+                };
+
+                let port = self.create_port(&port_name, direction, presence);
+                let port_id = port.id();
+
+                if let Some(mut node) = self.node(*node_id) {
+                    self.add_port_to_node(&mut node, port);
+                } else {
+                    warn!(
+                        "DOT import: could not find node {} to add dynamic port {}",
+                        node_id, port_name
+                    );
+                    continue;
+                }
+
+                ctx.port_id_map.insert(dot_port_id.clone(), port_id);
+                ctx.node_for_port.insert(dot_port_id.clone(), *node_id);
+
+                trace!(
+                    "Created dynamic {} port: {} on node {} (id={})",
+                    if is_source { "output" } else { "input" },
+                    port_name,
+                    type_name,
+                    port_id
+                );
+            }
+        }
+    }
+
+    /// Create links between ports based on DOT edge information.
+    ///
+    /// Returns the number of links that could not be created.
+    fn create_links_from_dot(
+        &self,
+        dot_graph: &super::dot_parser::DotGraph,
+        ctx: &DotLoadContext,
+    ) -> usize {
+        let mut unresolved_links = 0;
+
+        for link in &dot_graph.links {
+            let port_from = ctx.port_id_map.get(&link.from_port_id);
+            let port_to = ctx.port_id_map.get(&link.to_port_id);
+
+            if let (Some(&port_from), Some(&port_to)) = (port_from, port_to) {
+                if let (Some(&node_from), Some(&node_to)) = (
+                    ctx.node_for_port.get(&link.from_port_id),
+                    ctx.node_for_port.get(&link.to_port_id),
+                ) {
+                    let new_link = self.create_link(node_from, node_to, port_from, port_to);
+                    new_link.set_active(true);
+                    let link_id = new_link.id();
+
+                    self.add_link(new_link);
+
+                    trace!(
+                        "Created link: {} -> {} (id={})",
+                        link.from_port_id,
+                        link.to_port_id,
+                        link_id
+                    );
+                } else {
+                    unresolved_links += 1;
+                    warn!(
+                        "Could not create link: {} -> {} (node lookup failed)",
+                        link.from_port_id, link.to_port_id
+                    );
+                }
+            } else {
+                unresolved_links += 1;
+                // More informative error message showing which port is missing
+                let from_status = if port_from.is_some() {
+                    "resolved"
+                } else {
+                    "MISSING"
+                };
+                let to_status = if port_to.is_some() {
+                    "resolved"
+                } else {
+                    "MISSING"
+                };
+                warn!(
+                    "Could not create link: from '{}' ({}) -> to '{}' ({})",
+                    link.from_port_id, from_status, link.to_port_id, to_status
+                );
+            }
+        }
+
+        unresolved_links
+    }
+
+    /// Helper to create a port and map it to DOT link endpoints.
+    #[allow(clippy::too_many_arguments)]
+    fn create_and_map_port<L: super::dot_parser::DotLoader>(
+        &self,
+        node_id: u32,
+        port_name: &str,
+        direction: PortDirection,
+        presence: PortPresence,
+        links: &[super::dot_parser::DotLink],
+        link_indices: &[(usize, bool)],
+        is_source: bool,
+        loader: &L,
+        port_id_map: &mut HashMap<String, u32>,
+        node_for_port: &mut HashMap<String, u32>,
+    ) -> u32 {
+        let port = self.create_port(port_name, direction, presence);
+        let port_id = port.id();
+
+        if let Some(mut node) = self.node(node_id) {
+            self.add_port_to_node(&mut node, port);
+        } else {
+            warn!(
+                "DOT import: could not find node {} to add port {}",
+                node_id, port_name
+            );
+            // Return early - don't map ports that couldn't be attached to a node
+            return port_id;
+        }
+
+        // Map DOT link endpoints for this port
+        for &(link_idx, link_is_source) in link_indices {
+            if link_is_source == is_source {
+                let dot_port_id = if is_source {
+                    &links[link_idx].from_port_id
+                } else {
+                    &links[link_idx].to_port_id
+                };
+
+                if let Some(dot_port_name) = loader.extract_port_name_from_id(dot_port_id) {
+                    if dot_port_name == port_name {
+                        port_id_map.insert(dot_port_id.clone(), port_id);
+                        node_for_port.insert(dot_port_id.clone(), node_id);
+                    }
+                }
+            }
+        }
+
+        port_id
     }
 
     //Private

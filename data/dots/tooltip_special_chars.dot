@@ -1,0 +1,45 @@
+digraph pipeline {
+  rankdir=LR;
+  fontname="sans";
+  fontsize="10";
+  labelloc=t;
+  nodesep=.1;
+  ranksep=.2;
+  label="<GstPipeline>\npipeline0\n[>]";
+  node [style="filled,rounded", shape=box, fontsize="9", fontname="sans", margin="0.0,0.0"];
+  edge [labelfontsize="6", fontsize="9", fontname="monospace"];
+
+  subgraph cluster_node_filesrc0_0x12345678 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="GstFileSrc\nfilesrc0\n[>]
+location=\"/home/user/Videos/Sample Movie (2023) 1080p.mkv…";
+    tooltip="GstFileSrc\nfilesrc0\n[>]&#10;location=\"/home/user/Videos/Sample Movie (2023) 1080p Special & Chars.mkv\"";
+    subgraph cluster_node_filesrc0_0x12345678_src {
+      label="";
+      style="invis";
+      node_filesrc0_0x12345678_node_src_0x12345679 [color=black, fillcolor="#ffaaaa", label="src\n[<][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    fillcolor="#ffaaaa";
+  }
+
+  subgraph cluster_node_fakesink0_0x87654321 {
+    fontname="Bitstream Vera Sans";
+    fontsize="8";
+    style="filled,rounded";
+    color=black;
+    label="GstFakeSink\nfakesink0\n[>]";
+    subgraph cluster_node_fakesink0_0x87654321_sink {
+      label="";
+      style="invis";
+      node_fakesink0_0x87654321_node_sink_0x87654322 [color=black, fillcolor="#aaaaff", label="sink\n[>][bfb]", height="0.2", style="filled,solid"];
+    }
+
+    fillcolor="#aaaaff";
+  }
+
+  node_filesrc0_0x12345678_node_src_0x12345679 -> node_fakesink0_0x87654321_node_sink_0x87654322 [label="ANY"]
+}

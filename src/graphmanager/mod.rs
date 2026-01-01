@@ -1,3 +1,4 @@
+pub mod dot_parser;
 mod graphview;
 mod link;
 mod node;

@@ -343,15 +343,45 @@ impl Node {
     }
 
     fn update_description(&self) {
+        const MAX_VALUE_DISPLAY_CHARS: usize = 30;
         let self_ = imp::Node::from_obj(self);
         let mut description = String::from("");
+        let mut full_description = String::from("");
+
         for (name, value) in self_.properties.borrow().iter() {
             if !self.hidden_property(name) {
-                let _ = write!(description, "{name}:{value}");
+                // Truncated version for display (use char count to avoid UTF-8 boundary issues)
+                // Total display length is MAX_VALUE_DISPLAY_CHARS including ellipsis if truncated
+                let display_value = if value.chars().count() > MAX_VALUE_DISPLAY_CHARS {
+                    format!(
+                        "{}…",
+                        value
+                            .chars()
+                            .take(MAX_VALUE_DISPLAY_CHARS - 1)
+                            .collect::<String>()
+                    )
+                } else {
+                    value.clone()
+                };
+                let _ = write!(description, "{name}:{display_value}");
                 description.push('\n');
+
+                // Full version for tooltip
+                let _ = write!(full_description, "{name}:{value}");
+                full_description.push('\n');
             }
         }
+
         self.set_description(&description);
+
+        // Set tooltip with full property values
+        if !full_description.is_empty() {
+            self_
+                .description
+                .set_tooltip_text(Some(full_description.trim_end()));
+        } else {
+            self_.description.set_tooltip_text(None);
+        }
     }
 }
 
