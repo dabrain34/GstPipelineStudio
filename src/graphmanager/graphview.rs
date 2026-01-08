@@ -1050,20 +1050,20 @@ impl GraphView {
             .nodes
             .borrow()
             .values()
-            .map(|node| {
-                // Map nodes to their locations
-                let point = self.node_position(&node.0.clone().upcast()).unwrap();
-                (point.x(), point.y())
+            .filter(|n| {
+                // Only look at nodes of the same type
+                n.0.node_type() == node.node_type()
             })
-            .filter(|(x2, _)| {
-                // Only look for other nodes that have a similar x coordinate
-                (x - x2).abs() < 50.0
+            .filter_map(|n| {
+                // Map nodes to their Y positions
+                self.node_position(&n.0.clone().upcast())
+                    .map(|point| point.y())
             })
             .max_by(|y1, y2| {
-                // Get max in column
+                // Get max Y in column
                 y1.partial_cmp(y2).unwrap_or(Ordering::Equal)
             })
-            .map_or(20_f32, |(_x, y)| y + 120.0);
+            .map_or(20_f32, |y| y + 120.0);
 
         let node_id = node.id();
         // Update the node's internal position so it gets saved correctly
@@ -1085,6 +1085,9 @@ impl GraphView {
             .insert(node.id(), (node, position));
         self.emit_by_name::<()>("node-added", &[&private.id.get(), &node_id]);
         self.graph_updated();
+
+        // Scroll view to show the newly added node
+        self.scroll_to_position(x, y);
     }
 
     /// Remove node from the graphview
@@ -2002,6 +2005,30 @@ impl GraphView {
             (f64::from(size) * 0.9) * zoom_factor,
             f64::from(size) * zoom_factor,
         );
+    }
+
+    /// Scroll the view to center on the given position (in graph coordinates)
+    pub fn scroll_to_position(&self, x: f32, y: f32) {
+        let private = imp::GraphView::from_obj(self);
+        let zoom_factor = private.zoom_factor.get();
+
+        let hadjustment_ref = private.hadjustment.borrow();
+        let vadjustment_ref = private.vadjustment.borrow();
+
+        if let (Some(hadjustment), Some(vadjustment)) =
+            (hadjustment_ref.as_ref(), vadjustment_ref.as_ref())
+        {
+            // Calculate the adjustment values to center the position in the viewport
+            let view_width = self.width() as f64;
+            let view_height = self.height() as f64;
+
+            // Convert graph coordinates to screen coordinates and center
+            let target_h = (x as f64 * zoom_factor) - (view_width / 2.0);
+            let target_v = (y as f64 * zoom_factor) - (view_height / 2.0);
+
+            hadjustment.set_value(target_h);
+            vadjustment.set_value(target_v);
+        }
     }
 
     // Undo/Redo API
