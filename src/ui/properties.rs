@@ -111,6 +111,39 @@ fn filter_pad_property_rows(listbox: &gtk::ListBox, search_text: &str) {
     }
 }
 
+/// Helper function to populate an entry widget with the current property value.
+/// Checks multiple sources in order: stored element property, live element property, default value.
+fn populate_entry_from_property(
+    entry: &gtk::Entry,
+    app: &GPSApp,
+    node_id: u32,
+    element_name: &str,
+    property_name: &str,
+    param: &glib::ParamSpec,
+) {
+    if let Some(value) = app.element_property(node_id, property_name) {
+        entry.set_text(&value);
+    } else if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
+        || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
+    {
+        if let Ok(value) =
+            GPS::ElementInfo::element_property_by_feature_name(element_name, param.name())
+        {
+            entry.set_text(&value);
+        }
+    } else if let Some(value) = common::value_as_str(param.default_value()) {
+        entry.set_text(&value);
+    }
+}
+
+/// Check if an element handles file URIs (either as source or sink).
+fn element_is_file_handler(element_name: &str) -> bool {
+    GPS::ElementInfo::element_is_uri_src_handler(element_name)
+        .is_some_and(|(_, supports_file)| supports_file)
+        || GPS::ElementInfo::element_is_uri_sink_handler(element_name)
+            .is_some_and(|(_, supports_file)| supports_file)
+}
+
 pub fn property_to_widget<F: Fn(String, String) + 'static>(
     app: &GPSApp,
     node_id: u32,
@@ -152,23 +185,64 @@ pub fn property_to_widget<F: Fn(String, String) + 'static>(
         ]
         .contains(&t) =>
         {
-            let entry = gtk::Entry::new();
-            entry.set_width_request(350);
-            entry.set_widget_name(property_name);
-            GPS_TRACE!("Add Edit property : {}", entry.widget_name());
-            if let Some(value) = app.element_property(node_id, property_name) {
-                entry.set_text(&value);
-            } else if (param.flags() & glib::ParamFlags::READABLE) == glib::ParamFlags::READABLE
-                || (param.flags() & glib::ParamFlags::READWRITE) == glib::ParamFlags::READWRITE
-            {
-                if let Ok(value) =
-                    GPS::ElementInfo::element_property_by_feature_name(element_name, param.name())
-                {
-                    entry.set_text(&value);
-                }
-            } else if let Some(value) = common::value_as_str(param.default_value()) {
-                entry.set_text(&value);
+            // For "location" property on file-handling elements, add a file chooser button
+            if property_name == "location" && element_is_file_handler(element_name) {
+                let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+
+                let entry = gtk::Entry::new();
+                entry.set_widget_name(property_name);
+                entry.set_hexpand(true);
+                populate_entry_from_property(
+                    &entry,
+                    app,
+                    node_id,
+                    element_name,
+                    property_name,
+                    param,
+                );
+
+                let browse_button = gtk::Button::new();
+                browse_button.set_icon_name("document-open-symbolic");
+                browse_button.set_tooltip_text(Some("Browse for file"));
+
+                // Determine dialog type based on element type (source vs sink)
+                let is_sink = GPS::ElementInfo::element_is_uri_sink_handler(element_name).is_some();
+                let dialog_type = if is_sink {
+                    GPSUI::dialog::FileDialogType::SaveAll
+                } else {
+                    GPSUI::dialog::FileDialogType::OpenAll
+                };
+
+                // Wrap callback in Rc for sharing between entry and button
+                let f = std::rc::Rc::new(f);
+                let f_for_entry = f.clone();
+
+                entry.connect_changed(glib::clone!(move |e| {
+                    f_for_entry(e.widget_name().to_string(), e.text().to_string())
+                }));
+
+                let app_weak = app.downgrade();
+                browse_button.connect_clicked(glib::clone!(
+                    #[weak]
+                    entry,
+                    move |_| {
+                        let app = upgrade_weak!(app_weak);
+                        GPSUI::dialog::get_file(&app, dialog_type, move |_app, filename| {
+                            entry.set_text(&filename);
+                        });
+                    }
+                ));
+
+                hbox.append(&entry);
+                hbox.append(&browse_button);
+                return Some(hbox.upcast::<gtk::Widget>());
             }
+
+            let entry = gtk::Entry::new();
+            entry.set_widget_name(property_name);
+            entry.set_hexpand(true);
+            GPS_TRACE!("Add Edit property : {}", entry.widget_name());
+            populate_entry_from_property(&entry, app, node_id, element_name, property_name, param);
 
             entry.connect_changed(glib::clone!(move |e| {
                 f(e.widget_name().to_string(), e.text().to_string())
