@@ -14,10 +14,11 @@
 #### Setup
 
 - **Operating System:**
-- **Device:** Computer / Tablet / Mobile / Virtual Machine <!-- Delete as appropriate !-->
+- **Device:** Computer / Virtual Machine <!-- Delete as appropriate !-->
 - **Flatpak:** Yes/No
 - **GstPipelineStudio version:**
 - **GStreamer Version:**
+- **GTK Version:**
 
 ### Steps to reproduce the bug
 
