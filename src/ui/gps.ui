@@ -95,6 +95,10 @@
     <menu id="logger_menu">
     <section>
       <item>
+        <attribute name="label" translatable="yes" comments="logger menu entry copy selected logs">_Copy</attribute>
+        <attribute name="action">app.logger.copy</attribute>
+      </item>
+      <item>
         <attribute name="label" translatable="yes" comments="logger menu entry clear the logs">_Clear</attribute>
         <attribute name="action">app.logger.clear</attribute>
       </item>

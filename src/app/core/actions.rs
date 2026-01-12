@@ -49,6 +49,7 @@
 //! - `preferences` - Show preferences dialog (<Ctrl+P>)
 //! - `about` - Show about dialog (<Ctrl+A>)
 //! - `logger.clear` - Clear log messages
+//! - `logger.copy` - Copy selected log messages to clipboard
 //!
 //! # Recent Files
 //!
@@ -109,6 +110,7 @@ impl GPSApp {
         application.add_action(&gio::SimpleAction::new("element.add-to-favorite", None));
 
         application.add_action(&gio::SimpleAction::new("logger.clear", None));
+        application.add_action(&gio::SimpleAction::new("logger.copy", None));
 
         application.add_action(&gio::SimpleAction::new("graph.check", None));
         application.add_action(&gio::SimpleAction::new("graph.clear", None));

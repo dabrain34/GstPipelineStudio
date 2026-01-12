@@ -13,7 +13,7 @@ use crate::ui::models::LogEntry;
 use gtk::prelude::*;
 use gtk::{gio, glib};
 
-use gtk::{ColumnView, SingleSelection};
+use gtk::{ColumnView, MultiSelection};
 
 // Column width constants
 const COL_WIDTH_TIME: i32 = 80;
@@ -27,8 +27,56 @@ const COL_WIDTH_FILE: i32 = 200;
 // Reset loggers (ColumnView)
 fn reset_logger_column_view(column_view: &ColumnView) {
     let model = gio::ListStore::new::<LogEntry>();
-    let selection_model = SingleSelection::new(Some(model));
+    let selection_model = MultiSelection::new(Some(model));
     column_view.set_model(Some(&selection_model));
+}
+
+// Copy selected logs from a ColumnView to clipboard
+fn copy_logger_to_clipboard(column_view: &ColumnView, log_type: logger::LogType) {
+    if let Some(model) = column_view.model() {
+        let selection_model = model
+            .downcast_ref::<MultiSelection>()
+            .expect("Could not cast to MultiSelection");
+        if let Some(list_model) = selection_model.model() {
+            let list_store = list_model
+                .downcast_ref::<gio::ListStore>()
+                .expect("Could not cast to gio::ListStore");
+
+            let mut lines = Vec::new();
+            let selection = selection_model.selection();
+
+            // Iterate over selected indices
+            for i in 0..selection.size() {
+                let idx = selection.nth(i as u32);
+                if let Some(item) = list_store.item(idx) {
+                    if let Some(entry) = item.downcast_ref::<LogEntry>() {
+                        let time: String = entry.property("time");
+                        let level: String = entry.property("level");
+                        let category: String = entry.property("category");
+                        let file: String = entry.property("file");
+                        let log: String = entry.property("log");
+
+                        let line = match log_type {
+                            logger::LogType::App => {
+                                format!("{}\t{}\t{}\t{}", time, level, category, log)
+                            }
+                            logger::LogType::Gst => {
+                                format!("{}\t{}\t{}\t{}\t{}", time, level, category, file, log)
+                            }
+                            logger::LogType::Message => {
+                                format!("{}\t{}\t{}\t{}", time, level, category, log)
+                            }
+                        };
+                        lines.push(line);
+                    }
+                }
+            }
+
+            let text = lines.join("\n");
+            let clipboard = column_view.clipboard();
+            clipboard.set_text(&text);
+        }
+    }
 }
 
 pub fn setup_logger_list(app: &GPSApp, logger_name: &str, log_type: logger::LogType) {
@@ -110,6 +158,7 @@ pub fn setup_logger_list(app: &GPSApp, logger_name: &str, log_type: logger::LogT
     let gesture = gtk::GestureClick::new();
     gesture.set_button(0);
     let app_weak = app.downgrade();
+    let log_type_clone = log_type;
     gesture.connect_pressed(glib::clone!(
         #[weak]
         column_view,
@@ -124,6 +173,12 @@ pub fn setup_logger_list(app: &GPSApp, logger_name: &str, log_type: logger::LogT
                 let column_view_clone = column_view.clone();
                 app.connect_app_menu_action("logger.clear", move |_, _| {
                     reset_logger_column_view(&column_view_clone);
+                });
+
+                let column_view_copy = column_view.clone();
+                let log_type_copy = log_type_clone.clone();
+                app.connect_app_menu_action("logger.copy", move |_, _| {
+                    copy_logger_to_clipboard(&column_view_copy, log_type_copy.clone());
                 });
 
                 app.show_context_menu_at_position(&column_view, x, y, &menu);
@@ -152,8 +207,8 @@ pub fn add_to_logger_list(app: &GPSApp, log_type: logger::LogType, log_entry: &s
 
     if let Some(model) = column_view.model() {
         let selection_model = model
-            .downcast_ref::<SingleSelection>()
-            .expect("Could not cast to SingleSelection");
+            .downcast_ref::<MultiSelection>()
+            .expect("Could not cast to MultiSelection");
         if let Some(list_model) = selection_model.model() {
             let list_store = list_model
                 .downcast_ref::<gio::ListStore>()
@@ -254,12 +309,10 @@ pub fn add_to_logger_list(app: &GPSApp, log_type: logger::LogType, log_entry: &s
             // Auto-scroll to the last item
             let n_items = list_store.n_items();
             if n_items > 0 {
-                selection_model.set_selected(n_items - 1);
                 // Use idle_add to ensure scroll happens after render
                 let column_view_clone = column_view.clone();
-                let selection_clone = selection_model.clone();
                 glib::idle_add_local_once(move || {
-                    // Scroll to the selected item (last item)
+                    // Scroll to the last item
                     if let Some(widget) = column_view_clone.first_child() {
                         if let Some(scrolled) = widget.ancestor(gtk::ScrolledWindow::static_type())
                         {
@@ -269,8 +322,6 @@ pub fn add_to_logger_list(app: &GPSApp, log_type: logger::LogType, log_entry: &s
                             }
                         }
                     }
-                    // Deselect to avoid highlighting
-                    selection_clone.set_selected(gtk::INVALID_LIST_POSITION);
                 });
             }
         }
