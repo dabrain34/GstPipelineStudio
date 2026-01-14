@@ -3017,6 +3017,32 @@ impl GraphView {
                 .push(crate::graphmanager::undo::UndoAction::BatchMoveNodes { moves });
         }
 
+        // Center the view on the pipeline
+        // Calculate bounding box of all nodes after arrangement
+        let mut min_x = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut min_y = f32::MAX;
+        let mut max_y = f32::MIN;
+
+        for node in &nodes {
+            if let Some((_, point)) = private.nodes.borrow().get(&node.id()) {
+                let node_width = node.width() as f32;
+                let node_height = node.height() as f32;
+
+                min_x = min_x.min(point.x());
+                max_x = max_x.max(point.x() + node_width);
+                min_y = min_y.min(point.y());
+                max_y = max_y.max(point.y() + node_height);
+            }
+        }
+
+        // Scroll to center of the pipeline
+        if min_x != f32::MAX {
+            let center_x = (min_x + max_x) / 2.0;
+            let center_y = (min_y + max_y) / 2.0;
+            self.scroll_to_position(center_x, center_y);
+        }
+
         self.graph_updated();
         true
     }
