@@ -788,7 +788,14 @@ impl GPSApp {
             self.load_from_dot(&graphview, &content)?;
 
             // Auto-arrange since DOT files don't contain position information
-            graphview.auto_arrange_graph(None);
+            // Defer until GTK has realized widgets (node widths are 0 before realization)
+            glib::idle_add_local_once(glib::clone!(
+                #[strong]
+                graphview,
+                move || {
+                    graphview.auto_arrange_graph(None);
+                }
+            ));
             GPS_DEBUG!("Loaded DOT file: {}", filename);
         } else {
             // Load GPS XML file
