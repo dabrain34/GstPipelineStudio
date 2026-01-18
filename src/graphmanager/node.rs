@@ -249,7 +249,7 @@ impl Node {
         if let Some(port) = private.ports.borrow_mut().remove(&id) {
             match port.direction() {
                 PortDirection::Input => private.num_ports_in.set(private.num_ports_in.get() - 1),
-                PortDirection::Output => private.num_ports_in.set(private.num_ports_out.get() - 1),
+                PortDirection::Output => private.num_ports_out.set(private.num_ports_out.get() - 1),
                 _ => panic!("Port without direction"),
             }
             port.unparent();
