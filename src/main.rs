@@ -75,45 +75,62 @@ fn main() -> gtk::glib::ExitCode {
         // Show splash after short delay to let main window stabilize
         let app_clone = application.clone();
         let pipeline_desc = args.pipeline.clone();
-        let window_clone = gps_app.window.clone();
 
         glib::timeout_add_local_once(Duration::from_millis(SPLASH_SHOW_DELAY_MS), move || {
-            // Show splash on top of main window
-            let splash_window = create_splash_window(&window_clone);
-            let splash_start = Instant::now();
+            // Present the main window first
+            gps_app.present_window();
 
-            glib::spawn_future_local(async move {
-                // Wait for GStreamer initialization
-                let result = init_rx.recv().await;
+            // Defer splash creation to next event loop iteration so window manager
+            // has time to position the main window (needed for proper centering)
+            glib::idle_add_local_once(glib::clone!(
+                #[strong]
+                gps_app,
+                move || {
+                    let splash_window = create_splash_window(&gps_app.window);
+                    let splash_start = Instant::now();
 
-                // Ensure splash is displayed for at least SPLASH_MIN_DISPLAY_MS
-                let elapsed = splash_start.elapsed();
-                let min_display = Duration::from_millis(SPLASH_MIN_DISPLAY_MS);
-                if elapsed < min_display {
-                    let remaining = min_display - elapsed;
-                    glib::timeout_future(remaining).await;
+                    glib::spawn_future_local(async move {
+                        // Wait for GStreamer initialization
+                        let result = init_rx.recv().await;
+
+                        // Ensure splash is displayed for at least SPLASH_MIN_DISPLAY_MS
+                        let elapsed = splash_start.elapsed();
+                        let min_display = Duration::from_millis(SPLASH_MIN_DISPLAY_MS);
+                        if elapsed < min_display {
+                            let remaining = min_display - elapsed;
+                            glib::timeout_future(remaining).await;
+                        }
+
+                        // Close splash
+                        splash_window.close();
+
+                        // Initialize UI
+                        match result {
+                            Ok(Ok(())) => {
+                                gps_app.initialize_ui(&app_clone, &pipeline_desc);
+                            }
+                            Ok(Err(e)) => {
+                                let msg = format!("Failed to initialize GStreamer: {}", e);
+                                GPS_ERROR!("{}", msg);
+                                display_startup_error_dialog(
+                                    Some(&gps_app.window),
+                                    &app_clone,
+                                    &msg,
+                                );
+                            }
+                            Err(e) => {
+                                let msg = format!("Internal error during initialization: {}", e);
+                                GPS_ERROR!("{}", msg);
+                                display_startup_error_dialog(
+                                    Some(&gps_app.window),
+                                    &app_clone,
+                                    &msg,
+                                );
+                            }
+                        }
+                    });
                 }
-
-                // Close splash
-                splash_window.close();
-
-                // Initialize UI
-                match result {
-                    Ok(Ok(())) => {
-                        gps_app.initialize_ui(&app_clone, &pipeline_desc);
-                    }
-                    Ok(Err(e)) => {
-                        let msg = format!("Failed to initialize GStreamer: {}", e);
-                        GPS_ERROR!("{}", msg);
-                        display_startup_error_dialog(Some(&gps_app.window), &app_clone, &msg);
-                    }
-                    Err(e) => {
-                        let msg = format!("Internal error during initialization: {}", e);
-                        GPS_ERROR!("{}", msg);
-                        display_startup_error_dialog(Some(&gps_app.window), &app_clone, &msg);
-                    }
-                }
-            });
+            ));
         });
     });
 

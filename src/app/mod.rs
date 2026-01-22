@@ -124,8 +124,9 @@ impl GPSApp {
         Ok(app)
     }
 
-    /// Creates and shows the main window.
-    /// This is phase 1 of startup - splash will be shown on top.
+    /// Creates the main window without showing it.
+    /// This is phase 1 of startup - the window is realized but not presented yet.
+    /// Call `present_window()` when ready to show (e.g., just before splash).
     pub fn create_window(application: &gtk::Application) -> Option<GPSApp> {
         // Apply system-wide dark theme early so splash screen inherits it
         if Settings::dark_theme() {
@@ -136,8 +137,9 @@ impl GPSApp {
 
         match GPSApp::new(application) {
             Ok(app) => {
-                // Show the window so splash can be transient to it
-                app.window.present();
+                // Realize the window so it's ready, but don't show it yet
+                // This avoids showing improperly positioned UI before splash appears
+                gtk::prelude::WidgetExt::realize(&app.window);
                 Some(app)
             }
             Err(err) => {
@@ -145,6 +147,11 @@ impl GPSApp {
                 None
             }
         }
+    }
+
+    /// Presents the main window. Call this just before showing the splash.
+    pub fn present_window(&self) {
+        self.window.present();
     }
 
     /// Initializes the UI content and sets up signal handlers.
