@@ -1660,3 +1660,166 @@ mod gstreamer_dot_test {
         );
     }
 }
+
+// =============================================================================
+// Auto-connect integration tests (GStreamer-specific caps compatibility)
+// =============================================================================
+
+#[cfg(test)]
+mod auto_connect_test {
+    use super::*;
+    use crate::gps::PadInfo;
+    use crate::graphmanager::{GraphView, NodeType, PortDirection, PortPresence, PropertyExt};
+
+    #[test]
+    fn auto_connect_find_compatible_port_by_caps() {
+        test_synced(|| {
+            let graphview = GraphView::new();
+
+            // Create source node with video output port
+            let source = graphview.create_node("video_source", NodeType::Source);
+            graphview.add_node(source);
+            let src_port =
+                graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+            src_port.add_property("_caps", "video/x-raw");
+            let mut source = graphview.node(1).unwrap();
+            graphview.add_port_to_node(&mut source, src_port);
+
+            // Create sink node with video input port and audio input port
+            let sink = graphview.create_node("mixer", NodeType::Transform);
+            graphview.add_node(sink);
+
+            let video_sink =
+                graphview.create_port("video_sink", PortDirection::Input, PortPresence::Always);
+            video_sink.add_property("_caps", "video/x-raw");
+            let mut sink = graphview.node(2).unwrap();
+            graphview.add_port_to_node(&mut sink, video_sink);
+
+            let audio_sink =
+                graphview.create_port("audio_sink", PortDirection::Input, PortPresence::Always);
+            audio_sink.add_property("_caps", "audio/x-raw");
+            let mut sink = graphview.node(2).unwrap();
+            graphview.add_port_to_node(&mut sink, audio_sink);
+
+            // Find free input ports on the sink node
+            let target_node = graphview.node(2).unwrap();
+            let from_port = graphview.node(1).unwrap().port(1).unwrap();
+            let from_caps =
+                PropertyExt::property(&from_port, "_caps").unwrap_or_else(|| "ANY".to_string());
+
+            // Use GStreamer PadInfo::caps_compatible instead of string matching
+            let compatible_port = target_node
+                .all_ports(PortDirection::Input)
+                .into_iter()
+                .filter(|p| graphview.port_is_linked(p.id()).is_none())
+                .find(|p| {
+                    let port_caps =
+                        PropertyExt::property(p, "_caps").unwrap_or_else(|| "ANY".to_string());
+                    PadInfo::caps_compatible(&from_caps, &port_caps)
+                });
+
+            assert!(
+                compatible_port.is_some(),
+                "Should find a compatible video input port"
+            );
+            assert_eq!(
+                compatible_port.unwrap().name(),
+                "video_sink",
+                "Should select the video_sink port"
+            );
+        });
+    }
+
+    #[test]
+    fn auto_connect_no_compatible_port_when_caps_mismatch() {
+        test_synced(|| {
+            let graphview = GraphView::new();
+
+            // Create source node with video output port
+            let source = graphview.create_node("video_source", NodeType::Source);
+            graphview.add_node(source);
+            let src_port =
+                graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+            src_port.add_property("_caps", "video/x-raw");
+            let mut source = graphview.node(1).unwrap();
+            graphview.add_port_to_node(&mut source, src_port);
+
+            // Create sink node with only audio input port
+            let sink = graphview.create_node("audio_sink", NodeType::Sink);
+            graphview.add_node(sink);
+
+            let audio_sink =
+                graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
+            audio_sink.add_property("_caps", "audio/x-raw");
+            let mut sink = graphview.node(2).unwrap();
+            graphview.add_port_to_node(&mut sink, audio_sink);
+
+            // Find free input ports on the sink node
+            let target_node = graphview.node(2).unwrap();
+            let from_port = graphview.node(1).unwrap().port(1).unwrap();
+            let from_caps =
+                PropertyExt::property(&from_port, "_caps").unwrap_or_else(|| "ANY".to_string());
+
+            // Use GStreamer PadInfo::caps_compatible instead of string matching
+            let compatible_port = target_node
+                .all_ports(PortDirection::Input)
+                .into_iter()
+                .filter(|p| graphview.port_is_linked(p.id()).is_none())
+                .find(|p| {
+                    let port_caps =
+                        PropertyExt::property(p, "_caps").unwrap_or_else(|| "ANY".to_string());
+                    PadInfo::caps_compatible(&from_caps, &port_caps)
+                });
+
+            assert!(
+                compatible_port.is_none(),
+                "Should not find a compatible port when caps don't match"
+            );
+        });
+    }
+
+    #[test]
+    fn auto_connect_with_any_caps() {
+        test_synced(|| {
+            let graphview = GraphView::new();
+
+            // Create source node with ANY caps (permissive)
+            let source = graphview.create_node("source", NodeType::Source);
+            graphview.add_node(source);
+            let src_port =
+                graphview.create_port("src", PortDirection::Output, PortPresence::Always);
+            src_port.add_property("_caps", "ANY");
+            let mut source = graphview.node(1).unwrap();
+            graphview.add_port_to_node(&mut source, src_port);
+
+            // Create sink node with specific audio caps
+            let sink = graphview.create_node("audio_sink", NodeType::Sink);
+            graphview.add_node(sink);
+            let audio_sink =
+                graphview.create_port("sink", PortDirection::Input, PortPresence::Always);
+            audio_sink.add_property("_caps", "audio/x-raw");
+            let mut sink = graphview.node(2).unwrap();
+            graphview.add_port_to_node(&mut sink, audio_sink);
+
+            // ANY should be compatible with anything
+            let from_caps = "ANY";
+            let target_node = graphview.node(2).unwrap();
+
+            // Use GStreamer PadInfo::caps_compatible instead of string matching
+            let compatible_port = target_node
+                .all_ports(PortDirection::Input)
+                .into_iter()
+                .filter(|p| graphview.port_is_linked(p.id()).is_none())
+                .find(|p| {
+                    let port_caps =
+                        PropertyExt::property(p, "_caps").unwrap_or_else(|| "ANY".to_string());
+                    PadInfo::caps_compatible(from_caps, &port_caps)
+                });
+
+            assert!(
+                compatible_port.is_some(),
+                "ANY caps should be compatible with any port"
+            );
+        });
+    }
+}
