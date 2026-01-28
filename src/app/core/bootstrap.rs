@@ -104,9 +104,23 @@ impl GPSApp {
     pub fn build_ui(&self, application: &Application, pipeline_desc: &String) {
         graphbook::setup_graphbook(self);
         graphbook::create_graphtab(self, 0, None);
+
+        // Check for crash recovery BEFORE initializing logger (logger truncates the log file)
+        let previous_log_content = if Settings::needs_crash_recovery() {
+            let log_path = Settings::log_file_path();
+            if log_path.exists() {
+                std::fs::read_to_string(&log_path).ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let (ready_tx, ready_rx) = async_channel::unbounded::<(logger::LogType, String)>();
 
         // Setup the logger to get messages into the TreeView
+        // Note: This truncates the log file, so we read it above first
 
         logger::init_logger(
             ready_tx.clone(),
@@ -126,6 +140,15 @@ impl GPSApp {
             }
             glib::ControlFlow::Continue
         });
+
+        // Show crash recovery dialog if we have previous log content
+        if let Some(log_content) = previous_log_content {
+            if !log_content.is_empty() {
+                GPSUI::message::display_crash_recovery_dialog(Some(&self.window), &log_content);
+            }
+        }
+        // Mark the session as started (sets clean_shutdown = false)
+        Settings::mark_session_start();
 
         let window = &self.window;
 

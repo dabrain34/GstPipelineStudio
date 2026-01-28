@@ -68,6 +68,8 @@ const STR_TAB_LOGGING: &str = "Logging";
 const STR_CATEGORY_APPEARANCE: &str = "Appearance";
 /// Header for the Video Rendering category
 const STR_CATEGORY_VIDEO: &str = "Video Rendering";
+/// Header for the Startup category
+const STR_CATEGORY_STARTUP: &str = "Startup";
 /// Header for the Application Logging category
 const STR_CATEGORY_APP_LOGGING: &str = "Application Logging";
 /// Header for the GStreamer Logging category
@@ -80,6 +82,11 @@ const STR_TOOLTIP_DARK_THEME: &str = "Enable dark theme for the graph view with 
 const STR_PREF_GTK4_SINK: &str = "Use GTK4 Paintable Sink";
 /// Tooltip for GTK4 sink preference
 const STR_TOOLTIP_GTK4_SINK: &str = "Enable gtk4paintablesink element for video rendering";
+/// Label for crash recovery preference
+const STR_PREF_CRASH_RECOVERY: &str = "Show Crash Recovery Dialog";
+/// Tooltip for crash recovery preference
+const STR_TOOLTIP_CRASH_RECOVERY: &str =
+    "Show previous session log when the application did not shut down cleanly";
 /// Label for application log level preference
 const STR_PREF_APP_LOG_LEVEL: &str = "Application Log Level";
 /// Description for application log level preference
@@ -340,6 +347,24 @@ pub fn display_settings(app: &GPSApp) {
     video_listbox.append(&video_row);
 
     general_box.append(&video_category);
+
+    // Startup Category
+    let (startup_category, startup_listbox) = create_settings_category(STR_CATEGORY_STARTUP);
+
+    let crash_recovery_switch = gtk::CheckButton::new();
+    crash_recovery_switch.set_active(settings::Settings::crash_recovery_enabled());
+    crash_recovery_switch.connect_toggled(move |c| {
+        settings::Settings::set_crash_recovery_enabled(c.is_active());
+    });
+
+    let crash_recovery_row = create_checkbox_preference_row(
+        STR_PREF_CRASH_RECOVERY,
+        &crash_recovery_switch,
+        Some(STR_TOOLTIP_CRASH_RECOVERY),
+    );
+    startup_listbox.append(&crash_recovery_row);
+
+    general_box.append(&startup_category);
     general_scrolled.set_child(Some(&general_box));
 
     // Logging settings tab

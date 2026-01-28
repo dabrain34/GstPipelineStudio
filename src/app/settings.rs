@@ -25,6 +25,8 @@ pub struct Settings {
     pub app_height: i32,
     pub recent_pipeline: String,
     pub dark_theme: bool,
+    pub clean_shutdown: bool,
+    pub session_count: u32,
 
     // values must be emitted before tables
     pub favorites: Vec<String>,
@@ -81,6 +83,25 @@ impl Settings {
             .get("gst_log_level")
             .unwrap_or(&binding);
         level.clone()
+    }
+
+    /// Check if crash recovery dialog is enabled (default: true)
+    pub fn crash_recovery_enabled() -> bool {
+        let settings = Settings::load_settings();
+        settings
+            .preferences
+            .get("crash_recovery_enabled")
+            .map(|v| v != "false")
+            .unwrap_or(true) // Enabled by default
+    }
+
+    /// Set whether crash recovery dialog is enabled
+    pub fn set_crash_recovery_enabled(enabled: bool) {
+        let mut settings = Settings::load_settings();
+        settings
+            .preferences
+            .insert("crash_recovery_enabled".to_string(), enabled.to_string());
+        Settings::save_settings(&settings);
     }
 
     pub fn set_recent_pipeline_description(pipeline: &str) {
@@ -205,5 +226,34 @@ impl Settings {
                 .insert(String::from("playcontrols_position-paned"), 400);
             settings
         }
+    }
+
+    /// Mark that the application is starting (clear clean_shutdown flag).
+    /// This should be called early in startup after checking needs_crash_recovery().
+    pub fn mark_session_start() {
+        let mut settings = Settings::load_settings();
+        settings.clean_shutdown = false;
+        settings.session_count += 1;
+        Settings::save_settings(&settings);
+    }
+
+    /// Mark that the application is shutting down cleanly.
+    /// This should be called in the shutdown handler before saving settings.
+    pub fn mark_clean_shutdown(settings: &mut Settings) {
+        settings.clean_shutdown = true;
+    }
+
+    /// Check if the previous session crashed (did not shut down cleanly).
+    /// Returns false on first run, if crash recovery is disabled, or if last session was clean.
+    pub fn needs_crash_recovery() -> bool {
+        let settings = Settings::load_settings();
+        // Check if crash recovery is enabled
+        let enabled = settings
+            .preferences
+            .get("crash_recovery_enabled")
+            .map(|v| v != "false")
+            .unwrap_or(true);
+        // No crash if disabled, first session, or last session was clean
+        enabled && settings.session_count > 0 && !settings.clean_shutdown
     }
 }

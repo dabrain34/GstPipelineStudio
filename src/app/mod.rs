@@ -289,6 +289,7 @@ impl GPSApp {
             app.save_paned_position(&mut settings, PANED_ELEMENTS_PREVIEW);
             app.save_paned_position(&mut settings, PANED_ELEMENTS_PROPERTIES);
 
+            Settings::mark_clean_shutdown(&mut settings);
             Settings::save_settings(&settings);
             if let Some(timeout_id) = timeout_id.borrow_mut().take() {
                 timeout_id.remove();

@@ -19,6 +19,7 @@
 - [ ] reopen the last log on prematured exit (crash)
 - [ ] Play/pause should be prevented until the pipeline is ready
 - [ ] Filter the elements by class/rank etc.
+- [ ] Add seek capabilities
 
 ## bugs
 
