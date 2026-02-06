@@ -193,16 +193,21 @@ rustdoc:
   extends:
     - .fedora
     - .fdo.distribution-image@fedora
-  stage: release
-  only:
-    - flatpak
-    - tags
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
   variables:
     RUSTDOCFLAGS: "-Dwarnings"
   script:
     - meson setup builddir
     - rustdoc --version
     - cargo doc --no-deps
+    - mkdir -p public/rustdoc
+    - cp -r target/doc/* public/rustdoc/
+  artifacts:
+    paths:
+      - public/rustdoc
 
 dist-package:
   extends:
@@ -392,6 +397,9 @@ rpm package release:
 pages:
   image: ruby:2.7
   stage: deploy
+  needs:
+    - job: rustdoc
+      artifacts: true
   script:
     - gem install bundler -v 2.4.22
     - bundle install
