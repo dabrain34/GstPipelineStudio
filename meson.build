@@ -40,7 +40,7 @@ pkgdatadir = datadir / meson.project_name()
 iconsdir = datadir / 'icons'
 podir = meson.project_source_root() / 'po'
 gettext_package = meson.project_name()
-base_id = 'org.freedesktop.dabrain34.GstPipelineStudio'
+base_id = 'dev.mooday.GstPipelineStudio'
 
 if get_option('profile') == 'development'
   application_id = base_id + '.Devel'

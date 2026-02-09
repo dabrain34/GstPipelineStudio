@@ -22,7 +22,7 @@
         <key>CFBundleIconFile</key>
         <string>GstPipelineStudio.icns</string>
         <key>CFBundleIdentifier</key>
-        <string>org.freedesktop.dabrain34.GstPipelineStudio</string>
+        <string>dev.mooday.GstPipelineStudio</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundlePackageType</key>

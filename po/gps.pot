@@ -17,16 +17,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:7
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in:4
+#: data/dev.mooday.GstPipelineStudio.appdata.xml.in.in:7
+#: data/dev.mooday.GstPipelineStudio.desktop.in:4
 msgid "GstPipelineStudio"
 msgstr "GstPipelineStudio"
 
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:8
+#: data/dev.mooday.GstPipelineStudio.appdata.xml.in.in:8
 msgid "Draw your own GStreamer pipeline..."
 msgstr "Dessine ton propre GStreamer pipeline..."
 
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in:10
+#: data/dev.mooday.GstPipelineStudio.appdata.xml.in.in:10
 msgid ""
 "GstPipelineStudio aims to provide a graphical user interface to the GStreamer framework. "
 From a first step in the framework with a simple pipeline to a complex pipeline debugging, "
@@ -35,7 +35,7 @@ msgstr "GstPipelineStudio a pour but de fournir une interface utilisateur au log
 Du premier pas dans GStreamer avec un simple pipeline à une version plus complexe avec debogage, l'outil offre "
 une interface intuitive pour ajouter des elements à un pipeline pour l'examiner."
 
-#: data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in.in:4
+#: data/dev.mooday.GstPipelineStudio.desktop.in.in:4
 msgid "A GUI for GStreamer"
 msgstr "Une interface utilisateur pour GStreamer"
 

@@ -1,5 +1,5 @@
-data/org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in
-data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in.in
-data/org.freedesktop.dabrain34.GstPipelineStudio.gschema.xml.in
+data/dev.mooday.GstPipelineStudio.appdata.xml.in.in
+data/dev.mooday.GstPipelineStudio.desktop.in.in
+data/dev.mooday.GstPipelineStudio.gschema.xml.in
 
 src/app.rs

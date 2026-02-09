@@ -197,7 +197,7 @@ img.pixels {
   height: 35%;
   color: rgba(0, 0, 0, 0);
   /* make text transparent */
-  background: url('../icons/org.freedesktop.dabrain34.GstPipelineStudio.ico') no-repeat center;
+  background: url('../icons/dev.mooday.GstPipelineStudio.ico') no-repeat center;
   padding: 5rem 0 3rem;
   margin: 0 auto;
 }

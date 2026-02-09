@@ -151,11 +151,11 @@ if [ ! -f "${LINUXDEPLOY}" ]; then
 fi
 
 # Copy desktop file (same as build_deb.sh for consistency)
-DESKTOP_FILE="${PROJECTDIR}/data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in"
+DESKTOP_FILE="${PROJECTDIR}/data/dev.mooday.GstPipelineStudio.desktop.in"
 test_ok mkdir -p "${APPDIR}/usr/share/applications"
 if [ -f "${DESKTOP_FILE}" ]; then
-    test_ok sed 's/@icon@/org.freedesktop.dabrain34.GstPipelineStudio/' "${DESKTOP_FILE}" > \
-        "${APPDIR}/usr/share/applications/org.freedesktop.dabrain34.GstPipelineStudio.desktop"
+    test_ok sed 's/@icon@/dev.mooday.GstPipelineStudio/' "${DESKTOP_FILE}" > \
+        "${APPDIR}/usr/share/applications/dev.mooday.GstPipelineStudio.desktop"
 else
     echo "Error: Desktop file not found at ${DESKTOP_FILE}"
     exit 1
@@ -163,8 +163,8 @@ fi
 
 # Ensure icon is in the right place
 test_ok mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
-if [ -f "${PROJECTDIR}/data/icons/org.freedesktop.dabrain34.GstPipelineStudio.svg" ]; then
-    test_ok cp "${PROJECTDIR}/data/icons/org.freedesktop.dabrain34.GstPipelineStudio.svg" \
+if [ -f "${PROJECTDIR}/data/icons/dev.mooday.GstPipelineStudio.svg" ]; then
+    test_ok cp "${PROJECTDIR}/data/icons/dev.mooday.GstPipelineStudio.svg" \
        "${APPDIR}/usr/share/icons/hicolor/scalable/apps/"
 fi
 
@@ -212,8 +212,8 @@ export LDAI_OUTPUT="gst-pipeline-studio-${VERSION}-${ARCH_LABEL}.AppImage"
 LD_LIBRARY_PATH="${APPDIR}/usr/lib:${APPDIR}/usr/lib64:${APPDIR}/usr/lib/${LIB_ARCH}:${LD_LIBRARY_PATH}" \
 "${LINUXDEPLOY}" --appimage-extract-and-run \
     --appdir "${APPDIR}" \
-    --desktop-file "${APPDIR}/usr/share/applications/org.freedesktop.dabrain34.GstPipelineStudio.desktop" \
-    --icon-file "${APPDIR}/usr/share/icons/hicolor/scalable/apps/org.freedesktop.dabrain34.GstPipelineStudio.svg" \
+    --desktop-file "${APPDIR}/usr/share/applications/dev.mooday.GstPipelineStudio.desktop" \
+    --icon-file "${APPDIR}/usr/share/icons/hicolor/scalable/apps/dev.mooday.GstPipelineStudio.svg" \
     --output appimage
 
 # Move AppImage to installer directory

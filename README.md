@@ -56,7 +56,7 @@ $ ./builddir/target/release/gst-pipeline-studio
 
 ## Flatpak
 
-The application is also available on [Flathub](https://flathub.org/apps/details/org.freedesktop.dabrain34.GstPipelineStudio).
+The application is also available on [Flathub](https://flathub.org/apps/details/dev.mooday.GstPipelineStudio).
 
 ## License
 
@@ -101,4 +101,4 @@ Submit any suggestions, questions or bugs to the [Issue Tracker](https://gitlab.
 
 ## Troubleshooting
 
-Interface is not clean: rm ~/.config/org.freedesktop.dabrain34.GstPipelineStudio/settings.toml
+Interface is not clean: rm ~/.config/dev.mooday.GstPipelineStudio/settings.toml

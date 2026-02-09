@@ -7,7 +7,7 @@
   - VERSION
   - index.html
   - And rebuild to regenerate the cargo.lock
-  - update the changelog in org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml.in.in within release/description
+  - update the changelog in dev.mooday.GstPipelineStudio.appdata.xml.in.in within release/description
   - update the ChangeLog.md
 
 ## gitlab
@@ -20,7 +20,7 @@ see https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/releases/0.3.2
 
 # flathub
 
-https://github.com/flathub/org.freedesktop.dabrain34.GstPipelineStudio
+https://github.com/flathub/dev.mooday.GstPipelineStudio
 
   - Need to update the package and the sha256 from the release page, ie https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/-/releases/0.3.2
   - Create a pull request with the package update

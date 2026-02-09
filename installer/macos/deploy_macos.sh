@@ -177,8 +177,8 @@ echo "[verified]"
 
 # copy app icons and license files to target dir
 echo -n "Copy app icon(svg) files......"
-cp -f "${PROJECTDIR}/../data/icons/org.freedesktop.dabrain34.GstPipelineStudio.ico" "${TARGETDIR}/bin"
-cp -f "${PROJECTDIR}/../data/icons/org.freedesktop.dabrain34.GstPipelineStudio.svg" "${TARGETDIR}/share/icons/hicolor/scalable/apps"
+cp -f "${PROJECTDIR}/../data/icons/dev.mooday.GstPipelineStudio.ico" "${TARGETDIR}/bin"
+cp -f "${PROJECTDIR}/../data/icons/dev.mooday.GstPipelineStudio.svg" "${TARGETDIR}/share/icons/hicolor/scalable/apps"
 echo "[done]"
 
 

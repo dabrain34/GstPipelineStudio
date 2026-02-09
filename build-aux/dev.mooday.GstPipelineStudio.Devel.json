@@ -1,5 +1,5 @@
 {
-  "app-id": "org.freedesktop.dabrain34.GstPipelineStudio.Devel",
+  "app-id": "dev.mooday.GstPipelineStudio.Devel",
   "runtime": "org.gnome.Platform",
   "runtime-version": "master",
   "sdk": "org.gnome.Sdk",
@@ -62,6 +62,6 @@
       ]
     }
   ],
-  "rename-desktop-file": "org.freedesktop.dabrain34.GstPipelineStudio.desktop",
-  "rename-appdata-file": "org.freedesktop.dabrain34.GstPipelineStudio.appdata.xml"
+  "rename-desktop-file": "dev.mooday.GstPipelineStudio.desktop",
+  "rename-appdata-file": "dev.mooday.GstPipelineStudio.appdata.xml"
 }

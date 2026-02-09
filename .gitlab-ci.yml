@@ -225,8 +225,8 @@ flatpak:
   stage: packaging
   needs: []
   variables:
-    MANIFEST_PATH: "build-aux/org.freedesktop.dabrain34.GstPipelineStudio.Devel.json"
-    APP_ID: "org.freedesktop.dabrain34.GstPipelineStudio.Devel"
+    MANIFEST_PATH: "build-aux/dev.mooday.GstPipelineStudio.Devel.json"
+    APP_ID: "dev.mooday.GstPipelineStudio.Devel"
     BUNDLE: "gst-pipeline-studio-nightly.flatpak"
   script:
     - flatpak-builder app ${MANIFEST_PATH}

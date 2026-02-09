@@ -80,10 +80,10 @@ else
 fi
 
 # Copy desktop file
-DESKTOP_FILE="${PROJECT_DIR}/data/org.freedesktop.dabrain34.GstPipelineStudio.desktop.in"
+DESKTOP_FILE="${PROJECT_DIR}/data/dev.mooday.GstPipelineStudio.desktop.in"
 if [ -f "${DESKTOP_FILE}" ]; then
-    test_ok sed 's/@icon@/org.freedesktop.dabrain34.GstPipelineStudio/' "${DESKTOP_FILE}" > \
-        "${PKG_DIR}/usr/share/applications/org.freedesktop.dabrain34.GstPipelineStudio.desktop"
+    test_ok sed 's/@icon@/dev.mooday.GstPipelineStudio/' "${DESKTOP_FILE}" > \
+        "${PKG_DIR}/usr/share/applications/dev.mooday.GstPipelineStudio.desktop"
 else
     echo "Error: Desktop file not found at ${DESKTOP_FILE}"
     exit 1
@@ -91,12 +91,12 @@ fi
 
 # Copy icons
 ICONS_DIR="${PROJECT_DIR}/data/icons"
-if [ -f "${ICONS_DIR}/org.freedesktop.dabrain34.GstPipelineStudio.svg" ]; then
-    test_ok cp "${ICONS_DIR}/org.freedesktop.dabrain34.GstPipelineStudio.svg" \
+if [ -f "${ICONS_DIR}/dev.mooday.GstPipelineStudio.svg" ]; then
+    test_ok cp "${ICONS_DIR}/dev.mooday.GstPipelineStudio.svg" \
         "${PKG_DIR}/usr/share/icons/hicolor/scalable/apps/"
 fi
-if [ -f "${ICONS_DIR}/org.freedesktop.dabrain34.GstPipelineStudio-symbolic.svg" ]; then
-    test_ok cp "${ICONS_DIR}/org.freedesktop.dabrain34.GstPipelineStudio-symbolic.svg" \
+if [ -f "${ICONS_DIR}/dev.mooday.GstPipelineStudio-symbolic.svg" ]; then
+    test_ok cp "${ICONS_DIR}/dev.mooday.GstPipelineStudio-symbolic.svg" \
         "${PKG_DIR}/usr/share/icons/hicolor/symbolic/apps/"
 fi
 
