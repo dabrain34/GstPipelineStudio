@@ -7,6 +7,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::app::GPSApp;
+use crate::logger;
+use crate::GPS_ERROR;
 
 use gtk::gio;
 use gtk::glib;
@@ -280,4 +282,83 @@ pub fn get_file<F: Fn(GPSApp, String) + 'static>(app: &GPSApp, dlg_type: FileDia
             }
         });
     }
+}
+
+/// Returns the default GStreamer dots directory following the dots tracer logic:
+/// 1. GST_DEBUG_DUMP_DOT_DIR if set
+/// 2. $XDG_CACHE_HOME/gstreamer-dots if XDG_CACHE_HOME is set
+/// 3. ~/.cache/gstreamer-dots as fallback
+fn get_default_dots_dir() -> std::path::PathBuf {
+    use std::path::PathBuf;
+
+    // 1. Check GST_DEBUG_DUMP_DOT_DIR
+    if let Ok(dir) = std::env::var("GST_DEBUG_DUMP_DOT_DIR") {
+        return PathBuf::from(dir);
+    }
+
+    // 2. Check XDG_CACHE_HOME
+    if let Ok(xdg_cache) = std::env::var("XDG_CACHE_HOME") {
+        return PathBuf::from(xdg_cache).join("gstreamer-dots");
+    }
+
+    // 3. Fallback to ~/.cache/gstreamer-dots
+    if let Ok(home) = std::env::var("HOME") {
+        return PathBuf::from(home).join(".cache").join("gstreamer-dots");
+    }
+
+    // Ultimate fallback if HOME is not set (unlikely)
+    PathBuf::from(".cache").join("gstreamer-dots")
+}
+
+pub fn get_multiple_dot_files<F: Fn(GPSApp, Vec<String>) + 'static>(app: &GPSApp, f: F) {
+    let window: ApplicationWindow = app
+        .builder
+        .object("mainwindow")
+        .expect("Couldn't get main window");
+
+    let file_dialog = FileDialog::builder()
+        .modal(true)
+        .title("Open Dot Files")
+        .accept_label("Open")
+        .build();
+
+    // Set default folder following GStreamer's dots tracer logic
+    let default_dots_dir = get_default_dots_dir();
+    if default_dots_dir.exists() {
+        file_dialog.set_initial_folder(Some(&gio::File::for_path(&default_dots_dir)));
+    } else {
+        GPS_ERROR!(
+            "Default dots folder does not exist: {}",
+            default_dots_dir.display()
+        );
+        return;
+    }
+
+    // Filter for DOT files only
+    let filters = gio::ListStore::new::<FileFilter>();
+    let dot_filter = FileFilter::new();
+    dot_filter.add_pattern("*.dot");
+    dot_filter.set_name(Some("DOT Files (*.dot)"));
+    filters.append(&dot_filter);
+    file_dialog.set_filters(Some(&filters));
+
+    let app_weak = app.downgrade();
+    file_dialog.open_multiple(Some(&window), None::<&gio::Cancellable>, move |result| {
+        let app = upgrade_weak!(app_weak);
+        if let Ok(files) = result {
+            let mut paths = Vec::new();
+            for i in 0..files.n_items() {
+                if let Some(file) = files.item(i).and_then(|f| f.downcast::<gio::File>().ok()) {
+                    if let Some(path) = file.path() {
+                        if let Some(path_str) = path.to_str() {
+                            paths.push(path_str.to_string());
+                        }
+                    }
+                }
+            }
+            if !paths.is_empty() {
+                f(app, paths);
+            }
+        }
+    });
 }

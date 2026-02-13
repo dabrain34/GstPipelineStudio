@@ -185,6 +185,34 @@ impl GPSApp {
         });
 
         let app_weak = self.downgrade();
+        self.connect_app_menu_action("open_dot_folder", move |_, _| {
+            let app = upgrade_weak!(app_weak);
+            GPSUI::dialog::get_multiple_dot_files(&app, move |app, files| {
+                for filename in files {
+                    // Create new tab with filename stem as name
+                    let tab_name = std::path::Path::new(&filename)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("Untitled");
+
+                    let id = graphbook::graphbook_get_new_graphtab_id(&app);
+                    graphbook::create_graphtab(&app, id, Some(tab_name));
+
+                    // Switch to the new tab
+                    let graphbook: gtk::Notebook = app
+                        .builder
+                        .object("graphbook")
+                        .expect("Couldn't get graphbook");
+                    graphbook.set_current_page(Some(id));
+
+                    // Load the dot file
+                    app.load_graph(&filename, false)
+                        .unwrap_or_else(|_| GPS_ERROR!("Unable to open dot file {}", filename));
+                }
+            });
+        });
+
+        let app_weak = self.downgrade();
         self.connect_app_menu_action("open_pipeline", move |_, _| {
             let app = upgrade_weak!(app_weak);
             GPSUI::dialog::get_input(

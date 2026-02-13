@@ -16,6 +16,11 @@
         <attribute name="accel">&lt;primary&gt;o</attribute>
       </item>
       <item>
+        <attribute name="label" translatable="yes" comments="Primary menu entry that opens dot files from a folder">Open _Dot Folder...</attribute>
+        <attribute name="action">app.open_dot_folder</attribute>
+        <attribute name="accel">&lt;primary&gt;&lt;shift&gt;o</attribute>
+      </item>
+      <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that opens a pipeline">_Open pipeline</attribute>
         <attribute name="action">app.open_pipeline</attribute>
         <attribute name="accel">&lt;primary&gt;p</attribute>
