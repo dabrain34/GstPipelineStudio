@@ -26,7 +26,7 @@ use super::super::settings::Settings;
 use super::super::{AppState, GPSApp};
 use super::graphbook;
 
-const POSITION_UPDATE_TIMEOUT_MS: u64 = 500;
+const POSITION_UPDATE_TIMEOUT_MS: u64 = 100;
 
 // Link colors for different pipeline states (RGB values 0.0-1.0)
 const LINK_COLOR_PLAYING: (f64, f64, f64) = (0.2, 0.8, 0.2); // Green
@@ -394,7 +394,10 @@ impl GPSApp {
             std::time::Duration::from_millis(POSITION_UPDATE_TIMEOUT_MS),
             move || {
                 let app = upgrade_weak!(app_weak, glib::ControlFlow::Break);
-
+                if graphbook::current_graphtab(&app).player().state() != GPS::PipelineState::Playing
+                {
+                    return glib::ControlFlow::Continue;
+                }
                 let label: gtk::Label = app
                     .builder
                     .object("label-position")

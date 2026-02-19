@@ -319,7 +319,7 @@ impl Player {
         };
 
         format!(
-            "{:.0}/{:.0}",
+            "{:.3}/{:.3}",
             position.unwrap_or_default().display(),
             duration.unwrap_or_default().display(),
         )

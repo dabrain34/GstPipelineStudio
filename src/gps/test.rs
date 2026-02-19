@@ -345,8 +345,8 @@ mod player_test {
             // Should be in time format (contains ":")
             assert!(desc.contains(':'));
 
-            // Without pipeline, should show "0:00:00/0:00:00" format
-            assert_eq!(desc, "0:00:00/0:00:00");
+            // Without pipeline, should show "0:00:00.000/0:00:00.000" format
+            assert_eq!(desc, "0:00:00.000/0:00:00.000");
         });
     }
 
