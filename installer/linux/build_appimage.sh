@@ -71,15 +71,15 @@ GSTREAMER_OPTS="
         -Dgst-plugins-bad:webrtcdsp=disabled
         -Dgst-plugins-bad:tests=disabled
         -Dorc:gtk_doc=disabled
-        -Dgtk4:introspection=disabled
-        -Dgtk4:build-examples=false
-        -Dgtk4:build-tests=false
-        -Dgtk4:media-gstreamer=enabled
-        -Dgtk4:x11-backend=true
-        -Dgtk4:wayland-backend=true
-        -Dgtk4:print-cups=disabled
-        -Dgtk4:vulkan=disabled
-        -Dgtk4:build-demos=false
+        -Dgtk:introspection=disabled
+        -Dgtk:build-examples=false
+        -Dgtk:build-tests=false
+        -Dgtk:media-gstreamer=enabled
+        -Dgtk:x11-backend=true
+        -Dgtk:wayland-backend=true
+        -Dgtk:print-cups=disabled
+        -Dgtk:vulkan=disabled
+        -Dgtk:build-demos=false
         -Djson-glib:introspection=disabled
         "
 # Install system packages
