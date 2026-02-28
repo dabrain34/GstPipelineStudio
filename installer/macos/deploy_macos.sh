@@ -28,6 +28,11 @@ pip3 install docutils
 # rust toolchain
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 source $HOME/.cargo/env
+
+# OpenSSL is keg-only on Homebrew, set paths for openssl-sys crate
+export OPENSSL_DIR="$(brew --prefix openssl@3)"
+export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
 cargo install cargo-c
 
 GSTREAMER_OPTS="
