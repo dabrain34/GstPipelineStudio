@@ -49,7 +49,7 @@ case "$ARCH" in
 esac
 
 GSTREAMER_OPTS="
-        -Dforce_fallback_for=gstreamer-1.0,gtk,glib
+        -Dforce_fallback_for=gstreamer-1.0,gtk,glib,pango,cairo
         -Dglib:introspection=disabled
         -Dglib:tests=false
         -Dgstreamer-1.0:libav=disabled
