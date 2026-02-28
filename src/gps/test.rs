@@ -949,6 +949,7 @@ mod gstreamer_default_value_tests {
         ("souphttpsrc", "ssl-use-system-ca-file"),
         ("giosink", "close-on-stop"),
         ("tsdemux", "parse-private-sections"),
+        ("webrtcdsp", "extended-filter"),
         // frei0r filters - all have qos mismatch (false -> true)
         ("frei0r-filter-mask0mate", "qos"),
         ("frei0r-filter-keyspillm0pup", "qos"),
