@@ -249,7 +249,7 @@ flatpak:
   when: "manual"
 
 .macos image:
-  image: "registry.freedesktop.org/gstreamer/gstreamer/macos-arm64/15-sequoia:2024-10-28.0"
+  image: "registry.freedesktop.org/gstreamer/gstreamer/macos-arm64/26-tahoe:2025-09-30.0"
   tags:
     - gst-mac-arm
 
