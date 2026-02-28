@@ -2,7 +2,7 @@
 directory=gstreamer-1.0
 url=https://gitlab.freedesktop.org/gstreamer/gstreamer.git
 push-url=git@gitlab.freedesktop.org:gstreamer/gstreamer.git
-revision=1.26.8
+revision=1.28.0
 depth = 1
 
 [provide]
