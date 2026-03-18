@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config;
 use crate::logger;
-use crate::GPS_ERROR;
+use crate::{GPS_ERROR, GPS_INFO, GPS_WARN};
 
 fn default_ws_desc() -> String {
     String::from("ws://127.0.0.1:8444")
@@ -57,7 +57,52 @@ impl Settings {
     fn default_app_folder() -> PathBuf {
         let mut path = glib::user_config_dir();
         path.push(config::APP_ID);
+        if !path.exists() {
+            Settings::migrate_legacy_config(&path);
+        }
         path
+    }
+
+    fn migrate_legacy_config(new_path: &std::path::Path) {
+        let mut legacy_path = glib::user_config_dir();
+        legacy_path.push(config::LEGACY_APP_ID);
+        if legacy_path.exists() && legacy_path.is_dir() {
+            GPS_INFO!(
+                "Migrating config from '{}' to '{}'",
+                legacy_path.display(),
+                new_path.display()
+            );
+            if let Err(e) = std::fs::rename(&legacy_path, new_path) {
+                GPS_WARN!("Rename failed ({}), attempting copy instead", e);
+                if let Err(e) = Settings::copy_dir(&legacy_path, new_path) {
+                    GPS_ERROR!(
+                        "Failed to migrate config from '{}': {}",
+                        legacy_path.display(),
+                        e
+                    );
+                    // Clean up partial copy so migration retries on next launch
+                    let _ = std::fs::remove_dir_all(new_path);
+                } else {
+                    // Remove legacy directory after successful copy
+                    let _ = std::fs::remove_dir_all(&legacy_path);
+                }
+            }
+        }
+    }
+
+    fn copy_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+        create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let file_type = entry.file_type()?;
+            let dest_path = dst.join(entry.file_name());
+            if file_type.is_dir() {
+                Settings::copy_dir(&entry.path(), &dest_path)?;
+            } else if file_type.is_file() {
+                std::fs::copy(entry.path(), dest_path)?;
+            }
+        }
+        Ok(())
     }
 
     fn settings_file_path() -> PathBuf {
