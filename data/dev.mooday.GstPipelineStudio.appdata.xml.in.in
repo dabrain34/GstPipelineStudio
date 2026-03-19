@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Copyright 2022 Stephane Cerveau 2022 <scerveau@collabora.com -->
+<!-- Copyright 2022-2026 Stephane Cerveau <scerveau@igalia.com> -->
 <component type="desktop-application">
   <id>@app-id@</id>
+  <provides>
+    <id>org.freedesktop.dabrain34.GstPipelineStudio</id>
+  </provides>
+  <replaces>
+    <id>org.freedesktop.dabrain34.GstPipelineStudio</id>
+  </replaces>
   <metadata_license>CC0</metadata_license>
   <project_license>GPL-3.0+</project_license>
   <name>GstPipelineStudio</name>
