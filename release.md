@@ -1,12 +1,10 @@
 # Create a release
 
 ## locally
-- Update to the given version:
-  - meson.build
-  - cargo.toml
-  - VERSION
-  - index.html
-  - And rebuild to regenerate the cargo.lock
+- Update to the given version (VERSION file is the single source of truth, meson.build reads from it):
+  - VERSION (the authoritative version source)
+  - Cargo.toml (derived, must match VERSION)
+  - And rebuild to regenerate the Cargo.lock
   - update the changelog in dev.mooday.GstPipelineStudio.appdata.xml.in.in within release/description
   - update the ChangeLog.md
 

@@ -1,4 +1,37 @@
 
+## 0.5.0
+
+### New Features
+  - [x] Remote pipeline introspection
+  - [x] Crash recovery dialog to display previous session log on startup
+  - [x] Open Dot Folder menu entry for loading dot files
+  - [x] Trait-based DOT file loading (GstreamerDotLoader)
+  - [x] Auto-connect on node click (node-link-request)
+  - [x] Auto-arrange pipeline layout
+  - [x] File selector button for location property
+  - [x] Logger copy to clipboard with multi-selection support
+
+### User Interface
+  - [x] Semi-transparent background on nodes
+  - [x] Dynamic node width in auto-arrange
+  - [x] Improved node positioning and auto-scroll on add
+  - [x] Sort ports by name when saving to XML
+
+### Build and Platforms
+  - [x] GStreamer 1.28.0
+  - [x] App ID renamed to dev.mooday.GstPipelineStudio
+  - [x] Legacy config directory migration on app ID rename
+  - [x] RPM build script and CI jobs for Fedora
+  - [x] Simplified version management (single source in VERSION file)
+  - [x] macOS CI updated to Tahoe 26
+  - [x] Commit message linting with gitlint
+
+### Stability
+  - [x] Fix port counter decrement in remove_port
+  - [x] Fix window visibility using opacity instead of realize-only
+  - [x] Fix window visibility during splash screen display
+  - [x] Player position/duration changed to ms precision
+
 ## 0.4.0
 
 ### New Features

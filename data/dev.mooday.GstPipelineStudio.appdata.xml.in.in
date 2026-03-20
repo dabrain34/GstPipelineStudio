@@ -39,37 +39,35 @@
     <releases>
     <release version="@version@" date="@current_date@">
       <description>
-        <p>Major release with modernized GTK4 UI and improved stability</p>
+        <p>New features, app identity update, and stability improvements</p>
         <p>New Features:</p>
         <ul>
-          <li>Splash screen during GStreamer initialization</li>
-          <li>Recent files menu</li>
-          <li>Context menus on elements list and graph links</li>
-          <li>Caps compatibility check when connecting elements</li>
-          <li>Graph zoom support</li>
+          <li>Remote pipeline introspection</li>
+          <li>Crash recovery dialog on startup</li>
+          <li>DOT file loading with trait-based importer</li>
+          <li>Auto-connect on node click</li>
+          <li>Auto-arrange pipeline layout</li>
+          <li>File selector for location property</li>
+          <li>Logger copy to clipboard with multi-selection</li>
         </ul>
         <p>User Interface:</p>
         <ul>
-          <li>New application logo with dark theme support</li>
-          <li>Modernized dialogs (preferences, properties, alerts)</li>
-          <li>GTK4 widget migration (ColumnView, DropDown, FileDialog)</li>
-          <li>Resizable columns in element browser and loggers</li>
-          <li>Element search with plugin name and rank display</li>
-          <li>Compact player controls layout</li>
-          <li>Port name tooltips</li>
+          <li>Semi-transparent node backgrounds</li>
+          <li>Dynamic node width in auto-arrange</li>
+          <li>Improved node positioning and auto-scroll</li>
         </ul>
         <p>Build and Platforms:</p>
         <ul>
-          <li>GStreamer 1.26 and GTK 4.16</li>
-          <li>Rust 1.85</li>
-          <li>macOS/Windows: libav enabled, optimized installers</li>
-          <li>CI: AppImage and deb package jobs</li>
+          <li>App ID renamed to dev.mooday.GstPipelineStudio</li>
+          <li>GStreamer 1.28.0</li>
+          <li>RPM packaging for Fedora</li>
+          <li>Simplified version management</li>
         </ul>
         <p>Stability:</p>
         <ul>
-          <li>Error dialogs on pipeline failures</li>
-          <li>Improved error handling throughout codebase</li>
-          <li>Unit test infrastructure</li>
+          <li>Fix port counter decrement in remove_port</li>
+          <li>Fix window visibility during splash screen</li>
+          <li>Player position/duration precision improved</li>
         </ul>
       </description>
     </release>
