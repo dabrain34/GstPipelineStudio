@@ -27,6 +27,7 @@
   </screenshots>
   <url type="homepage">https://dabrain34.pages.freedesktop.org/GstPipelineStudio</url>
   <url type="bugtracker">https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio/issues</url>
+  <url type="vcs-browser">https://gitlab.freedesktop.org/dabrain34/GstPipelineStudio</url>
   <categories>
     <category>Audio</category>
     <category>Video</category>
