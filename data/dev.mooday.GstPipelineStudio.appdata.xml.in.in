@@ -70,6 +70,11 @@
           <li>Fix window visibility during splash screen</li>
           <li>Player position/duration precision improved</li>
         </ul>
+        <p>Flathub:</p>
+        <ul>
+          <li>Add vcs-browser URL for linter compliance</li>
+          <li>Shorten summary to comply with 35-character limit</li>
+        </ul>
       </description>
     </release>
   </releases>

@@ -7,6 +7,7 @@
   - And rebuild to regenerate the Cargo.lock
   - update the changelog in dev.mooday.GstPipelineStudio.appdata.xml.in.in within release/description
   - update the ChangeLog.md
+  - update the New_Release_Announcement.md
 
 ## gitlab
 - create a tag on gitlab

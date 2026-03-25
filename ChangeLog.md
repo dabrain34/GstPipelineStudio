@@ -1,4 +1,10 @@
 
+## 0.5.1
+
+### Flathub
+  - [x] Add vcs-browser URL for Flathub linter compliance
+  - [x] Shorten summary to comply with Flathub 35-char limit
+
 ## 0.5.0
 
 ### New Features
