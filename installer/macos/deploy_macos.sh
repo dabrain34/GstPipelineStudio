@@ -31,7 +31,11 @@ source $HOME/.cargo/env
 
 # OpenSSL is keg-only on Homebrew, set paths for openssl-sys crate
 export OPENSSL_DIR="$(brew --prefix openssl@3)"
-export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+# libffi is keg-only on Homebrew, needed because macOS Tahoe 26 SDK
+# removed /usr/include/ffi and the vendored libffi 3.2.9999 has
+# CFI assembly bugs with Apple Clang 17+
+export LIBFFI_DIR="$(brew --prefix libffi)"
+export PKG_CONFIG_PATH="${OPENSSL_DIR}/lib/pkgconfig:${LIBFFI_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}"
 
 cargo install cargo-c
 
