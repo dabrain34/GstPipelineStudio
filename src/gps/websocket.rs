@@ -566,11 +566,10 @@ pub(crate) fn run_server_blocking(
 /// Truncate a string for logging (to avoid flooding logs with large DOT content).
 /// Uses character-based truncation to avoid panicking on UTF-8 boundaries.
 fn truncate_for_log(s: &str, max_chars: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count <= max_chars {
-        s.to_string()
+    let truncated: String = s.chars().take(max_chars).collect();
+    if truncated.len() == s.len() {
+        truncated
     } else {
-        let truncated: String = s.chars().take(max_chars).collect();
         format!("{}... ({} bytes total)", truncated, s.len())
     }
 }
