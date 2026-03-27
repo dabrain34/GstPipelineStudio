@@ -10,27 +10,36 @@
         <attribute name="action">app.new-window</attribute>
         <attribute name="accel">&lt;primary&gt;n</attribute>
       </item>
-      <item>
-        <attribute name="label" translatable="yes" comments="Primary menu entry that opens the graph">_Open</attribute>
-        <attribute name="action">app.open</attribute>
-        <attribute name="accel">&lt;primary&gt;o</attribute>
-      </item>
-      <item>
-        <attribute name="label" translatable="yes" comments="Primary menu entry that opens dot files from a folder">Open _Dot Folder...</attribute>
-        <attribute name="action">app.open_dot_folder</attribute>
-        <attribute name="accel">&lt;primary&gt;&lt;shift&gt;o</attribute>
-      </item>
-      <item>
-        <attribute name="label" translatable="yes" comments="Primary menu entry that opens a pipeline">_Open pipeline</attribute>
-        <attribute name="action">app.open_pipeline</attribute>
-        <attribute name="accel">&lt;primary&gt;p</attribute>
-      </item>
       <submenu>
-        <attribute name="label" translatable="yes" comments="Primary menu entry for remote pipeline connection">_Remote Pipeline</attribute>
-        <item>
-          <attribute name="label" translatable="yes" comments="Listen for incoming pipeline connections">_Listen...</attribute>
-          <attribute name="action">app.listen_pipeline</attribute>
-        </item>
+        <attribute name="label" translatable="yes" comments="Primary menu submenu for all open/import actions">_Open...</attribute>
+        <section>
+          <item>
+            <attribute name="label" translatable="yes" comments="Open a graph file (gps or dot format)">_Graph File (gps,dot)...</attribute>
+            <attribute name="action">app.open</attribute>
+            <attribute name="accel">&lt;primary&gt;o</attribute>
+          </item>
+          <item>
+            <attribute name="label" translatable="yes" comments="Open dot files from a folder">_Dot Folder...</attribute>
+            <attribute name="action">app.open_dot_folder</attribute>
+            <attribute name="accel">&lt;primary&gt;&lt;shift&gt;o</attribute>
+          </item>
+          <item>
+            <attribute name="label" translatable="yes" comments="Open a pipeline from a gst-launch description">_Pipeline Description...</attribute>
+            <attribute name="action">app.open_pipeline</attribute>
+            <attribute name="accel">&lt;primary&gt;p</attribute>
+          </item>
+          <submenu>
+            <attribute name="label" translatable="yes" comments="Remote pipeline connection">_Remote...</attribute>
+            <item>
+              <attribute name="label" translatable="yes" comments="Listen for incoming pipeline connections">_Listen...</attribute>
+              <attribute name="action">app.listen_pipeline</attribute>
+            </item>
+          </submenu>
+          <item>
+            <attribute name="label" translatable="yes" comments="Open recently used graphs">_Recent Graphs</attribute>
+            <link name="submenu" id="recent_files_menu"/>
+          </item>
+        </section>
       </submenu>
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save</attribute>
@@ -40,10 +49,6 @@
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that saves the graph">_Save As</attribute>
         <attribute name="action">app.save_as</attribute>
-      </item>
-      <item>
-        <attribute name="label" translatable="yes" comments="Primary menu entry that open recent files">_Open Recent</attribute>
-        <link name="submenu" id="recent_files_menu"/>
       </item>
       <item>
         <attribute name="label" translatable="yes" comments="Primary menu entry that open the preferences">_Preferences</attribute>
