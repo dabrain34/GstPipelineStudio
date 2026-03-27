@@ -141,14 +141,16 @@ impl GPSApp {
             glib::ControlFlow::Continue
         });
 
+        // Mark the session as started BEFORE showing the crash recovery dialog.
+        // If the app crashes while the dialog is showing, the next launch must detect it.
+        Settings::mark_session_start();
+
         // Show crash recovery dialog if we have previous log content
         if let Some(log_content) = previous_log_content {
             if !log_content.is_empty() {
                 GPSUI::message::display_crash_recovery_dialog(Some(&self.window), &log_content);
             }
         }
-        // Mark the session as started (sets clean_shutdown = false)
-        Settings::mark_session_start();
 
         let window = &self.window;
 
