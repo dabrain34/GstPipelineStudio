@@ -60,7 +60,8 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 use thiserror::Error;
-use tungstenite::{accept, Message};
+use tungstenite::protocol::WebSocketConfig;
+use tungstenite::{accept_with_config, Message};
 use url::Url;
 
 // ============================================================================
@@ -362,8 +363,14 @@ pub(crate) fn run_server_blocking(
         .set_read_timeout(Some(READ_TIMEOUT))
         .map_err(|e| WebSocketError::Connection(format!("Failed to set read timeout: {}", e)))?;
 
-    // Upgrade to WebSocket
-    let mut websocket = accept(stream)
+    // Upgrade to WebSocket with message size limits enforced at the protocol layer
+    // This prevents OOM from oversized frames before they are fully allocated
+    let ws_config = WebSocketConfig {
+        max_message_size: Some(MAX_MESSAGE_SIZE),
+        max_frame_size: Some(MAX_MESSAGE_SIZE),
+        ..Default::default()
+    };
+    let mut websocket = accept_with_config(stream, Some(ws_config))
         .map_err(|e| WebSocketError::Protocol(format!("WebSocket handshake failed: {}", e)))?;
 
     // Wait for Hello message from tracer
