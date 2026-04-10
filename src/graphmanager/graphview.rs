@@ -1040,6 +1040,7 @@ impl GraphView {
     ///
     pub fn clear(&self) {
         self.remove_all_nodes();
+        self.graph_updated();
     }
 
     pub fn zoom_factor(&self) -> f64 {
